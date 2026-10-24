@@ -54,6 +54,10 @@ body {
 @keyframes pulse { to { opacity: 0.45; } }
 .nitro { width: 92px; height: 7px; border-radius: 4px; background: rgba(244, 241, 255, 0.18); overflow: hidden; margin-top: 4px; }
 .nitro i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--teal), var(--ink)); transform-origin: left; }
+.hp { width: 110px; height: 9px; border-radius: 5px; background: rgba(244, 241, 255, 0.18); overflow: hidden; margin-top: 2px; }
+.hp i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--pink), var(--sun)); transform-origin: left; transition: transform 0.2s; }
+.hp.low i { background: var(--pink); animation: pulse 0.4s ease-in-out infinite alternate; }
+.toast.dmg { color: var(--pink); }
 .mute {
   pointer-events: auto; margin-top: 6px;
   font: 600 12px var(--f-body); color: var(--ink);
@@ -135,6 +139,8 @@ body {
     <span class="label">剩餘時間</span>
     <span class="val" id="hudTime">50<small>秒</small></span>
     <span class="label" id="hudLap" style="margin-top:4px">第 1 圈</span>
+    <span class="label" style="margin-top:6px">車體 <span id="hudHpNum">100</span></span>
+    <div class="hp" id="hpBar" aria-label="車體血量"><i id="hudHp"></i></div>
   </div>
   <div class="stat mid">
     <span class="val speed" id="hudSpeed">0</span>
@@ -165,7 +171,7 @@ body {
   <div class="card">
     <p class="tag">NEON NIGHT RUN</p>
     <h1 class="logo">霓虹狂飆</h1>
-    <p class="how">車子會<b>自動加速</b>。閃過車流、別衝出跑道。<br>每跑完一圈加 <b>25 秒</b>，時間歸零就結束。<br>
+    <p class="how">車子會<b>自動加速</b>。閃過車流、別衝出跑道。<br>撞到車子或路燈會<b>損血</b>，血條歸零就爆車。<br>每跑完一圈加 <b>25 秒</b>、補 <b>20 血</b>，時間歸零也結束。<br>
       <span id="howKeys">手機：按左右鍵轉彎，右下角是煞車和氮氣。</span></p>
     <button class="btn" id="startBtn" type="button">開始比賽</button>
     <p class="how" id="bestLine"></p>
@@ -174,8 +180,8 @@ body {
 
 <div class="screen" id="overScreen" hidden>
   <div class="card">
-    <p class="tag">TIME UP</p>
-    <h1 class="logo" style="font-size:clamp(40px,12vw,68px)">時間到！</h1>
+    <p class="tag" id="overTag">TIME UP</p>
+    <h1 class="logo" style="font-size:clamp(40px,12vw,68px)" id="overTitle">時間到！</h1>
     <div class="result">
       <div class="stat mid"><span class="label">這次距離</span><span class="val" id="resDist">0</span></div>
       <div class="stat mid"><span class="label">最佳紀錄</span><span class="val" id="resBest">0</span></div>
@@ -206,6 +212,8 @@ body {
   const CARW = 0.36;            // car width in half-road units
   const BOOSTMAX = MAXS * 1.35;
   const START_TIME = 50, LAP_BONUS = 25, NUM_CARS = 46;
+  const MAX_HP = 100, LAP_HEAL = 20, INVULN = 1.0;
+  const DAMAGE = { car: 20, post: 15, tree: 10, sign: 10 };
   const UNIT_M = 66.67 / MAXS;  // 12000 units/s = 240 km/h
 
   const COL = {
@@ -355,7 +363,7 @@ body {
   }
 
   // ---------- state ----------
-  let position = 0, playerX = 0, speed = 0, nitro = 1, timeLeft = START_TIME;
+  let position = 0, playerX = 0, speed = 0, nitro = 1, timeLeft = START_TIME, hp = MAX_HP, invuln = 0, overReason = "time";
   let lap = 1, dist = 0, state = "menu", countdown = 0, skyOffset = 0, shake = 0, steerVis = 0;
   const keys = { left: false, right: false, brake: false, boost: false };
   let best = 0;
@@ -404,9 +412,14 @@ body {
   }
 
   // ---------- update ----------
-  function crash(newSpeed) {
-    speed = newSpeed; shake = 0.35; crashSound();
-    if (navigator.vibrate) { try { navigator.vibrate(60); } catch (e) {} }
+  function crash(newSpeed, what) {
+    speed = newSpeed;
+    if (invuln > 0) return;
+    const d = DAMAGE[what] || 10;
+    hp = Math.max(0, hp - d); invuln = INVULN; shake = 0.45; crashSound();
+    showToast(`-${d} 血`, 600); $("toast").classList.add("dmg");
+    if (navigator.vibrate) { try { navigator.vibrate(80); } catch (e) {} }
+    if (hp <= 0) { overReason = "wreck"; gameOver(); }
   }
   function update(dt) {
     for (const car of cars) {
@@ -435,8 +448,8 @@ body {
     position = increase(position, dt * speed, trackLength);
     dist += dt * speed;
     if (position < oldPos) {
-      lap++; timeLeft += LAP_BONUS;
-      showToast(`第 ${lap} 圈！+${LAP_BONUS} 秒`, 1600); blip(660, 0.15); setTimeout(() => blip(990, 0.25), 140);
+      lap++; timeLeft += LAP_BONUS; hp = Math.min(MAX_HP, hp + LAP_HEAL);
+      showToast(`第 ${lap} 圈！+${LAP_BONUS} 秒 +${LAP_HEAL} 血`, 1600); blip(660, 0.15); setTimeout(() => blip(990, 0.25), 140);
     }
 
     if (keys.left) playerX -= dx; else if (keys.right) playerX += dx;
@@ -457,7 +470,7 @@ body {
       for (const s of playerSeg.sprites) {
         const sw = s.type === "tree" ? 0.7 : s.type === "sign" ? 1.0 : 0.12;
         if (overlap(playerX, CARW, s.offset, sw, 1)) {
-          crash(MAXS / 6);
+          crash(MAXS / 6, s.type);
           position = increase(playerSeg.p1.world.z, -PLAYERZ, trackLength);
           break;
         }
@@ -465,7 +478,7 @@ body {
     }
     for (const car of playerSeg.cars) {
       if (speed > car.speed && overlap(playerX, CARW, car.offset, CARW, 0.85)) {
-        crash(car.speed * (car.speed / speed));
+        crash(car.speed * (car.speed / speed), "car");
         position = increase(car.z, -PLAYERZ, trackLength);
         break;
       }
@@ -475,9 +488,11 @@ body {
     speed = limit(speed, 0, boosting ? BOOSTMAX : Math.max(MAXS, speed));
     skyOffset += playerSeg.curve * sp * dt * 0.02;
     shake = Math.max(0, shake - dt);
+    invuln = Math.max(0, invuln - dt);
+    if (state !== "play") return;
 
     timeLeft -= dt;
-    if (timeLeft <= 0) { timeLeft = 0; gameOver(); }
+    if (timeLeft <= 0) { timeLeft = 0; overReason = "time"; gameOver(); }
   }
 
   // ---------- render ----------
@@ -682,7 +697,19 @@ body {
     const off = playerX < -1 || playerX > 1;
     const bounce = (off ? 4 : 1.2) * (speed / MAXS) * (Math.random() - 0.5) * 2;
     const boosting = state === "play" && keys.boost && nitro > 0.02 && !keys.brake;
-    drawCar(W / 2, H - PAD + bounce, unitP * CARW, "#ff3d7f", steerVis, keys.brake && state === "play", boosting);
+    const pw = unitP * CARW;
+    if (hp < 40 && (state === "play" || state === "over")) {
+      const dens = hp <= 0 ? 10 : 5;
+      for (let i = 0; i < dens; i++) {
+        const t = (performance.now() / 600 + i / dens) % 1;
+        ctx.fillStyle = hp <= 0 ? `rgba(30,20,40,${0.6 * (1 - t)})` : `rgba(160,150,180,${0.4 * (1 - t)})`;
+        ctx.beginPath();
+        ctx.arc(W / 2 + Math.sin(i * 2.3 + t * 3) * pw * 0.2, H - PAD - pw * 0.55 - t * pw * 0.9, pw * (0.08 + t * 0.18), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    const blinkOff = invuln > 0 && Math.floor(invuln * 12) % 2 === 0;
+    if (!blinkOff) drawCar(W / 2, H - PAD + bounce, pw, hp <= 0 ? "#5a3a55" : "#ff3d7f", steerVis, keys.brake && state === "play", boosting);
 
     if (boosting) {
       ctx.strokeStyle = "rgba(244,241,255,0.35)"; ctx.lineWidth = 2;
@@ -697,10 +724,10 @@ body {
 
   // ---------- HUD ----------
   const $ = id => document.getElementById(id);
-  const hudTime = $("hudTime"), hudSpeed = $("hudSpeed"), hudDist = $("hudDist"), hudLap = $("hudLap"), hudNitro = $("hudNitro");
+  const hudHp = $("hudHp"), hudHpNum = $("hudHpNum"), hpBar = $("hpBar"), hudTime = $("hudTime"), hudSpeed = $("hudSpeed"), hudDist = $("hudDist"), hudLap = $("hudLap"), hudNitro = $("hudNitro");
   let toastTimer = 0;
   function showToast(text, ms = 800) {
-    const t = $("toast"); t.textContent = text; t.classList.add("show");
+    const t = $("toast"); t.textContent = text; t.classList.remove("dmg"); t.classList.add("show");
     clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), ms);
   }
   const fmtDist = m => m >= 1000 ? (m / 1000).toFixed(2) + "<small>km</small>" : Math.floor(m) + "<small>m</small>";
@@ -711,6 +738,9 @@ body {
     hudDist.innerHTML = fmtDist(dist * UNIT_M);
     hudLap.textContent = `第 ${lap} 圈`;
     hudNitro.style.transform = `scaleX(${nitro})`;
+    hudHp.style.transform = `scaleX(${hp / MAX_HP})`;
+    hudHpNum.textContent = Math.ceil(hp);
+    hpBar.classList.toggle("low", hp <= 30);
   }
   function showBest() {
     $("bestLine").innerHTML = best > 0 ? `最佳紀錄：<b>${(best / 1000).toFixed(2)} km</b>` : "";
@@ -723,7 +753,7 @@ body {
   // ---------- flow ----------
   function startGame() {
     initAudio();
-    position = 0; playerX = 0; speed = 0; nitro = 1; timeLeft = START_TIME; lap = 1; dist = 0; shake = 0;
+    position = 0; playerX = 0; speed = 0; nitro = 1; timeLeft = START_TIME; hp = MAX_HP; invuln = 0; overReason = "time"; lap = 1; dist = 0; shake = 0;
     resetCars();
     $("startScreen").hidden = true; $("overScreen").hidden = true;
     state = "countdown"; countdown = 3.0001;
@@ -737,6 +767,8 @@ body {
     $("resDist").innerHTML = fmtDist(m);
     $("resBest").innerHTML = fmtDist(best);
     $("resLaps").textContent = `跑完 ${lap - 1} 圈`;
+    $("overTag").textContent = overReason === "wreck" ? "WRECKED" : "TIME UP";
+    $("overTitle").textContent = overReason === "wreck" ? "車子撞爛了！" : "時間到！";
     $("newBest").hidden = !isBest;
     setTimeout(() => { $("overScreen").hidden = false; $("againBtn").focus(); }, 700);
     blip(220, 0.5, "sawtooth", 0.06);
