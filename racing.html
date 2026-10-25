@@ -171,7 +171,7 @@ body {
   <div class="card">
     <p class="tag">NEON NIGHT RUN</p>
     <h1 class="logo">霓虹狂飆</h1>
-    <p class="how">車子會<b>自動加速</b>。閃過車流、別衝出跑道。<br>撞到車子或路燈會<b>損血</b>，血條歸零就爆車。<br>每跑完一圈加 <b>25 秒</b>、補 <b>20 血</b>，時間歸零也結束。<br>
+    <p class="how">車子會<b>自動加速</b>。閃過車流、別衝出跑道。<br>你開的是<b>福特野馬</b>。撞到車子或路燈會<b>損血</b>，撞越貴的車扣越多（藍寶堅尼最痛），血條歸零就爆車。<br>每跑完一圈加 <b>25 秒</b>、補 <b>20 血</b>，時間歸零也結束。<br>
       <span id="howKeys">手機：按左右鍵轉彎，右下角是煞車和氮氣。</span></p>
     <button class="btn" id="startBtn" type="button">開始比賽</button>
     <p class="how" id="bestLine"></p>
@@ -222,7 +222,6 @@ body {
     start: { road: "#f4f1ff", grass: "#103d3c", rumble: "#f4f1ff", lane: null },
     fog: "#5b2a6e"
   };
-  const CAR_COLORS = ["#ffd166", "#3ee6c8", "#7aa2ff", "#ff8a3d", "#b07bff", "#e8e8f0", "#57d977"];
 
   // ---------- canvas ----------
   const canvas = document.getElementById("game");
@@ -354,9 +353,11 @@ body {
       const car = {
         offset: lanesX[Math.floor(Math.random() * 3)] + (Math.random() - 0.5) * 0.12,
         z, percent: 0,
-        speed: MAXS * (0.22 + Math.random() * 0.33),
-        color: CAR_COLORS[i % CAR_COLORS.length]
+        speed: 0, model: pickModel(), color: ""
       };
+      const m = MODELS[car.model];
+      car.speed = MAXS * (m.spd[0] + Math.random() * (m.spd[1] - m.spd[0]));
+      car.color = m.colors[Math.floor(Math.random() * m.colors.length)];
       findSegment(z).cars.push(car);
       cars.push(car);
     }
@@ -412,12 +413,12 @@ body {
   }
 
   // ---------- update ----------
-  function crash(newSpeed, what) {
+  function crash(newSpeed, what, car) {
     speed = newSpeed;
     if (invuln > 0) return;
-    const d = DAMAGE[what] || 10;
-    hp = Math.max(0, hp - d); invuln = INVULN; shake = 0.45; crashSound();
-    showToast(`-${d} 血`, 600); $("toast").classList.add("dmg");
+    const d = car ? MODELS[car.model].dmg : (DAMAGE[what] || 10);
+    hp = Math.max(0, hp - d); invuln = INVULN; shake = 0.35 + d / 100; crashSound();
+    showToast(car ? `${MODELS[car.model].cn} -${d} 血` : `-${d} 血`, car ? 1000 : 600); $("toast").classList.add("dmg");
     if (navigator.vibrate) { try { navigator.vibrate(80); } catch (e) {} }
     if (hp <= 0) { overReason = "wreck"; gameOver(); }
   }
@@ -477,8 +478,8 @@ body {
       }
     }
     for (const car of playerSeg.cars) {
-      if (speed > car.speed && overlap(playerX, CARW, car.offset, CARW, 0.85)) {
-        crash(car.speed * (car.speed / speed), "car");
+      if (speed > car.speed && overlap(playerX, CARW, car.offset, CARW * MODELS[car.model].wm, 0.85)) {
+        crash(car.speed * (car.speed / speed), "car", car);
         position = increase(car.z, -PLAYERZ, trackLength);
         break;
       }
@@ -574,36 +575,323 @@ body {
     ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
     ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
   }
-  function drawCar(cx, by, w, color, steer, lit, flame) {
-    if (w < 2) return;
-    const h = w * 0.6;
-    ctx.save(); ctx.translate(cx, by); ctx.rotate(steer * 0.05);
-    ctx.fillStyle = "rgba(0,0,0,0.35)";
-    ctx.beginPath(); ctx.ellipse(0, -h * 0.02, w * 0.58, h * 0.1, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#0b0716";
-    ctx.fillRect(-w * 0.5, -h * 0.3, w * 0.2, h * 0.3); ctx.fillRect(w * 0.3, -h * 0.3, w * 0.2, h * 0.3);
+  // ---------- vehicles (rear view, drawn in units of car width; ground at y = 0) ----------
+  const MODELS = {
+    mustang:    { cn: "福特野馬", dmg: 0,  wm: 1.0,  h: 0.86, exh: [-0.36, -0.27, 0.27, 0.36], draw: drawMustang },
+    toyota:     { cn: "豐田",     dmg: 15, wm: 0.98, h: 0.84, weight: 30, spd: [0.22, 0.42], colors: ["#e9e9ee", "#9ba1ab", "#2b2f38", "#7a1420"], draw: drawToyota },
+    mitsubishi: { cn: "三菱",     dmg: 18, wm: 1.04, h: 1.0,  weight: 20, spd: [0.22, 0.4],  colors: ["#a3141c", "#1d2a4d", "#f2f2f2", "#4a4f57"], draw: drawMitsubishi },
+    ford:       { cn: "福特",     dmg: 25, wm: 1.1,  h: 1.05, weight: 20, spd: [0.25, 0.45], colors: ["#16181d", "#1f3f7a", "#8a8f98", "#7d1a1a"], draw: drawF150 },
+    nissan:     { cn: "日產",     dmg: 30, wm: 1.02, h: 0.8,  weight: 18, spd: [0.35, 0.55], colors: ["#b8bcc4", "#3a3e46", "#f0f0f2", "#14365e"], draw: drawGTR },
+    lambo:      { cn: "藍寶堅尼", dmg: 45, wm: 1.08, h: 0.56, weight: 12, spd: [0.45, 0.62], colors: ["#f2c200", "#7bd000", "#ff6a00", "#e8e8e8"], draw: drawLambo }
+  };
+  const TRAFFIC = Object.keys(MODELS).filter(k => MODELS[k].weight);
+  const TRAFFIC_TOTAL = TRAFFIC.reduce((a, k) => a + MODELS[k].weight, 0);
+  function pickModel() {
+    let r = Math.random() * TRAFFIC_TOTAL;
+    for (const k of TRAFFIC) { r -= MODELS[k].weight; if (r <= 0) return k; }
+    return TRAFFIC[0];
+  }
+
+  let U = 1; // current pixels per unit, for text and LOD
+  function bodyGrad(c, top, bottom) {
+    const g = ctx.createLinearGradient(0, top, 0, bottom);
+    g.addColorStop(0, shade(c, 0.4)); g.addColorStop(0.3, c); g.addColorStop(0.75, shade(c, -0.25)); g.addColorStop(1, shade(c, -0.55));
+    return g;
+  }
+  function glass(pts) {
+    let top = 0, bot = -9;
+    pts.forEach(p => { top = Math.min(top, p[1]); bot = Math.max(bot, p[1]); });
+    const g = ctx.createLinearGradient(0, top, 0, bot);
+    g.addColorStop(0, "#56627e"); g.addColorStop(0.45, "#1a2033"); g.addColorStop(1, "#090b14");
+    ctx.fillStyle = g; poly2(pts); ctx.fill();
+    // reflection streak
+    ctx.save(); poly2(pts); ctx.clip();
+    ctx.fillStyle = "rgba(255,255,255,0.13)";
+    poly2([[-0.1, top], [0.05, top], [-0.12, bot], [-0.27, bot]]); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.07)";
+    poly2([[0.1, top], [0.14, top], [-0.03, bot], [-0.07, bot]]); ctx.fill();
+    ctx.restore();
+  }
+  function poly2(pts) { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.closePath(); }
+  function mirror(pts) { return pts.map(p => [-p[0], p[1]]).reverse(); }
+  function tire(x, w, h) {
+    const g = ctx.createLinearGradient(x - w / 2, 0, x + w / 2, 0);
+    g.addColorStop(0, "#040405"); g.addColorStop(0.5, "#2b2b31"); g.addColorStop(1, "#040405");
+    ctx.fillStyle = g; rrect(x - w / 2, -h, w, h, 0.025); ctx.fill();
+  }
+  function chromeFill(top, bottom) {
+    const g = ctx.createLinearGradient(0, top, 0, bottom);
+    g.addColorStop(0, "#ffffff"); g.addColorStop(0.45, "#9aa0ab"); g.addColorStop(0.55, "#5d626c"); g.addColorStop(1, "#e3e6ec");
+    return g;
+  }
+  function chromeRect(x, y, w, h) { ctx.fillStyle = chromeFill(y, y + h); ctx.fillRect(x, y, w, h); }
+  function glow(x, y, r, a) {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, `rgba(255,40,60,${a})`); g.addColorStop(1, "rgba(255,40,60,0)");
+    ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  function lampFill(top, bottom, lit) {
+    const g = ctx.createLinearGradient(0, top, 0, bottom);
+    if (lit) { g.addColorStop(0, "#ffb3b3"); g.addColorStop(0.5, "#ff2438"); g.addColorStop(1, "#c00018"); }
+    else { g.addColorStop(0, "#ff7a85"); g.addColorStop(0.5, "#d1102a"); g.addColorStop(1, "#7a0614"); }
+    return g;
+  }
+  function lampRect(x, y, w, h, lit) {
+    glow(x + w / 2, y + h / 2, Math.max(w, h) * (lit ? 1.6 : 0.9), lit ? 0.55 : 0.3);
+    ctx.fillStyle = lampFill(y, y + h, lit); ctx.fillRect(x, y, w, h);
+  }
+  function lampPoly(pts, lit) {
+    let cx = 0, cy = 0; pts.forEach(p => { cx += p[0]; cy += p[1]; }); cx /= pts.length; cy /= pts.length;
+    glow(cx, cy, lit ? 0.22 : 0.13, lit ? 0.55 : 0.3);
+    let top = 0, bot = -9; pts.forEach(p => { top = Math.min(top, p[1]); bot = Math.max(bot, p[1]); });
+    ctx.fillStyle = lampFill(top, bot, lit); poly2(pts); ctx.fill();
+  }
+  function text(str, x, y, size, fill, weight = 700, spacing = 0) {
+    if (U * size < 5) return;
+    ctx.save(); ctx.scale(1 / U, 1 / U);
+    ctx.font = `${weight} ${size * U}px "Chakra Petch", Arial, sans-serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = fill;
+    if (spacing && "letterSpacing" in ctx) ctx.letterSpacing = `${spacing * U}px`;
+    ctx.fillText(str, x * U, y * U);
+    ctx.restore();
+  }
+  function plate(y, str, w = 0.22) {
+    ctx.fillStyle = "#e9ecf2"; rrect(-w / 2, y - 0.035, w, 0.07, 0.01); ctx.fill();
+    ctx.strokeStyle = "#20232b"; ctx.lineWidth = 0.006; ctx.stroke();
+    text(str, 0, y + 0.002, 0.045, "#1b2340");
+    // plate lamp spill
+    ctx.fillStyle = "rgba(255,255,240,0.12)"; ctx.fillRect(-w / 2, y - 0.035, w, 0.02);
+  }
+  function exhaust(x, y, r) {
+    ctx.fillStyle = chromeFill(y - r, y + r); ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#07070a"; ctx.beginPath(); ctx.ellipse(x, y, r * 0.68, r * 0.52, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  function highlight(y, x1, x2) {
+    ctx.fillStyle = "rgba(255,255,255,0.28)"; ctx.fillRect(x1, y, x2 - x1, 0.012);
+  }
+
+  function drawMustang(c, lit) {
+    tire(-0.385, 0.17, 0.15); tire(0.385, 0.17, 0.15);
+    // diffuser + quad tips
+    ctx.fillStyle = "#121318"; poly2([[-0.46, -0.05], [0.46, -0.05], [0.49, -0.2], [-0.49, -0.2]]); ctx.fill();
+    [-0.36, -0.27, 0.27, 0.36].forEach(x => exhaust(x, -0.11, 0.036));
+    // body with wide haunches
+    ctx.fillStyle = bodyGrad(c, -0.56, -0.12);
+    ctx.beginPath(); ctx.moveTo(-0.48, -0.17); ctx.lineTo(-0.5, -0.36); ctx.quadraticCurveTo(-0.5, -0.5, -0.42, -0.545);
+    ctx.lineTo(0.42, -0.545); ctx.quadraticCurveTo(0.5, -0.5, 0.5, -0.36); ctx.lineTo(0.48, -0.17); ctx.closePath(); ctx.fill();
+    // fastback cabin
+    ctx.fillStyle = bodyGrad(c, -0.87, -0.54);
+    ctx.beginPath(); ctx.moveTo(-0.38, -0.545); ctx.lineTo(-0.27, -0.84); ctx.quadraticCurveTo(-0.25, -0.87, -0.2, -0.87);
+    ctx.lineTo(0.2, -0.87); ctx.quadraticCurveTo(0.25, -0.87, 0.27, -0.84); ctx.lineTo(0.38, -0.545); ctx.closePath(); ctx.fill();
+    glass([[-0.31, -0.565], [-0.235, -0.815], [0.235, -0.815], [0.31, -0.565]]);
+    // racing stripes
+    ctx.fillStyle = "rgba(245,245,250,0.92)";
+    [[-0.13, -0.05], [0.05, 0.13]].forEach(([a, b]) => {
+      ctx.fillRect(a, -0.545, b - a, 0.1); ctx.fillRect(a, -0.87, b - a, 0.05); ctx.fillRect(a, -0.33, b - a, 0.03);
+    });
+    // spoiler lip + trunk highlight
+    ctx.fillStyle = "#0d0e12"; ctx.fillRect(-0.4, -0.55, 0.8, 0.018);
+    highlight(-0.53, -0.4, 0.4);
+    // black taillight panel with tri-bar lamps
+    ctx.fillStyle = "#08080c"; rrect(-0.47, -0.445, 0.94, 0.115, 0.02); ctx.fill();
+    for (const s of [-1, 1]) for (let i = 0; i < 3; i++) {
+      const x = s * (0.24 + i * 0.068);
+      lampRect(x - 0.022, -0.435, 0.044, 0.095, lit);
+    }
+    // pony emblem
+    ctx.fillStyle = chromeFill(-0.42, -0.35); ctx.beginPath(); ctx.ellipse(0, -0.387, 0.05, 0.034, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#08080c"; ctx.beginPath(); ctx.ellipse(0, -0.387, 0.04, 0.026, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = chromeFill(-0.41, -0.36);
+    poly2([[-0.026, -0.372], [-0.01, -0.395], [0.012, -0.4], [0.028, -0.41], [0.02, -0.39], [0.03, -0.372], [0.012, -0.385], [-0.008, -0.378]]); ctx.fill();
+    plate(-0.27, "MUSTNG");
+  }
+
+  function drawToyota(c, lit) {
+    tire(-0.38, 0.15, 0.13); tire(0.38, 0.15, 0.13);
+    ctx.fillStyle = "#15161b"; poly2([[-0.45, -0.06], [0.45, -0.06], [0.47, -0.12], [-0.47, -0.12]]); ctx.fill();
+    exhaust(-0.33, -0.09, 0.025);
+    ctx.fillStyle = bodyGrad(c, -0.55, -0.1);
+    ctx.beginPath(); ctx.moveTo(-0.47, -0.11); ctx.lineTo(-0.49, -0.46); ctx.quadraticCurveTo(-0.48, -0.52, -0.4, -0.535);
+    ctx.lineTo(0.4, -0.535); ctx.quadraticCurveTo(0.48, -0.52, 0.49, -0.46); ctx.lineTo(0.47, -0.11); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.fillRect(-0.47, -0.25, 0.94, 0.012);
+    ctx.fillStyle = "#c2111f"; ctx.fillRect(-0.44, -0.16, 0.05, 0.018); ctx.fillRect(0.39, -0.16, 0.05, 0.018);
     // cabin
-    ctx.fillStyle = shade(color, -0.35);
-    ctx.beginPath(); ctx.moveTo(-w * 0.4, -h * 0.6); ctx.lineTo(-w * 0.3, -h); ctx.lineTo(w * 0.3, -h); ctx.lineTo(w * 0.4, -h * 0.6); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "#1c2440";
-    ctx.beginPath(); ctx.moveTo(-w * 0.33, -h * 0.64); ctx.lineTo(-w * 0.26, -h * 0.93); ctx.lineTo(w * 0.26, -h * 0.93); ctx.lineTo(w * 0.33, -h * 0.64); ctx.closePath(); ctx.fill();
-    // body
-    ctx.fillStyle = color; rrect(-w * 0.5, -h * 0.66, w, h * 0.46, Math.max(1, w * 0.06)); ctx.fill();
-    ctx.fillStyle = shade(color, -0.2); ctx.fillRect(-w * 0.5, -h * 0.32, w, h * 0.1);
-    // lights
-    ctx.fillStyle = lit ? "#ff2e4d" : "#a3122b";
-    if (lit && w > 30) { ctx.shadowColor = "#ff2e4d"; ctx.shadowBlur = w * 0.15; }
-    ctx.fillRect(-w * 0.45, -h * 0.56, w * 0.22, h * 0.1); ctx.fillRect(w * 0.23, -h * 0.56, w * 0.22, h * 0.1);
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = "#f4f1ff"; ctx.fillRect(-w * 0.1, -h * 0.5, w * 0.2, h * 0.09);
+    ctx.fillStyle = bodyGrad(c, -0.84, -0.53);
+    poly2([[-0.4, -0.535], [-0.3, -0.81], [-0.22, -0.84], [0.22, -0.84], [0.3, -0.81], [0.4, -0.535]]); ctx.fill();
+    glass([[-0.335, -0.555], [-0.26, -0.79], [0.26, -0.79], [0.335, -0.555]]);
+    highlight(-0.525, -0.38, 0.38);
+    // wrap-around wedge lamps + chrome bar
+    const L = [[-0.49, -0.475], [-0.2, -0.47], [-0.22, -0.43], [-0.48, -0.405]];
+    lampPoly(L, lit); lampPoly(mirror(L), lit);
+    chromeRect(-0.2, -0.462, 0.4, 0.016);
+    // oval emblem
+    ctx.strokeStyle = chromeFill(-0.44, -0.38); ctx.lineWidth = 0.008;
+    ctx.beginPath(); ctx.ellipse(0, -0.41, 0.045, 0.03, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(0, -0.414, 0.03, 0.012, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(0, -0.405, 0.011, 0.024, 0, 0, Math.PI * 2); ctx.stroke();
+    text("CAMRY", 0.3, -0.36, 0.035, "rgba(230,233,240,0.85)", 700);
+    plate(-0.31, "TOY-88");
+  }
+
+  function drawMitsubishi(c, lit) {
+    tire(-0.38, 0.17, 0.17); tire(0.38, 0.17, 0.17);
+    ctx.fillStyle = "#1b1c21"; poly2([[-0.46, -0.07], [0.46, -0.07], [0.48, -0.27], [-0.48, -0.27]]); ctx.fill();
+    chromeRect(-0.18, -0.13, 0.36, 0.03);
+    ctx.fillStyle = bodyGrad(c, -0.66, -0.26);
+    ctx.beginPath(); ctx.moveTo(-0.48, -0.26); ctx.lineTo(-0.49, -0.6); ctx.quadraticCurveTo(-0.485, -0.645, -0.43, -0.65);
+    ctx.lineTo(0.43, -0.65); ctx.quadraticCurveTo(0.485, -0.645, 0.49, -0.6); ctx.lineTo(0.48, -0.26); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = bodyGrad(c, -1.0, -0.64);
+    poly2([[-0.445, -0.65], [-0.41, -0.97], [-0.36, -0.99], [0.36, -0.99], [0.41, -0.97], [0.445, -0.65]]); ctx.fill();
+    glass([[-0.37, -0.68], [-0.345, -0.93], [0.345, -0.93], [0.37, -0.68]]);
+    // roof spoiler + third brake light + rails
+    ctx.fillStyle = shade(c, -0.35); ctx.fillRect(-0.36, -0.995, 0.72, 0.035);
+    lampRect(-0.07, -0.985, 0.14, 0.014, lit);
+    ctx.fillStyle = "#24262c"; ctx.fillRect(-0.36, -1.02, 0.05, 0.025); ctx.fillRect(0.31, -1.02, 0.05, 0.025);
+    highlight(-0.64, -0.42, 0.42);
+    // horizontal L lamps
+    for (const s of [-1, 1]) {
+      const pts = [[-0.49, -0.6], [-0.27, -0.6], [-0.27, -0.555], [-0.44, -0.555], [-0.44, -0.47], [-0.49, -0.47]];
+      lampPoly(s < 0 ? pts : mirror(pts), lit);
+    }
+    ctx.fillStyle = "#0c0d10"; ctx.fillRect(-0.27, -0.6, 0.54, 0.045);
+    // three diamonds
+    ctx.fillStyle = "#e1001a";
+    for (let i = 0; i < 3; i++) {
+      ctx.save(); ctx.translate(0, -0.5); ctx.rotate(i * Math.PI * 2 / 3);
+      poly2([[0, 0], [0.013, -0.02], [0, -0.04], [-0.013, -0.02]]); ctx.fill(); ctx.restore();
+    }
+    text("OUTLANDER", 0, -0.43, 0.034, "rgba(230,233,240,0.85)", 700, 0.006);
+    plate(-0.35, "MMC-520");
+  }
+
+  function drawF150(c, lit) {
+    tire(-0.37, 0.19, 0.2); tire(0.37, 0.19, 0.2);
+    // chrome bumper with step pads
+    chromeRect(-0.49, -0.25, 0.98, 0.13);
+    ctx.fillStyle = "#1a1b20"; ctx.fillRect(-0.09, -0.215, 0.18, 0.05); ctx.fillRect(-0.47, -0.2, 0.08, 0.04); ctx.fillRect(0.39, -0.2, 0.08, 0.04);
+    // cab behind tailgate
+    ctx.fillStyle = bodyGrad(shade(c, -0.12), -1.06, -0.72);
+    poly2([[-0.41, -0.72], [-0.4, -1.03], [-0.36, -1.05], [0.36, -1.05], [0.4, -1.03], [0.41, -0.72]]); ctx.fill();
+    glass([[-0.33, -0.79], [-0.32, -1.0], [0.32, -1.0], [0.33, -0.79]]);
+    ctx.fillStyle = "rgba(20,22,28,0.9)"; ctx.fillRect(-0.12, -1.0, 0.01, 0.21); ctx.fillRect(0.11, -1.0, 0.01, 0.21);
+    lampRect(-0.06, -1.04, 0.12, 0.016, lit);
+    // tailgate
+    ctx.fillStyle = bodyGrad(c, -0.76, -0.24);
+    rrect(-0.475, -0.75, 0.95, 0.51, 0.02); ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 0.008; ctx.strokeRect(-0.38, -0.69, 0.76, 0.38);
+    highlight(-0.74, -0.46, 0.46);
+    ctx.fillStyle = "#101116"; ctx.fillRect(-0.06, -0.66, 0.12, 0.025); // handle
+    text("FORD", 0, -0.5, 0.15, "rgba(230,233,240,0.92)", 700, 0.04);
+    // tall C-lamps
+    for (const s of [-1, 1]) {
+      const pts = [[-0.49, -0.73], [-0.41, -0.73], [-0.41, -0.68], [-0.44, -0.68], [-0.44, -0.4], [-0.41, -0.4], [-0.41, -0.35], [-0.49, -0.35]];
+      lampPoly(s < 0 ? pts : mirror(pts), lit);
+    }
+    plate(-0.185, "F-150");
+  }
+
+  function drawGTR(c, lit) {
+    tire(-0.39, 0.18, 0.15); tire(0.39, 0.18, 0.15);
+    ctx.fillStyle = "#101116"; poly2([[-0.45, -0.05], [0.45, -0.05], [0.49, -0.2], [-0.49, -0.2]]); ctx.fill();
+    ctx.fillStyle = "#2a2c33"; for (let i = -3; i <= 3; i++) ctx.fillRect(i * 0.05 - 0.004, -0.19, 0.008, 0.12);
+    [-0.41, -0.32, 0.32, 0.41].forEach(x => exhaust(x, -0.115, 0.04));
+    ctx.fillStyle = bodyGrad(c, -0.55, -0.12);
+    ctx.beginPath(); ctx.moveTo(-0.48, -0.18); ctx.lineTo(-0.5, -0.42); ctx.quadraticCurveTo(-0.48, -0.52, -0.38, -0.535);
+    ctx.lineTo(0.38, -0.535); ctx.quadraticCurveTo(0.48, -0.52, 0.5, -0.42); ctx.lineTo(0.48, -0.18); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = bodyGrad(c, -0.8, -0.53);
+    poly2([[-0.36, -0.535], [-0.27, -0.79], [-0.2, -0.81], [0.2, -0.81], [0.27, -0.79], [0.36, -0.535]]); ctx.fill();
+    glass([[-0.29, -0.555], [-0.225, -0.77], [0.225, -0.77], [0.29, -0.555]]);
+    // rear wing
+    ctx.fillStyle = shade(c, -0.45); ctx.fillRect(-0.3, -0.6, 0.025, 0.07); ctx.fillRect(0.275, -0.6, 0.025, 0.07);
+    ctx.fillStyle = bodyGrad(shade(c, -0.3), -0.64, -0.59); rrect(-0.48, -0.635, 0.96, 0.04, 0.01); ctx.fill();
+    highlight(-0.52, -0.38, 0.38);
+    // quad round lamps
+    for (const x of [-0.39, -0.25, 0.25, 0.39]) {
+      glow(x, -0.42, lit ? 0.12 : 0.08, lit ? 0.5 : 0.3);
+      ctx.fillStyle = "#0a0a0e"; ctx.beginPath(); ctx.arc(x, -0.42, 0.058, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = lit ? "#ff3448" : "#e0182e"; ctx.lineWidth = 0.022;
+      ctx.beginPath(); ctx.arc(x, -0.42, 0.042, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.strokeStyle = chromeFill(-0.47, -0.41); ctx.lineWidth = 0.007;
+    ctx.beginPath(); ctx.arc(0, -0.44, 0.03, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = chromeFill(-0.45, -0.43); ctx.fillRect(-0.045, -0.447, 0.09, 0.014);
+    text("GT-R", 0.0, -0.37, 0.04, "rgba(230,233,240,0.9)", 700);
+    plate(-0.28, "GTR-R35");
+  }
+
+  function drawLambo(c, lit) {
+    tire(-0.39, 0.2, 0.14); tire(0.39, 0.2, 0.14);
+    // huge diffuser
+    ctx.fillStyle = "#0a0a0d"; poly2([[-0.44, -0.04], [0.44, -0.04], [0.49, -0.2], [-0.49, -0.2]]); ctx.fill();
+    ctx.fillStyle = "#24252b"; for (let i = -4; i <= 4; i++) ctx.fillRect(i * 0.07 - 0.005, -0.19, 0.01, 0.14);
+    // wedge body
+    ctx.fillStyle = bodyGrad(c, -0.4, -0.15);
+    poly2([[-0.49, -0.18], [-0.5, -0.3], [-0.45, -0.385], [0.45, -0.385], [0.5, -0.3], [0.49, -0.18]]); ctx.fill();
+    // engine cover
+    ctx.fillStyle = bodyGrad(c, -0.57, -0.38);
+    poly2([[-0.33, -0.385], [-0.21, -0.555], [0.21, -0.555], [0.33, -0.385]]); ctx.fill();
+    const G = [[-0.26, -0.395], [-0.18, -0.53], [0.18, -0.53], [0.26, -0.395]];
+    glass(G);
+    ctx.save(); poly2(G); ctx.clip(); ctx.fillStyle = "rgba(0,0,0,0.6)";
+    for (let y = -0.52; y < -0.39; y += 0.022) ctx.fillRect(-0.3, y, 0.6, 0.008);
+    ctx.restore();
+    highlight(-0.38, -0.44, 0.44);
+    // black mesh band
+    ctx.fillStyle = "#0b0b0e"; poly2([[-0.46, -0.33], [0.46, -0.33], [0.44, -0.2], [-0.44, -0.2]]); ctx.fill();
+    ctx.strokeStyle = "rgba(90,92,100,0.5)"; ctx.lineWidth = 0.004;
+    for (let x = -0.42; x <= 0.42; x += 0.035) { ctx.beginPath(); ctx.moveTo(x, -0.325); ctx.lineTo(x + 0.017, -0.205); ctx.stroke(); }
+    // Y lamps
+    ctx.lineCap = "round";
+    for (const s of [-1, 1]) {
+      glow(s * 0.36, -0.34, lit ? 0.18 : 0.12, lit ? 0.5 : 0.32);
+      ctx.strokeStyle = lit ? "#ff3448" : "#e8142c"; ctx.lineWidth = 0.022;
+      ctx.beginPath(); ctx.moveTo(s * 0.43, -0.35); ctx.lineTo(s * 0.24, -0.35);
+      ctx.moveTo(s * 0.37, -0.35); ctx.lineTo(s * 0.42, -0.31); ctx.moveTo(s * 0.37, -0.35); ctx.lineTo(s * 0.31, -0.31); ctx.stroke();
+    }
+    ctx.lineCap = "butt";
+    // twin hex exhausts
+    for (const x of [-0.12, 0.12]) {
+      const r = 0.05, pts = [];
+      for (let i = 0; i < 6; i++) pts.push([x + Math.cos(i * Math.PI / 3) * r, -0.12 + Math.sin(i * Math.PI / 3) * r * 0.75]);
+      ctx.fillStyle = chromeFill(-0.16, -0.08); poly2(pts); ctx.fill();
+      ctx.fillStyle = "#050507"; ctx.beginPath(); ctx.ellipse(x, -0.12, r * 0.65, r * 0.48, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    // gold shield
+    ctx.fillStyle = "#c9a227"; poly2([[-0.022, -0.37], [0.022, -0.37], [0.02, -0.345], [0, -0.33], [-0.02, -0.345]]); ctx.fill();
+    text("LAMBORGHINI", 0, -0.255, 0.032, "rgba(230,233,240,0.85)", 700, 0.008);
+  }
+
+  // dispatcher: cx, by = screen position of the car's rear centre on the road, u = car width in px
+  function drawVehicle(cx, by, u, key, color, steer, lit, flame) {
+    if (u < 2) return;
+    const m = MODELS[key];
+    u *= m.wm;
+    ctx.save(); ctx.translate(cx, by); ctx.rotate(steer * 0.04); ctx.scale(u, u);
+    U = u;
+    // ground shadow
+    const sg = ctx.createRadialGradient(0, -0.01, 0.05, 0, -0.01, 0.62);
+    sg.addColorStop(0, "rgba(0,0,0,0.55)"); sg.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = sg; ctx.save(); ctx.scale(1, 0.16); ctx.beginPath(); ctx.arc(0, 0, 0.62, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    if (u < 26) {
+      // far away: simple silhouette
+      ctx.fillStyle = "#08080b"; ctx.fillRect(-0.47, -0.14, 0.18, 0.14); ctx.fillRect(0.29, -0.14, 0.18, 0.14);
+      ctx.fillStyle = color; ctx.fillRect(-0.5, -m.h * 0.62, 1, m.h * 0.62 - 0.08);
+      ctx.fillStyle = shade(color, -0.3); ctx.fillRect(-0.36, -m.h, 0.72, m.h * 0.38);
+      ctx.fillStyle = "#ff2a40"; ctx.fillRect(-0.47, -m.h * 0.55, 0.2, 0.07); ctx.fillRect(0.27, -m.h * 0.55, 0.2, 0.07);
+    } else {
+      m.draw(color, lit);
+    }
     if (flame) {
-      const f = 0.6 + Math.random() * 0.6;
-      ctx.fillStyle = "#3ee6c8"; ctx.beginPath();
-      ctx.moveTo(-w * 0.32, -h * 0.24); ctx.lineTo(-w * 0.22, -h * 0.24); ctx.lineTo(-w * 0.27, h * 0.28 * f); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(w * 0.22, -h * 0.24); ctx.lineTo(w * 0.32, -h * 0.24); ctx.lineTo(w * 0.27, h * 0.28 * f); ctx.closePath(); ctx.fill();
+      for (const x of m.exh || []) {
+        const f = 0.7 + Math.random() * 0.6;
+        const g = ctx.createRadialGradient(x, -0.11, 0, x, -0.11, 0.09 * f);
+        g.addColorStop(0, "rgba(255,255,255,0.95)"); g.addColorStop(0.35, "rgba(62,230,200,0.85)"); g.addColorStop(1, "rgba(62,120,255,0)");
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, -0.11, 0.09 * f, 0, Math.PI * 2); ctx.fill();
+      }
     }
     ctx.restore();
   }
+
   function shade(hex, amt) {
     const n = parseInt(hex.slice(1), 16);
     let r = n >> 16, g = (n >> 8) & 255, b = n & 255;
@@ -687,7 +975,7 @@ body {
         const unit = sc * ROADW * UX;
         const cx = interp(seg.p1.screen.x, seg.p2.screen.x, car.percent) + unit * car.offset;
         const cy = interp(seg.p1.screen.y, seg.p2.screen.y, car.percent);
-        drawCar(cx, cy, unit * CARW, car.color, 0, true, false);
+        drawVehicle(cx, cy, unit * CARW, car.model, car.color, 0, false, false);
       }
       ctx.restore();
     }
@@ -709,7 +997,7 @@ body {
       }
     }
     const blinkOff = invuln > 0 && Math.floor(invuln * 12) % 2 === 0;
-    if (!blinkOff) drawCar(W / 2, H - PAD + bounce, pw, hp <= 0 ? "#5a3a55" : "#ff3d7f", steerVis, keys.brake && state === "play", boosting);
+    if (!blinkOff) drawVehicle(W / 2, H - PAD + bounce, pw, "mustang", hp <= 0 ? "#4a3a40" : "#c8102e", steerVis, keys.brake && state === "play", boosting);
 
     if (boosting) {
       ctx.strokeStyle = "rgba(244,241,255,0.35)"; ctx.lineWidth = 2;
