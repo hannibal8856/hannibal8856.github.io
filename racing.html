@@ -129,6 +129,7 @@ body[data-mode="menu"] .hud, body[data-mode="menu"] .pads { display: none; }
   font: 600 11px var(--f-body); line-height: 1.3;
 }
 .car canvas { width: 100%; max-width: 90px; aspect-ratio: 9 / 8; }
+.car .z100 { font-size: 10px; opacity: 0.75; font-weight: 500; }
 .car.on { border-color: var(--sun); background: rgba(255, 207, 107, 0.18); box-shadow: 0 0 0 1px var(--sun) inset; }
 .car:focus-visible, .sw:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
 .swatches { display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap; }
@@ -294,6 +295,15 @@ function showToast(str, ms = 900, bad = false) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), ms);
 }
 const fmtKm = m => (m / 1000).toFixed(2) + "<small>km</small>";
+// 0-100 km/h stopwatch: arms when stopped, runs while accelerating, reports on reaching 100
+const Launch = { t: 0, armed: false,
+  tick(kmh, gas, brake, dt) {
+    if (kmh < 1 && !brake) { this.armed = true; this.t = 0; }
+    if (!this.armed) return;
+    if (brake || (!gas && kmh > 3)) { this.armed = false; return; }
+    if (gas || kmh >= 1) this.t += dt;
+    if (kmh >= 100) { this.armed = false; showToast(`0-100 km/h：${this.t.toFixed(1)} 秒`, 2600); GameAudio.blip(784, 0.15, "triangle", 0.1); }
+  } };
 function setHud(o) {
   if (o.hp !== undefined) {
     $("hudHp").style.transform = `scaleX(${o.hp / 100})`;
@@ -634,15 +644,15 @@ const Veh = (() => {
   }
 
   const MODELS = {
-    u6:         { cn: "納智捷 U6 GT", dmg: 0, wm: 1.0, h: 1.0, lx: 0.36, ly: 0.6, L: 4.6, W: 1.85, top: 0.665, cab: [0.55, -0.06], draw: drawU6 },
-    toyota:     { cn: "豐田",     dmg: 15, wm: 0.98, h: 0.84, lx: 0.36, ly: 0.44, weight: 30, spd: [0.45, 0.7],  colors: ["#e9e9ee", "#9ba1ab", "#2b2f38", "#7a1420"], L: 4.85, W: 1.84, top: 0.535, cab: [0.5, -0.02], draw: drawToyota },
-    mitsubishi: { cn: "三菱",     dmg: 18, wm: 1.04, h: 1.0,  lx: 0.4,  ly: 0.56, weight: 20, spd: [0.45, 0.65], colors: ["#a3141c", "#1d2a4d", "#f2f2f2", "#4a4f57"], L: 4.7, W: 1.86, top: 0.65, cab: [0.62, -0.06], draw: drawMitsubishi },
-    ford:       { cn: "福特",     dmg: 25, wm: 1.1,  h: 1.05, lx: 0.45, ly: 0.55, weight: 20, spd: [0.5, 0.72],  colors: ["#16181d", "#1f3f7a", "#8a8f98", "#7d1a1a"], L: 5.8, W: 2.0, top: 0.75, cab: [0.32, 0.15], draw: drawF150 },
-    nissan:     { cn: "日產",     dmg: 30, wm: 1.02, h: 0.8,  lx: 0.32, ly: 0.42, weight: 16, spd: [0.6, 0.85],  colors: ["#b8bcc4", "#3a3e46", "#f0f0f2", "#14365e"], L: 4.7, W: 1.9, top: 0.535, cab: [0.45, -0.02], draw: drawGTR },
-    xtrail:     { cn: "日產 X-Trail", dmg: 0, wm: 1.0, h: 1.0, lx: 0.4, ly: 0.6, L: 4.68, W: 1.84, top: 0.675, cab: [0.58, -0.05], draw: drawXTrail },
-    cx5:        { cn: "Mazda CX-5", dmg: 0, wm: 1.0, h: 0.95, lx: 0.38, ly: 0.59, L: 4.55, W: 1.84, top: 0.655, cab: [0.52, -0.05], draw: drawCX5 },
-    modely:     { cn: "Tesla Model Y", dmg: 0, wm: 1.0, h: 0.95, lx: 0.38, ly: 0.55, L: 4.75, W: 1.92, top: 0.645, cab: [0.56, -0.02], draw: drawModelY },
-    lambo:      { cn: "藍寶堅尼", dmg: 45, wm: 1.08, h: 0.56, lx: 0.36, ly: 0.35, weight: 12, spd: [0.7, 0.95],  colors: ["#f2c200", "#7bd000", "#ff6a00", "#e8e8e8"], L: 4.5, W: 1.95, top: 0.385, cab: [0.38, 0.04], draw: drawLambo }
+    u6:         { cn: "納智捷 U6 GT", dmg: 0, wm: 1.0, h: 1.0, lx: 0.36, ly: 0.6, L: 4.6, W: 1.85, top: 0.665, cab: [0.55, -0.06], z100: 8.6, vtop: 200, draw: drawU6 },
+    toyota:     { cn: "豐田",     dmg: 15, wm: 0.98, h: 0.84, lx: 0.36, ly: 0.44, weight: 30, spd: [0.45, 0.7],  colors: ["#e9e9ee", "#9ba1ab", "#2b2f38", "#7a1420"], L: 4.85, W: 1.84, top: 0.535, cab: [0.5, -0.02], z100: 8.6, vtop: 210, draw: drawToyota },
+    mitsubishi: { cn: "三菱",     dmg: 18, wm: 1.04, h: 1.0,  lx: 0.4,  ly: 0.56, weight: 20, spd: [0.45, 0.65], colors: ["#a3141c", "#1d2a4d", "#f2f2f2", "#4a4f57"], L: 4.7, W: 1.86, top: 0.65, cab: [0.62, -0.06], z100: 10.8, vtop: 190, draw: drawMitsubishi },
+    ford:       { cn: "福特",     dmg: 25, wm: 1.1,  h: 1.05, lx: 0.45, ly: 0.55, weight: 20, spd: [0.5, 0.72],  colors: ["#16181d", "#1f3f7a", "#8a8f98", "#7d1a1a"], L: 5.8, W: 2.0, top: 0.75, cab: [0.32, 0.15], z100: 6.8, vtop: 180, draw: drawF150 },
+    nissan:     { cn: "日產",     dmg: 30, wm: 1.02, h: 0.8,  lx: 0.32, ly: 0.42, weight: 16, spd: [0.6, 0.85],  colors: ["#b8bcc4", "#3a3e46", "#f0f0f2", "#14365e"], L: 4.7, W: 1.9, top: 0.535, cab: [0.45, -0.02], z100: 2.9, vtop: 315, draw: drawGTR },
+    xtrail:     { cn: "日產 X-Trail", dmg: 0, wm: 1.0, h: 1.0, lx: 0.4, ly: 0.6, L: 4.68, W: 1.84, top: 0.675, cab: [0.58, -0.05], z100: 10.5, vtop: 190, draw: drawXTrail },
+    cx5:        { cn: "Mazda CX-5", dmg: 0, wm: 1.0, h: 0.95, lx: 0.38, ly: 0.59, L: 4.55, W: 1.84, top: 0.655, cab: [0.52, -0.05], z100: 9.3, vtop: 195, draw: drawCX5 },
+    modely:     { cn: "Tesla Model Y", dmg: 0, wm: 1.0, h: 0.95, lx: 0.38, ly: 0.55, L: 4.75, W: 1.92, top: 0.645, cab: [0.56, -0.02], z100: 5.0, vtop: 217, draw: drawModelY },
+    lambo:      { cn: "藍寶堅尼", dmg: 45, wm: 1.08, h: 0.56, lx: 0.36, ly: 0.35, weight: 12, spd: [0.7, 0.95],  colors: ["#f2c200", "#7bd000", "#ff6a00", "#e8e8e8"], L: 4.5, W: 1.95, top: 0.385, cab: [0.38, 0.04], z100: 2.9, vtop: 325, draw: drawLambo }
   };
   const TRAFFIC = Object.keys(MODELS).filter(k => MODELS[k].weight);
   const TOTAL = TRAFFIC.reduce((a, k) => a + MODELS[k].weight, 0);
@@ -657,7 +667,13 @@ const Veh = (() => {
     if (key === "scooter") drawScooter(color, false, rider); else MODELS[key].draw(color, false);
     return c;
   }
-  return { MODELS, pick, draw, rearCanvas };
+  function accel(key, v) {
+    const m = MODELS[key];
+    if (!m.a0) { const V = m.vtop / 3.6, t = m.z100, c = 100 / 3.6; m.V = V; m.a0 = V / (2 * t) * Math.log((V + c) / (V - c)); }
+    v = Math.max(0, v);
+    return m.a0 * Math.max(0, 1 - (v / m.V) * (v / m.V));
+  }
+  return { MODELS, pick, draw, rearCanvas, accel };
 })();
 
 /* ===================== audio: engine, effects, music ===================== */
@@ -951,7 +967,7 @@ const GameAudio = (() => {
   for (const k in CARS) {
     const b = document.createElement("button");
     b.type = "button"; b.className = "car";
-    b.innerHTML = `<canvas width="180" height="160"></canvas><span>${CARS[k].name.replace("\n", "<br>")}</span>`;
+    b.innerHTML = `<canvas width="180" height="160"></canvas><span>${CARS[k].name.replace("\n", "<br>")}</span><small class="z100">0-100 ${Veh.MODELS[k].z100} 秒</small>`;
     b.addEventListener("click", () => { Game.car = { key: k, color: CARS[k].colors[0] }; save(); refresh(); });
     cards[k] = b; pick.appendChild(b);
   }
@@ -1329,7 +1345,7 @@ const Scenic = (() => {
     steerVis += ((keys.left ? -1 : keys.right ? 1 : 0) - steerVis) * Math.min(1, dt * 8);
     playerX -= dx * sp * playerSeg.curve * CENTRIFUGAL;
     if (keys.brake) speed += BRAKE * dt;
-    else if (keys.gas) speed += ACCEL * (1 - 0.5 * sp) * dt;
+    else if (keys.gas) speed += Veh.accel(Game.car.key, speed / VMAX * 33.33) * (VMAX / 33.33) * dt;
     else speed += COAST * dt;
     if (playerX < -1 || playerX > 1) {
       if (speed > OFFLIMIT) speed += OFFDECEL * dt;
@@ -1345,6 +1361,7 @@ const Scenic = (() => {
     }
     playerX = limit(playerX, -2.6, 2.6);
     speed = limit(speed, 0, VMAX);
+    Launch.tick(speed / VMAX * 120, keys.gas, keys.brake, dt);
     skyOffset += playerSeg.curve * sp * dt * 0.01;
     shake = Math.max(0, shake - dt);
     invuln = Math.max(0, invuln - dt);
@@ -1544,7 +1561,7 @@ const Scenic = (() => {
 /* ===================== mode 2: free driving in Taipei Xinyi (OpenStreetMap data) ===================== */
 const City = (() => {
   const MAP = JSON.parse(document.getElementById("xinyiMap").textContent);
-  const VFWD = 19.4, VREV = 4.5, ACC = 4.2, ACCR = 2.5, BRK = 9, ROLL = 1.0, WB = 2.7;
+  const VFWD = 33.3, VREV = 4.5, ACCR = 2.5, BRK = 9, ROLL = 1.0, WB = 2.7;
   const P_HL = 2.3, P_HW = 0.93, LANE = 3.2;
   const NCARS = 44, NBIKES = 36;
   const FINES = { red: ["闖紅燈", 2700], wrong: ["逆向行駛", 1200] };
@@ -2004,10 +2021,10 @@ const City = (() => {
       let o;
       if (bike) {
         const rider = { shirt: SHIRTS[Math.floor(rng() * SHIRTS.length)], helmet: HELMETS[Math.floor(rng() * HELMETS.length)] };
-        o = { bike: true, name: "機車", dmg: 10, L: 1.9, W: 0.7, vmax: 8 + rng() * 4, mesh: bikeMesh(BIKECOL[Math.floor(rng() * BIKECOL.length)], rider) };
+        o = { bike: true, name: "機車", dmg: 10, L: 1.9, W: 0.7, vmax: 8 + rng() * 4, mesh: bikeMesh(BIKECOL[Math.floor(rng() * BIKECOL.length)], rider), acc: 2.4 };
       } else {
         const key = Veh.pick(), m = Veh.MODELS[key];
-        o = { bike: false, name: m.cn, dmg: m.dmg, L: m.L, W: m.W, vmax: 9 + m.spd[0] * 6 + rng() * 3, mesh: carMesh(key, m.colors[Math.floor(rng() * m.colors.length)]) };
+        o = { bike: false, name: m.cn, dmg: m.dmg, L: m.L, W: m.W, vmax: 9 + m.spd[0] * 6 + rng() * 3, mesh: carMesh(key, m.colors[Math.floor(rng() * m.colors.length)]), acc: Math.min(3.2, Veh.accel(key, 0) * 0.5) };
       }
       Object.assign(o, { k: Math.floor(rng() * 3), v: 0, crashT: 0, hurryT: 0, yieldT: 0, blockT: 0, ghostT: 0 });
       if (!respawn(o, 30)) continue;
@@ -2078,7 +2095,7 @@ const City = (() => {
         }
         if (mustStop) allow = Math.min(allow, Math.sqrt(Math.max(0, 2 * 6 * (left - 0.5))));
         if (o.next && o.next.cos < 0.85) allow = Math.min(allow, Math.sqrt(2 * 4 * Math.max(0, left - 2)) + 5.5);
-        o.v = o.v > allow ? Math.max(allow, o.v - 9 * dt) : Math.min(allow, o.v + 2.6 * dt);
+        o.v = o.v > allow ? Math.max(allow, o.v - 9 * dt) : Math.min(allow, o.v + (o.acc || 2.6) * dt);
         o.s += o.v * dt;
         if (o.s >= end && o.next) {
           const ne = o.next.e, nd = o.next.dir, noff = laneOff(ne, o.k, o.bike);
@@ -2093,7 +2110,7 @@ const City = (() => {
       }
       if (o.state === "turn") {
         allow = Math.min(allow, o.turn.cos > 0.85 ? o.vmax : 6);
-        o.v = o.v > allow ? Math.max(allow, o.v - 9 * dt) : Math.min(allow, o.v + 2.6 * dt);
+        o.v = o.v > allow ? Math.max(allow, o.v - 9 * dt) : Math.min(allow, o.v + (o.acc || 2.6) * dt);
         o.u = Math.min(1, o.u + o.v * dt / o.blen);
         const [x, z] = bez(o.bz, o.u), [x2, z2] = bez(o.bz, Math.min(1, o.u + 0.02));
         if (Math.abs(x2 - x) + Math.abs(z2 - z) > 1e-4) o.h = Math.atan2(x2 - x, z2 - z);
@@ -2354,7 +2371,7 @@ const City = (() => {
     const k = Game.keys, p = player;
     if (p.over) p.v *= Math.max(0, 1 - dt * 2);
     else {
-      if (p.gear === "D") { if (k.gas) p.v += (p.v < 0 ? BRK : ACC * (1 - Math.max(0, p.v) / VFWD)) * dt; }
+      if (p.gear === "D") { if (k.gas) { p.v += (p.v < 0 ? BRK : Veh.accel(Game.car.key, p.v)) * dt; p.v = Math.min(p.v, VFWD); } }
       else if (k.gas) { p.v -= (p.v > 0 ? BRK : ACCR) * dt; p.v = Math.max(p.v, -VREV); }
       if (k.brake) p.v = Math.sign(p.v) * Math.max(0, Math.abs(p.v) - BRK * dt);
       if (!k.gas && !k.brake) p.v = Math.sign(p.v) * Math.max(0, Math.abs(p.v) - ROLL * dt);
@@ -2439,6 +2456,7 @@ const City = (() => {
     if (p.gear === "R" && p.v < -0.3) { beepT -= dt; if (beepT <= 0) { GameAudio.blip(1200, 0.12, "sine", 0.06); beepT = 0.7; } } else beepT = 0;
     if (Game.horn) { hornCool -= dt; if (hornCool <= 0) { horn(); hornCool = 0.5; } } else hornCool = 0;
     pMesh.position.set(p.x, p.y, p.z); pMesh.rotation.y = p.h;
+    if (!p.over && p.gear === "D") Launch.tick(Math.max(0, p.v) * 3.6, k.gas, k.brake, dt);
     pMesh.visible = !(p.invuln > 0 && Math.floor(p.invuln * 12) % 2 === 0);
   }
   // next signal in the direction of travel
