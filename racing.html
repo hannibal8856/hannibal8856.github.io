@@ -1950,7 +1950,7 @@ const City = (() => {
         const key = Veh.pick(), m = Veh.MODELS[key];
         o = { bike: false, name: m.cn, dmg: m.dmg, L: m.L, W: m.W, vmax: 9 + m.spd[0] * 6 + rng() * 3, mesh: carMesh(key, m.colors[Math.floor(rng() * m.colors.length)]) };
       }
-      Object.assign(o, { k: Math.floor(rng() * 3), v: 0, crashT: 0, hurryT: 0, yieldT: 0, blockT: 0 });
+      Object.assign(o, { k: Math.floor(rng() * 3), v: 0, crashT: 0, hurryT: 0, yieldT: 0, blockT: 0, ghostT: 0 });
       if (!respawn(o, 30)) continue;
       scene.add(o.mesh); vehicles.push(o);
     }
@@ -1988,9 +1988,10 @@ const City = (() => {
       if (o.crashT > 0) { o.crashT -= dt; allow = 0; }
       if (o.yieldT > 0) { o.yieldT -= dt; allow = 0; }
       if (o.hurryT > 0) o.hurryT -= dt;
+      if (o.ghostT > 0) o.ghostT -= dt;
       const fx = Math.sin(o.h), fz = Math.cos(o.h);
       const dpx = player.x - o.x, dpz = player.z - o.z, proj = dpx * fx + dpz * fz, lat = Math.abs(dpx * fz - dpz * fx);
-      if (proj > 0 && proj < 22 && lat < o.W / 2 + P_HW + 0.5) {
+      if (o.ghostT <= 0 && proj > 0 && proj < 22 && lat < o.W / 2 + P_HW + 0.5) {
         const lim = Math.sqrt(Math.max(0, 2 * 6 * (proj - o.L / 2 - P_HL - 1.5)));
         if (lim < allow) { allow = lim; byPlayer = true; }
       }
@@ -2189,17 +2190,21 @@ const City = (() => {
 
     const me = { x: p.x, z: p.z, h: p.h, hw: P_HW, hl: P_HL };
     const blocked = blockedAt(me);
-    if (blocked) {
+    if (blocked && !blockedAt({ x: ox, z: oz, h: oh, hw: P_HW, hl: P_HL })) {
       const sp = Math.abs(p.v);
       p.x = ox; p.z = oz; p.h = oh; p.v = -p.v * 0.25;
       if (sp > 2.2) damage(Math.round(Math.min(20, 4 + sp * 1.1)), blocked.kind === "tree" ? "撞到行道樹" : `撞到${blocked.name || "大樓"}`);
       else if (sp > 0.5) GameAudio.blip(120, 0.08, "square", 0.05);
     }
     for (const o of vehicles) {
-      if (Math.abs(o.x - p.x) > 7 || Math.abs(o.z - p.z) > 7) continue;
-      if (hit(me, { x: o.x, z: o.z, h: o.h, hw: o.W / 2, hl: o.L / 2 })) {
+      if (o.ghostT > 0 || Math.abs(o.x - p.x) > 7 || Math.abs(o.z - p.z) > 7) continue;
+      const ob = { x: o.x, z: o.z, h: o.h, hw: o.W / 2, hl: o.L / 2 };
+      if (hit({ x: p.x, z: p.z, h: p.h, hw: P_HW, hl: P_HL }, ob)) {
         const rel = Math.abs(p.v - o.v * Math.cos(o.h - p.h));
-        p.x = ox; p.z = oz; p.h = oh; p.v = -p.v * 0.2; o.crashT = 2.5; o.v = 0;
+        // push the player straight out of the other vehicle
+        let nx = p.x - o.x, nz = p.z - o.z; const nl = Math.hypot(nx, nz) || 1; nx /= nl; nz /= nl;
+        for (let k = 0; k < 40 && hit({ x: p.x, z: p.z, h: p.h, hw: P_HW, hl: P_HL }, ob); k++) { p.x += nx * 0.1; p.z += nz * 0.1; }
+        p.v = -p.v * 0.2; o.crashT = 1.5; o.ghostT = 3; o.v = 0;
         if (rel > 1.2) damage(o.dmg, o.name); else GameAudio.blip(140, 0.08, "square", 0.05);
         break;
       }
@@ -2354,7 +2359,7 @@ const City = (() => {
   }
   Game.onGear = () => { if (Game.mode === "city" && player && !player.over) { setGear(player.gear === "D" ? "R" : "D"); GameAudio.blip(500, 0.06, "square", 0.05); } };
   window.__city = { player: () => player, setTime: t => (simT = t), police: () => police && { x: police.x, z: police.z, state: police.state },
-    callPolice: () => callPolice(["測試", 0]), nodes, edges, vehicles: () => vehicles.length };
+    callPolice: () => callPolice(["測試", 0]), _v: () => vehicles, step: (n, dt) => { for (let i = 0; i < n; i++) { simT += dt; updateVehicles(dt); updatePlayer(dt); updatePolice(dt); } }, nodes, edges, vehicles: () => vehicles.length };
   return { start, stop };
 })();
 </script>
