@@ -37,9 +37,12 @@ for w in ways:
     t = w.get('tags', {})
     if t.get('highway') not in CLS:
         continue
-    if t.get('tunnel') in ('yes', 'building_passage'):
+    ug = '地下道' in t.get('name', '')
+    if ug and t['highway'] != 'secondary':
         continue
-    if t.get('layer', '0').lstrip('-').isdigit() and int(t.get('layer', '0')) < 0:
+    if not ug and t.get('tunnel') in ('yes', 'building_passage'):
+        continue
+    if not ug and t.get('layer', '0').lstrip('-').isdigit() and int(t.get('layer', '0')) < 0:
         continue
     pts = [n for n in w['nodes'] if n in nodes]
     if len(pts) < 2:
@@ -57,7 +60,7 @@ for w in ways:
     lanes_total = max(1, min(lanes_total, 5 if oneway else 8))
     per_dir = lanes_total if oneway else max(1, lanes_total // 2)
     hw = lanes_total * 3.2 / 2 + 0.6
-    roads.append(dict(pts=pts, oneway=oneway, cls=cls, name=t.get('name', ''), per_dir=per_dir, hw=hw))
+    roads.append(dict(pts=pts, oneway=oneway, cls=cls, name=t.get('name', ''), per_dir=per_dir, hw=hw, ug=ug))
 
 # graph nodes: way ends + nodes shared by more than one road
 use = collections.Counter()
@@ -78,6 +81,10 @@ for r in roads:
 # cluster graph nodes closer than CL metres (dual carriageway junctions)
 CL = 20.0
 gl = sorted({s['pts'][0] for s in segs} | {s['pts'][-1] for s in segs})
+surface_node = set()
+for sg in segs:
+    if not sg['ug']:
+        surface_node.add(sg['pts'][0]); surface_node.add(sg['pts'][-1])
 parent = {n: n for n in gl}
 def find(n):
     while parent[n] != n:
@@ -87,6 +94,8 @@ for i, a in enumerate(gl):
     ax, az = nodes[a]
     for b in gl[i + 1:]:
         bx, bz = nodes[b]
+        if (a in surface_node) != (b in surface_node):
+            continue
         if abs(ax - bx) < CL and abs(az - bz) < CL and math.hypot(ax - bx, az - bz) < CL:
             parent[find(a)] = find(b)
 clusters = collections.defaultdict(list)
@@ -124,7 +133,7 @@ for s in segs:
     poly = [nodes[n] for n in s['pts']]
     poly[0] = (cnodes[a]['x'], cnodes[a]['z']); poly[-1] = (cnodes[b]['x'], cnodes[b]['z'])
     poly = simplify(poly)
-    edges.append(dict(a=a, b=b, cls=s['cls'], name=s['name'], oneway=s['oneway'], lanes=s['per_dir'], hw=s['hw'], poly=poly))
+    edges.append(dict(a=a, b=b, cls=s['cls'], name=s['name'], oneway=s['oneway'], lanes=s['per_dir'], hw=s['hw'], poly=poly, ug=s['ug']))
     cnodes[a]['edges'].append(len(edges) - 1); cnodes[b]['edges'].append(len(edges) - 1)
 
 # clip to the requested box
@@ -176,12 +185,61 @@ edges = clipped
 for i, e in enumerate(edges):
     cnodes[e['a']]['edges'].append(i); cnodes[e['b']]['edges'].append(i)
 
+# underpass depth: 0 where it meets surface streets, down to DEEP metres, back to 0 at the map edge
+DEEP, DOWN, UP = -7.0, 220.0, 90.0
+def densify(poly, step=10.0):
+    out = [poly[0]]
+    for i in range(1, len(poly)):
+        (x1, z1), (x2, z2) = poly[i - 1], poly[i]
+        n = max(1, int(math.hypot(x2 - x1, z2 - z1) // step))
+        for k in range(1, n + 1):
+            out.append((x1 + (x2 - x1) * k / n, z1 + (z2 - z1) * k / n))
+    return out
+for e in edges:
+    if e['ug']:
+        e['poly'] = densify(e['poly'])
+key = lambda p: (round(p[0], 1), round(p[1], 1))
+adj = collections.defaultdict(list)
+for e in edges:
+    if not e['ug']:
+        continue
+    for i in range(1, len(e['poly'])):
+        a, b = key(e['poly'][i - 1]), key(e['poly'][i])
+        d = math.hypot(a[0] - b[0], a[1] - b[1])
+        adj[a].append((b, d)); adj[b].append((a, d))
+def dijkstra(srcs):
+    import heapq
+    dist = {s: 0.0 for s in srcs}; pq = [(0.0, s) for s in srcs]
+    while pq:
+        d, u = heapq.heappop(pq)
+        if d > dist.get(u, 1e18):
+            continue
+        for v, w in adj[u]:
+            if d + w < dist.get(v, 1e18):
+                dist[v] = d + w; heapq.heappush(pq, (d + w, v))
+    return dist
+surf_keys, edge_keys = set(), set()
+for i, e in enumerate(edges):
+    for end, n in ((e['poly'][0], e['a']), (e['poly'][-1], e['b'])):
+        if e['ug']:
+            if any(not edges[j]['ug'] for j in cnodes[n]['edges']):
+                surf_keys.add(key(end))
+            if abs(end[0] - BX0) < 1 or abs(end[0] - BX1) < 1 or abs(end[1] - BZ0) < 1 or abs(end[1] - BZ1) < 1:
+                edge_keys.add(key(end))
+dS, dB = dijkstra(surf_keys), dijkstra(edge_keys)
+ss = lambda t: 0.0 if t <= 0 else 1.0 if t >= 1 else t * t * (3 - 2 * t)
+for e in edges:
+    if e['ug']:
+        e['ys'] = [round(DEEP * ss(dS.get(key(p), 1e9) / DOWN) * ss(dB.get(key(p), 1e9) / UP), 2) for p in e['poly']]
+
 # node radius and signals
 for n in cnodes:
-    hws = [edges[e]['hw'] for e in n['edges']]
+    hws = [edges[e]['hw'] for e in n['edges'] if not edges[e]['ug']] or [edges[e]['hw'] for e in n['edges']]
     n['r'] = max(4.0, min(26.0, (max(hws) if hws else 4) + n['spread'] + 1.0))
     major = any(edges[e]['cls'] <= 1 for e in n['edges'])
     n['sig'] = 1 if (len(n['edges']) >= 3 and major) else 0
+    if all(edges[e]['ug'] for e in n['edges']):
+        n['sig'] = 0
     inb = BX0 + 1 < n['x'] < BX1 - 1 and BZ0 + 1 < n['z'] < BZ1 - 1
     if not inb: n['sig'] = 0
 
@@ -194,7 +252,7 @@ for e in edges:
     flat = []
     for x, z in e['poly']:
         flat += [round(x, 1), round(z, 1)]
-    out_edges.append([remap[e['a']], remap[e['b']], e['cls'], nid(e['name']), e['oneway'], e['lanes'], round(e['hw'], 1), flat])
+    out_edges.append([remap[e['a']], remap[e['b']], e['cls'], nid(e['name']), e['oneway'], e['lanes'], round(e['hw'], 1), flat, 1 if e['ug'] else 0, e.get('ys', 0)])
 
 # buildings
 def area(poly):
