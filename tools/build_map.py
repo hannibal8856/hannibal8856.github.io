@@ -185,6 +185,64 @@ edges = clipped
 for i, e in enumerate(edges):
     cnodes[e['a']]['edges'].append(i); cnodes[e['b']]['edges'].append(i)
 
+# the two one-way underpass carriageways are mapped only a few metres apart (they even overlap),
+# so merge them into one two-way corridor: centre line halfway between them, 2 lanes each way
+def merge_underpass():
+    global edges
+    ug = [i for i, e in enumerate(edges) if e['ug']]
+    if not ug:
+        return
+    only_ug = lambda n: all(edges[j]['ug'] for j in cnodes[n]['edges'])
+    taken = set()
+    def chain(start_edge):
+        out, e = [start_edge], edges[start_edge]
+        while only_ug(e['b']):
+            nxt = [j for j in cnodes[e['b']]['edges'] if j not in out and j not in taken and edges[j]['ug'] and edges[j]['a'] == e['b']
+                   and not (edges[j]['b'] == e['a'])]
+            if not nxt:
+                break
+            out.append(nxt[0]); e = edges[nxt[0]]
+        taken.update(out)
+        return out
+    starts = [i for i in ug if not only_ug(edges[i]['a']) or len(cnodes[edges[i]['a']]['edges']) == 1]
+    starts.sort(key=lambda i: only_ug(edges[i]['a']))  # the carriageway leaving the surface junction first
+    chains = [chain(i) for i in starts]
+    if len(chains) != 2:
+        print('underpass: expected 2 carriageways, got', len(chains)); return
+    def poly_of(ch):
+        pts = []
+        for j in ch:
+            pts += edges[j]['poly'] if not pts else edges[j]['poly'][1:]
+        return pts
+    A, B = poly_of(chains[0]), poly_of(chains[1])[::-1]
+    def nearest(p, poly):
+        best, bp = 1e18, poly[0]
+        for i in range(1, len(poly)):
+            (x1, z1), (x2, z2) = poly[i - 1], poly[i]
+            dx, dz = x2 - x1, z2 - z1; L2 = dx * dx + dz * dz or 1e-9
+            u = max(0.0, min(1.0, ((p[0] - x1) * dx + (p[1] - z1) * dz) / L2))
+            q = (x1 + dx * u, z1 + dz * u); d = math.hypot(p[0] - q[0], p[1] - q[1])
+            if d < best: best, bp = d, q
+        return bp
+    mid = []
+    for p in densify(A, 5.0):
+        q = nearest(p, B); mid.append(((p[0] + q[0]) / 2, (p[1] + q[1]) / 2))
+    first, last = edges[chains[0][0]], edges[chains[0][-1]]
+    a_node = first['a']                       # surface junction, shared by both carriageways
+    other_end = edges[chains[1][0]]['a']      # where the opposite carriageway starts
+    ex = (cnodes[last['b']]['x'] + cnodes[other_end]['x']) / 2; ez = (cnodes[last['b']]['z'] + cnodes[other_end]['z']) / 2
+    cnodes.append(dict(x=ex, z=ez, spread=0, edges=[])); b_node = len(cnodes) - 1
+    mid[0] = (cnodes[a_node]['x'], cnodes[a_node]['z']); mid[-1] = (ex, ez)
+    lanes = 2
+    merged = dict(first, a=a_node, b=b_node, oneway=0, lanes=lanes, hw=lanes * 3.2 + 0.6, poly=simplify(mid, 0.4))
+    drop = set(chains[0]) | set(chains[1])
+    edges = [e for i, e in enumerate(edges) if i not in drop] + [merged]
+    for n in cnodes:
+        n['edges'] = []
+    for i, e in enumerate(edges):
+        cnodes[e['a']]['edges'].append(i); cnodes[e['b']]['edges'].append(i)
+    print('underpass merged: length %.0f m, carriageways %d+%d edges' % (sum(math.hypot(mid[i][0]-mid[i-1][0], mid[i][1]-mid[i-1][1]) for i in range(1, len(mid))), len(chains[0]), len(chains[1])))
+
 # underpass depth: 0 where it meets surface streets, down to DEEP metres, back to 0 at the map edge
 DEEP, DOWN, UP = -7.0, 220.0, 90.0
 def densify(poly, step=10.0):
@@ -195,6 +253,7 @@ def densify(poly, step=10.0):
         for k in range(1, n + 1):
             out.append((x1 + (x2 - x1) * k / n, z1 + (z2 - z1) * k / n))
     return out
+merge_underpass()
 for e in edges:
     if e['ug']:
         e['poly'] = densify(e['poly'])
