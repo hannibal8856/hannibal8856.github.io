@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="zh-Hans">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>最后一张 牌桌</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&display=swap">
+<style>
+/* Layout: one-screen card table — opponents row on top, piles in the middle, your fanned hand at the bottom. Deliberately single dark theme (night table). */
+:root {
+  color-scheme: dark;
+  --table: #12202c;
+  --table-hi: #1d3343;
+  --rail: #0b141c;
+  --fg: #eef3f6;
+  --muted: #93a8b6;
+  --glow: #ffd23f;
+  --red: #e0303f;
+  --yellow: #f5b70a;
+  --green: #1f9d57;
+  --blue: #2370d6;
+  --back: #191919;
+  --paper: #ffffff;
+  --num: "Bungee", "Arial Black", system-ui, sans-serif;
+  --ui: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--rail); color: var(--fg); font-family: var(--ui);
+  -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+  overflow: hidden;
+}
+.app {
+  height: 100%; max-width: 600px; margin: 0 auto; box-sizing: border-box;
+  display: grid; grid-template-rows: auto 1fr auto auto auto; gap: 10px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px;
+  background: radial-gradient(120% 70% at 50% 45%, var(--table-hi), var(--table) 60%, var(--rail));
+}
+.top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.top h1 { margin: 0; font: 400 1.05rem var(--num); letter-spacing: .02em; }
+.top h1 span { color: var(--glow); }
+.ghostbtn {
+  font: 600 .85rem var(--ui); color: var(--fg); background: transparent; border: 1.5px solid #ffffff33;
+  border-radius: 999px; padding: 6px 12px; cursor: pointer;
+}
+.seats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.seat {
+  position: relative; background: #ffffff0d; border-radius: 12px; padding: 8px; min-width: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  box-shadow: inset 0 0 0 1.5px #ffffff12; transition: box-shadow .2s, background .2s;
+}
+.seat.active { background: #ffd23f1c; box-shadow: inset 0 0 0 2px var(--glow); }
+.seat .who { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: .9rem; }
+.av { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: .8rem; font-weight: 700; color: #111; }
+.seat .count { font: 400 .8rem var(--num); color: var(--muted); }
+.seat .count.one { color: var(--glow); }
+.minis { display: flex; height: 26px; }
+.mini { width: 17px; height: 26px; border-radius: 3px; background: var(--back); border: 1.5px solid #fff; margin-left: -10px; box-sizing: border-box; overflow: hidden; box-shadow: -1px 0 3px #0008; }
+.mini:first-child { margin-left: 0; }
+.mini::after { content: ""; display: block; margin: 7px 3px; height: 9px; border-radius: 50%; background: var(--red); transform: rotate(-30deg); }
+.bubble {
+  position: absolute; left: 50%; bottom: -14px; transform: translateX(-50%); z-index: 3; white-space: nowrap;
+  background: var(--glow); color: #111; font: 400 .75rem var(--num); padding: 4px 8px; border-radius: 8px;
+  animation: bub 1.4s ease-out forwards;
+}
+@keyframes bub { 0% { transform: translate(-50%, 6px) scale(.6); opacity: 0; } 15% { transform: translate(-50%, 0) scale(1.08); opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+
+.center { display: flex; align-items: center; justify-content: center; gap: 28px; min-height: 0; position: relative; }
+.pile { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: .78rem; color: var(--muted); }
+.deckbtn { border: 0; padding: 0; background: none; cursor: pointer; border-radius: 12px; position: relative; }
+.deckbtn.can { animation: nudge 1.6s ease-in-out infinite; }
+.deckbtn.can .card { box-shadow: 0 0 0 3px var(--glow), 0 8px 18px #0008; }
+@keyframes nudge { 50% { transform: translateY(-4px); } }
+.ring { padding: 6px; border-radius: 16px; transition: background .3s; }
+.dir { position: absolute; top: 0; left: 50%; transform: translateX(-50%); font-size: .78rem; color: var(--muted); }
+
+.card {
+  --w: 70px;
+  width: var(--w); aspect-ratio: 2 / 3; box-sizing: border-box; border-radius: 10px; border: 3px solid var(--paper);
+  position: relative; overflow: hidden; container-type: inline-size; box-shadow: 0 4px 10px #0007;
+  background: var(--cc, var(--back)); color: var(--paper); font-family: var(--num);
+}
+.card.c-r { --cc: var(--red); } .card.c-y { --cc: var(--yellow); }
+.card.c-g { --cc: var(--green); } .card.c-b { --cc: var(--blue); } .card.c-w { --cc: var(--back); }
+.card .oval {
+  position: absolute; left: 50%; top: 50%; width: 82%; height: 64%; border-radius: 50%; background: var(--paper);
+  transform: translate(-50%, -50%) rotate(-28deg); display: grid; place-items: center;
+}
+.card .oval b { transform: rotate(28deg); font-weight: 400; font-size: 40cqw; color: var(--cc); line-height: 1; text-shadow: 0 0 0 #000; }
+.card.c-w .oval { background: conic-gradient(var(--red) 0 25%, var(--blue) 0 50%, var(--yellow) 0 75%, var(--green) 0); }
+.card.c-w .oval b { color: var(--paper); text-shadow: 0 1px 0 #000, 0 0 6px #000a; font-size: 34cqw; }
+.card .corner { position: absolute; font-size: 20cqw; line-height: 1; text-shadow: 1px 1px 0 #0006; }
+.card .tl { top: 5%; left: 7%; } .card .br { bottom: 5%; right: 7%; transform: rotate(180deg); }
+.card.back { --cc: var(--back); }
+.card.back .oval { background: var(--red); }
+.card.back .oval b { color: var(--glow); font-size: 30cqw; text-shadow: 1px 1px 0 #000; }
+.card.landed { animation: land .28s ease-out; }
+@keyframes land { from { transform: translateY(-30px) scale(1.25) rotate(var(--r0, 0deg)); opacity: 0; } }
+
+.msg { text-align: center; font-size: .92rem; min-height: 2.6em; line-height: 1.35; display: grid; place-items: center; text-wrap: balance; }
+.msg.mine { color: var(--glow); font-weight: 600; }
+
+.hand { position: relative; width: 100%; transition: filter .2s; }
+.hand .card { position: absolute; bottom: 0; cursor: pointer; transition: transform .15s, left .2s, filter .2s; }
+.hand.myturn .card.ok { transform: translateY(-14px); box-shadow: 0 0 0 2px var(--glow), 0 8px 16px #0009; }
+.hand.myturn .card.no { filter: brightness(.55); }
+.hand .card.shake { animation: shake .3s; }
+@keyframes shake { 25% { margin-left: -6px; } 75% { margin-left: 6px; } }
+
+.controls { display: flex; gap: 10px; justify-content: center; padding-bottom: 4px; }
+.btn {
+  font: 400 .95rem var(--num); border: 0; border-radius: 12px; padding: 12px 18px; cursor: pointer;
+  background: var(--fg); color: #111;
+}
+.btn.call { background: var(--glow); }
+.btn.call.done { background: #ffffff22; color: var(--glow); }
+.btn:disabled { opacity: .3; cursor: default; }
+.btn:focus-visible, .ghostbtn:focus-visible, .deckbtn:focus-visible { outline: 3px solid var(--glow); outline-offset: 3px; }
+
+.modal { position: fixed; inset: 0; z-index: 20; background: #05090dd9; display: grid; place-items: center; padding: 16px; animation: fade .2s; }
+.modal .box { background: var(--table); border-radius: 18px; padding: 22px; max-width: 360px; width: 100%; box-sizing: border-box; box-shadow: 0 0 0 1.5px #ffffff1a; text-align: center; display: flex; flex-direction: column; gap: 14px; }
+.modal h2 { margin: 0; font: 400 1.4rem var(--num); text-wrap: balance; }
+.modal p, .modal li { margin: 0; color: var(--muted); line-height: 1.5; font-size: .92rem; text-align: left; }
+.modal ul { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px; }
+.swatches { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.swatch { border: 0; border-radius: 12px; height: 64px; cursor: pointer; font: 600 1.05rem var(--ui); color: #fff; text-shadow: 0 1px 2px #0008; }
+.results { display: flex; flex-direction: column; gap: 6px; }
+.results div { display: flex; justify-content: space-between; color: var(--fg); font-size: .95rem; }
+.results div span:last-child { font-family: var(--num); color: var(--muted); }
+@keyframes fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+
+<div class="app">
+  <div>
+    <div class="top">
+      <h1>最后<span>一张</span></h1>
+      <div style="display:flex;gap:6px">
+        <button class="ghostbtn" id="rulesBtn">规则</button>
+        <button class="ghostbtn" id="newBtn">新一局</button>
+      </div>
+    </div>
+    <div class="seats" id="seats"></div>
+  </div>
+  <div class="center">
+    <div class="dir" id="dir"></div>
+    <div class="pile">
+      <button class="deckbtn" id="deck" aria-label="抽一张牌"></button>
+      <span id="deckCount"></span>
+    </div>
+    <div class="pile">
+      <div class="ring" id="ring"></div>
+      <span id="colorName"></span>
+    </div>
+  </div>
+  <div class="msg" id="msg"></div>
+  <div class="hand" id="hand"></div>
+  <div class="controls">
+    <button class="btn call" id="callBtn">喊 最后一张!</button>
+    <button class="btn" id="passBtn" hidden>过</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const COLORS = ['r', 'y', 'g', 'b'];
+  const CN = { r: '红', y: '黄', g: '绿', b: '蓝' };
+  const CSSC = { r: 'var(--red)', y: 'var(--yellow)', g: 'var(--green)', b: 'var(--blue)' };
+  const NAMES = ['你', '阿明', '小美', '老王'];
+  const AVC = ['', '#7fd1ff', '#ffa3c4', '#b8e986'];
+  const SYM = { skip: '⊘', rev: '⇄', '+2': '+2', wild: '★', '+4': '+4' };
+  const VN = { skip: '跳过', rev: '反转', '+2': '+2', wild: '变色', '+4': '+4' };
+  const $ = (id) => document.getElementById(id);
+  let S, timer = null, lastTop = null;
+
+  const mod = (n) => ((n % 4) + 4) % 4;
+  const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const top = () => S.discard[S.discard.length - 1];
+  const nextP = () => mod(S.turn + S.dir);
+  const playable = (c) => c.c === 'w' || c.c === S.color || c.v === top().v;
+  const label = (c, col) => c.c === 'w' ? `${VN[c.v]}牌，选了${CN[col]}色` : CN[c.c] + (VN[c.v] || ' ' + c.v);
+
+  function buildDeck() {
+    const d = []; let id = 0;
+    for (const c of COLORS) {
+      d.push({ c, v: '0', id: id++ });
+      for (let k = 0; k < 2; k++) {
+        for (let n = 1; n <= 9; n++) d.push({ c, v: String(n), id: id++ });
+        for (const v of ['skip', 'rev', '+2']) d.push({ c, v, id: id++ });
+      }
+    }
+    for (let k = 0; k < 4; k++) { d.push({ c: 'w', v: 'wild', id: id++ }); d.push({ c: 'w', v: '+4', id: id++ }); }
+    return shuffle(d);
+  }
+
+  function newGame() {
+    clearTimeout(timer);
+    S = { gid: Math.random(), deck: buildDeck(), discard: [], hands: [[], [], [], []], turn: 0, dir: 1, color: null,
+          drawn: null, phase: 'play', called: false, winner: null, msg: '', bubble: null };
+    for (let i = 0; i < 7; i++) for (let p = 0; p < 4; p++) S.hands[p].push(S.deck.pop());
+    let t;
+    while (true) { t = S.deck.pop(); if (/^\d$/.test(t.v)) break; S.deck.unshift(t); }
+    S.discard.push(t); S.color = t.c;
+    sortHand();
+    S.msg = '你先出。点亮起来的牌打出，没有能出的就点牌堆抽一张。';
+    closeModal();
+    render();
+  }
+
+  function sortHand() {
+    const order = { r: 0, y: 1, g: 2, b: 3, w: 4 };
+    const vo = (v) => /^\d$/.test(v) ? +v : { skip: 10, rev: 11, '+2': 12, wild: 13, '+4': 14 }[v];
+    S.hands[0].sort((a, b) => order[a.c] - order[b.c] || vo(a.v) - vo(b.v));
+  }
+
+  function draw(p, n) {
+    const got = [];
+    for (let i = 0; i < n; i++) {
+      if (!S.deck.length) {
+        const t = S.discard.pop();
+        S.deck = shuffle(S.discard); S.discard = [t];
+        if (!S.deck.length) break;
+      }
+      const c = S.deck.pop(); S.hands[p].push(c); got.push(c);
+    }
+    return got;
+  }
+
+  function flash(p, text) {
+    S.bubble = { p, text, until: Date.now() + 1400 };
+    setTimeout(render, 1450);
+  }
+
+  function playCard(p, idx, col) {
+    const card = S.hands[p].splice(idx, 1)[0];
+    S.discard.push(card);
+    S.color = card.c === 'w' ? col : card.c;
+    S.drawn = null;
+    let m = `${NAMES[p]}打出 ${label(card, S.color)}`;
+    if (S.hands[p].length === 1) {
+      if (p === 0 && !S.called) { draw(0, 2); m += '。你没喊“最后一张”，罚抽 2 张'; }
+      else if (p !== 0) flash(p, '最后一张!');
+    }
+    S.called = false;
+    if (S.hands[p].length === 0) {
+      S.phase = 'over'; S.winner = p; S.msg = p === 0 ? '你赢了！' : `${NAMES[p]}出完了牌。`;
+      render(); showResult(); return;
+    }
+    let skip = 0;
+    if (card.v === 'skip') { skip = 1; m += `，${NAMES[nextP()]}被跳过`; }
+    else if (card.v === 'rev') { S.dir *= -1; m += '，方向反转'; }
+    else if (card.v === '+2' || card.v === '+4') {
+      const t = nextP(), n = card.v === '+2' ? 2 : 4;
+      draw(t, n); skip = 1; m += `，${NAMES[t]}抽 ${n} 张并停一轮`;
+    }
+    S.turn = mod(S.turn + S.dir * (1 + skip));
+    if (p === 0) sortHand();
+    S.msg = m + (S.turn === 0 ? '。轮到你了' : '');
+    render();
+  }
+
+  function pickColor(p) {
+    const cnt = { r: 0, y: 0, g: 0, b: 0 };
+    S.hands[p].forEach(c => { if (c.c !== 'w') cnt[c.c]++; });
+    return COLORS.reduce((a, b) => cnt[b] > cnt[a] ? b : a, COLORS[Math.floor(Math.random() * 4)]);
+  }
+
+  function botTurn() {
+    const p = S.turn, hand = S.hands[p], gid = S.gid;
+    const opts = hand.map((c, i) => [c, i]).filter(([c]) => playable(c));
+    if (opts.length) {
+      const threat = S.hands[nextP()].length <= 2;
+      const score = ([c]) => {
+        if (c.c === 'w') return threat && c.v === '+4' ? 9 : -5 + (c.v === '+4' ? -1 : 0);
+        if (['+2', 'skip'].includes(c.v)) return threat ? 8 : 1;
+        if (c.v === 'rev') return 1;
+        return 2 + (c.c === S.color ? 1 : 0) + Math.random();
+      };
+      opts.sort((a, b) => score(b) - score(a));
+      const [c, i] = opts[0];
+      playCard(p, i, c.c === 'w' ? pickColor(p) : null);
+      return;
+    }
+    const [c] = draw(p, 1);
+    S.msg = `${NAMES[p]}没有能出的牌，抽了一张`;
+    render();
+    timer = setTimeout(() => {
+      if (S.gid !== gid) return;
+      if (c && playable(c)) playCard(p, S.hands[p].indexOf(c), c.c === 'w' ? pickColor(p) : null);
+      else { S.turn = nextP(); S.msg = `${NAMES[p]}过` + (S.turn === 0 ? '。轮到你了' : ''); render(); }
+    }, 650);
+  }
+
+  function schedule() {
+    clearTimeout(timer);
+    if (S.phase === 'play' && S.turn !== 0) {
+      const gid = S.gid;
+      timer = setTimeout(() => { if (S.gid === gid && S.phase === 'play' && S.turn !== 0) botTurn(); }, 950);
+    }
+  }
+
+  // ---------- your actions ----------
+  function tapCard(id, el) {
+    if (S.phase !== 'play' || S.turn !== 0) return;
+    const idx = S.hands[0].findIndex(c => c.id === id);
+    const card = S.hands[0][idx];
+    if ((S.drawn !== null && id !== S.drawn) || !playable(card)) {
+      el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); return;
+    }
+    if (card.c === 'w') { chooseColor(id); return; }
+    playCard(0, idx);
+  }
+
+  function tapDeck() {
+    if (S.phase !== 'play' || S.turn !== 0 || S.drawn !== null) return;
+    const [c] = draw(0, 1);
+    sortHand();
+    if (c && playable(c)) { S.drawn = c.id; S.msg = '抽到一张能出的牌。点它打出，或者点“过”'; }
+    else { S.called = false; S.turn = nextP(); S.msg = '抽到的牌出不了，轮到下家'; }
+    render();
+  }
+
+  function pass() {
+    if (S.drawn === null) return;
+    S.drawn = null; S.called = false; S.turn = nextP(); S.msg = '你选择了过';
+    render();
+  }
+
+  function call() {
+    if (!canCall()) return;
+    S.called = true; flash(0, '最后一张!'); S.msg = '喊好了，现在打出一张牌';
+    render();
+  }
+  const canCall = () => S.phase === 'play' && S.turn === 0 && S.hands[0].length === 2 && !S.called &&
+    S.hands[0].some(c => playable(c) && (S.drawn === null || c.id === S.drawn));
+
+  // ---------- modals ----------
+  function openModal(html) {
+    closeModal();
+    const m = document.createElement('div'); m.className = 'modal'; m.id = 'modal';
+    m.innerHTML = `<div class="box">${html}</div>`;
+    document.body.appendChild(m);
+    return m;
+  }
+  function closeModal() { const m = $('modal'); if (m) m.remove(); }
+
+  function chooseColor(id) {
+    const m = openModal(`<h2>选一个颜色</h2><div class="swatches">${COLORS.map(c =>
+      `<button class="swatch" data-c="${c}" style="background:${CSSC[c]}">${CN[c]}色</button>`).join('')}</div>
+      <button class="ghostbtn" id="cancelPick">先不出这张</button>`);
+    m.querySelectorAll('.swatch').forEach(b => b.onclick = () => {
+      closeModal();
+      const idx = S.hands[0].findIndex(c => c.id === id);
+      if (idx >= 0 && S.turn === 0) playCard(0, idx, b.dataset.c);
+    });
+    $('cancelPick').onclick = closeModal;
+  }
+
+  function showResult() {
+    const rows = [0, 1, 2, 3].map(p => [NAMES[p], S.hands[p].length]).sort((a, b) => a[1] - b[1])
+      .map(([n, k]) => `<div><span>${n}</span><span>${k === 0 ? '出完' : '剩 ' + k + ' 张'}</span></div>`).join('');
+    const m = openModal(`<h2>${S.winner === 0 ? '你赢了！' : NAMES[S.winner] + ' 赢了'}</h2>
+      <div class="results">${rows}</div><button class="btn call" id="againBtn">再来一局</button>`);
+    $('againBtn').onclick = newGame;
+  }
+
+  function showRules() {
+    const m = openModal(`<h2>怎么玩</h2><ul>
+      <li>打出的牌要和桌上那张<b>同色</b>或<b>同数字/同符号</b>。万能牌随时能出，出完选颜色。</li>
+      <li>没有能出的牌就点牌堆抽一张，抽到能出的可以马上出，否则轮到下家。</li>
+      <li>⊘ 跳过下家；⇄ 反转出牌方向；+2 让下家抽 2 张并停一轮；万能 +4 让下家抽 4 张并停一轮。</li>
+      <li>手里剩 2 张、准备出倒数第二张前，先点“喊 最后一张!”，忘了就罚抽 2 张。</li>
+      <li>最先出完手牌的人获胜。</li></ul>
+      <button class="btn" id="okRules">知道了</button>`);
+    $('okRules').onclick = closeModal;
+  }
+
+  // ---------- render ----------
+  function cardHTML(c, extra = '') {
+    const s = SYM[c.v] || c.v;
+    return `<div class="card c-${c.c} ${extra}" data-id="${c.id}"><span class="corner tl">${s}</span>` +
+      `<span class="oval"><b>${s}</b></span><span class="corner br">${s}</span></div>`;
+  }
+
+  function render() {
+    const bub = S.bubble && Date.now() < S.bubble.until ? S.bubble : null;
+    $('seats').innerHTML = [1, 2, 3].map(p => {
+      const n = S.hands[p].length;
+      return `<div class="seat ${S.turn === p && S.phase === 'play' ? 'active' : ''}">
+        <div class="who"><span class="av" style="background:${AVC[p]}">${NAMES[p][1]}</span>${NAMES[p]}</div>
+        <div class="minis">${'<i class="mini"></i>'.repeat(Math.min(n, 9))}</div>
+        <div class="count ${n === 1 ? 'one' : ''}">${n} 张</div>
+        ${bub && bub.p === p ? `<div class="bubble">${bub.text}</div>` : ''}</div>`;
+    }).join('');
+
+    const myTurn = S.phase === 'play' && S.turn === 0;
+    const deck = $('deck');
+    deck.innerHTML = `<div class="card back" style="--w:72px"><span class="oval"><b>牌</b></span></div>`;
+    const anyOk = S.hands[0].some(playable);
+    deck.classList.toggle('can', myTurn && S.drawn === null && !anyOk);
+    $('deckCount').textContent = `牌堆 ${S.deck.length}`;
+
+    const t = top();
+    const rot = (t.id * 37) % 17 - 8;
+    $('ring').style.background = CSSC[S.color];
+    $('ring').innerHTML = cardHTML(t, t.id !== lastTop ? 'landed' : '');
+    const tc = $('ring').firstChild;
+    tc.style.setProperty('--w', '78px'); tc.style.transform = `rotate(${rot}deg)`; tc.style.setProperty('--r0', rot + 'deg');
+    lastTop = t.id;
+    $('colorName').textContent = `当前颜色：${CN[S.color]}`;
+    $('dir').textContent = S.dir === 1 ? '出牌方向 ↻ 顺时针' : '出牌方向 ↺ 逆时针';
+
+    const msg = $('msg');
+    msg.textContent = S.msg; msg.classList.toggle('mine', myTurn);
+
+    renderHand(myTurn, bub);
+
+    const cb = $('callBtn');
+    cb.disabled = !canCall() && !(S.called && myTurn);
+    cb.classList.toggle('done', S.called);
+    cb.textContent = S.called ? '已喊 ✓' : '喊 最后一张!';
+    $('passBtn').hidden = !(myTurn && S.drawn !== null);
+    schedule();
+  }
+
+  function renderHand(myTurn, bub) {
+    const el = $('hand'), hand = S.hands[0], n = hand.length;
+    const W = el.clientWidth || 360;
+    const cw = Math.round(Math.min(84, Math.max(58, W * 0.17)));
+    const step = n > 1 ? Math.min(cw + 6, (W - cw) / (n - 1)) : 0;
+    const left0 = (W - (cw + step * (n - 1))) / 2;
+    el.style.height = Math.round(cw * 1.5 + 18) + 'px';
+    el.classList.toggle('myturn', myTurn);
+    el.innerHTML = hand.map((c, i) => {
+      const ok = playable(c) && (S.drawn === null || c.id === S.drawn);
+      return cardHTML(c, ok ? 'ok' : 'no');
+    }).join('') + (bub && bub.p === 0 ? `<div class="bubble" style="bottom:auto;top:-28px">${bub.text}</div>` : '');
+    el.querySelectorAll('.card').forEach((cEl, i) => {
+      cEl.style.setProperty('--w', cw + 'px');
+      cEl.style.left = (left0 + i * step) + 'px';
+      cEl.style.zIndex = i;
+      cEl.onclick = () => tapCard(+cEl.dataset.id, cEl);
+    });
+  }
+
+  $('deck').onclick = tapDeck;
+  $('passBtn').onclick = pass;
+  $('callBtn').onclick = call;
+  $('newBtn').onclick = newGame;
+  $('rulesBtn').onclick = showRules;
+  window.addEventListener('resize', () => S && renderHand(S.phase === 'play' && S.turn === 0, null));
+
+  window.claude?.hot?.snapshot?.(() => ({ S }));
+  function start(data) {
+    if (data && data.S) { S = data.S; S.gid = Math.random(); render(); if (S.phase === 'over') showResult(); }
+    else newGame();
+  }
+  window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
+
+</html>

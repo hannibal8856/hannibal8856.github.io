@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="zh-Hans">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>青瓷 2048</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;800&family=ZCOOL+XiaoWei&display=swap">
+<style>
+/* Layout: one centered column — title row, score chips, square board, hint. Porcelain + celadon glaze, vermilion seal for big tiles. */
+:root {
+  --bg: #e9eeea;
+  --ink: #1d2a2c;
+  --muted: #5d6e6b;
+  --board: #c3d0ca;
+  --cell: #d8e2dd;
+  --seal: #c23b22;
+  --chip: #f6f8f6;
+  --t2: #f4f7f3;  --t2f: #2f4440;
+  --t4: #e2ede4;  --t4f: #2f4440;
+  --t8: #b9d8c4;  --t8f: #1e3a33;
+  --t16: #8fc4a6; --t16f: #133029;
+  --t32: #5fa98a; --t32f: #ffffff;
+  --t64: #3d8a70; --t64f: #ffffff;
+  --t128: #2a6e5d; --t128f: #f3e7c9;
+  --t256: #1f5a52; --t256f: #f3e7c9;
+  --t512: #1a4448; --t512f: #f3e7c9;
+  --t1024: #a8402a; --t1024f: #fff3e0;
+  --t2048: #c23b22; --t2048f: #fff6e8;
+  --tbig: #2b1a16; --tbigf: #f0c46b;
+  --overlay: rgba(233, 238, 234, .86);
+  --display: "ZCOOL XiaoWei", "Songti SC", "Noto Serif SC", serif;
+  --num: "Sora", ui-sans-serif, system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11181a; --ink: #e4ece8; --muted: #8fa29d; --board: #22302f; --cell: #1a2526;
+    --chip: #1b2527; --overlay: rgba(17, 24, 26, .86);
+    --t2: #2c3b3a; --t2f: #d9e6e0; --t4: #33504a; --t4f: #e3efe9;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11181a; --ink: #e4ece8; --muted: #8fa29d; --board: #22302f; --cell: #1a2526;
+  --chip: #1b2527; --overlay: rgba(17, 24, 26, .86);
+  --t2: #2c3b3a; --t2f: #d9e6e0; --t4: #33504a; --t4f: #e3efe9;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--num);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none; -webkit-user-select: none;
+}
+.wrap { max-width: 440px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 2.6rem; line-height: 1; display: flex; align-items: baseline; gap: .3em; }
+h1 b { font-family: var(--num); font-weight: 800; font-size: .78em; letter-spacing: -.02em; }
+.scores { display: flex; gap: 8px; }
+.chip { background: var(--chip); border-radius: 10px; padding: 6px 14px; min-width: 64px; text-align: center; }
+.chip small { display: block; font-size: .68rem; letter-spacing: .12em; color: var(--muted); }
+.chip span { font-weight: 800; font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.bar p { margin: 0; color: var(--muted); font-size: .9rem; line-height: 1.4; }
+.btns { display: flex; gap: 8px; flex-shrink: 0; }
+button {
+  font: 600 .95rem var(--num); border: 0; border-radius: 10px; padding: 10px 16px; cursor: pointer;
+  background: var(--ink); color: var(--bg);
+}
+button.ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 2px var(--board); }
+button:disabled { opacity: .35; cursor: default; }
+button:focus-visible { outline: 3px solid var(--seal); outline-offset: 2px; }
+
+.board {
+  --gap: 3%;
+  --size: calc((100% - 5 * var(--gap)) / 4);
+  position: relative; width: 100%; aspect-ratio: 1; max-width: 100%;
+  background: var(--board); border-radius: 14px;
+  touch-action: none; overflow: hidden;
+}
+.cell, .tile {
+  position: absolute; width: var(--size); height: var(--size); border-radius: 9px;
+}
+.cell { background: var(--cell); }
+.tile {
+  display: grid; place-items: center;
+  font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.03em;
+  transition: left .11s ease-in-out, top .11s ease-in-out;
+  z-index: 1;
+}
+.tile .face {
+  width: 100%; height: 100%; border-radius: inherit; display: grid; place-items: center;
+  font-size: clamp(1.4rem, 8vw, 2.4rem);
+}
+.tile.d3 .face { font-size: clamp(1.15rem, 6.6vw, 2rem); }
+.tile.d4 .face { font-size: clamp(.95rem, 5.2vw, 1.6rem); }
+.tile.d5 .face { font-size: clamp(.8rem, 4.2vw, 1.3rem); }
+.tile.new .face { animation: appear .18s ease-out .08s backwards; }
+.tile.merged { z-index: 2; }
+.tile.merged .face { animation: pop .18s ease-out .08s; }
+@keyframes appear { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.16); } 100% { transform: scale(1); } }
+
+.overlay {
+  position: absolute; inset: 0; z-index: 5; background: var(--overlay);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  text-align: center; padding: 16px; animation: fade .3s ease-out;
+}
+.overlay h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 2.4rem; }
+.overlay p { margin: 0; color: var(--muted); }
+.overlay .btns { justify-content: center; }
+.seal {
+  width: 72px; height: 72px; border-radius: 8px; background: var(--seal); color: #fff6e8;
+  font-family: var(--display); font-size: 1.9rem; display: grid; place-items: center; transform: rotate(-6deg);
+}
+@keyframes fade { from { opacity: 0; } }
+.hint { color: var(--muted); font-size: .85rem; text-align: center; margin: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .tile { transition: none; }
+  .tile .face, .overlay { animation: none !important; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>青瓷 <b>2048</b></h1>
+    <div class="scores">
+      <div class="chip"><small>分数</small><span id="score">0</span></div>
+      <div class="chip"><small>最高</small><span id="best">0</span></div>
+    </div>
+  </header>
+  <div class="bar">
+    <p>合并相同的数字，拼出 <strong>2048</strong>。</p>
+    <div class="btns">
+      <button class="ghost" id="undo" disabled>撤销</button>
+      <button id="restart">新游戏</button>
+    </div>
+  </div>
+  <div class="board" id="board" aria-label="游戏棋盘"></div>
+  <p class="hint">手机上滑动棋盘，电脑上用方向键或 WASD。</p>
+</div>
+
+<script>
+(() => {
+  const N = 4;
+  const board = document.getElementById('board');
+  const scoreEl = document.getElementById('score');
+  const bestEl = document.getElementById('best');
+  const undoBtn = document.getElementById('undo');
+  let grid, score, best = 0, won, keepGoing, over, prev = null, nextId = 1, busy = false;
+
+  try { best = +localStorage.getItem('qc2048-best') || 0; } catch (e) {}
+
+  const pos = (i) => `calc(var(--gap) + ${i} * (var(--size) + var(--gap)))`;
+
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const d = document.createElement('div');
+    d.className = 'cell'; d.style.top = pos(r); d.style.left = pos(c);
+    board.appendChild(d);
+  }
+
+  function paint(t) {
+    const v = t.v, k = v > 2048 ? 'big' : v;
+    t.el.className = 'tile d' + String(v).length;
+    t.face.textContent = v;
+    t.face.style.background = `var(--t${k})`;
+    t.face.style.color = `var(--t${k}f)`;
+  }
+  function place(t) { t.el.style.top = pos(t.r); t.el.style.left = pos(t.c); }
+
+  function makeTile(v, r, c, cls) {
+    const el = document.createElement('div');
+    const face = document.createElement('div'); face.className = 'face';
+    el.appendChild(face);
+    const t = { id: nextId++, v, r, c, el, face };
+    paint(t); place(t);
+    if (cls) el.classList.add(cls);
+    board.appendChild(el);
+    grid[r * N + c] = t;
+    return t;
+  }
+
+  function clearTiles() {
+    board.querySelectorAll('.tile, .overlay').forEach(e => e.remove());
+  }
+
+  function addRandom() {
+    const empty = [];
+    grid.forEach((t, i) => { if (!t) empty.push(i); });
+    if (!empty.length) return;
+    const i = empty[Math.floor(Math.random() * empty.length)];
+    makeTile(Math.random() < 0.9 ? 2 : 4, Math.floor(i / N), i % N, 'new');
+  }
+
+  function snapshot() { return { cells: grid.map(t => t ? t.v : 0), score, won }; }
+
+  function load(s) {
+    clearTiles();
+    grid = Array(N * N).fill(null);
+    s.cells.forEach((v, i) => { if (v) makeTile(v, Math.floor(i / N), i % N); });
+    score = s.score; won = s.won; keepGoing = s.won; over = false;
+    updateScore();
+  }
+
+  function newGame() {
+    clearTiles();
+    grid = Array(N * N).fill(null);
+    score = 0; won = false; keepGoing = false; over = false; prev = null;
+    addRandom(); addRandom();
+    updateScore();
+  }
+
+  function updateScore() {
+    scoreEl.textContent = score;
+    if (score > best) {
+      best = score;
+      try { localStorage.setItem('qc2048-best', best); } catch (e) {}
+    }
+    bestEl.textContent = best;
+    undoBtn.disabled = !prev;
+  }
+
+  function canMove() {
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+      const t = grid[r * N + c];
+      if (!t) return true;
+      if (c < N - 1 && grid[r * N + c + 1] && grid[r * N + c + 1].v === t.v) return true;
+      if (r < N - 1 && grid[(r + 1) * N + c] && grid[(r + 1) * N + c].v === t.v) return true;
+    }
+    return false;
+  }
+
+  // dir: 0 up, 1 right, 2 down, 3 left
+  function move(dir) {
+    if (over || busy || (won && !keepGoing)) return;
+    const [dr, dc] = [[-1, 0], [0, 1], [1, 0], [0, -1]][dir];
+    const idx = [0, 1, 2, 3];
+    const rows = dr === 1 ? [...idx].reverse() : idx;
+    const cols = dc === 1 ? [...idx].reverse() : idx;
+    const before = snapshot();
+    const merged = new Set();
+    const dying = [];
+    let moved = false, gained = 0;
+
+    board.querySelectorAll('.tile').forEach(e => e.classList.remove('new', 'merged'));
+
+    for (const r of rows) for (const c of cols) {
+      const t = grid[r * N + c];
+      if (!t) continue;
+      let nr = r, nc = c, target = null;
+      while (true) {
+        const tr = nr + dr, tc = nc + dc;
+        if (tr < 0 || tr >= N || tc < 0 || tc >= N) break;
+        const o = grid[tr * N + tc];
+        if (!o) { nr = tr; nc = tc; continue; }
+        if (o.v === t.v && !merged.has(o.id)) target = o;
+        break;
+      }
+      grid[r * N + c] = null;
+      if (target) {
+        t.r = target.r; t.c = target.c; place(t);
+        t.el.style.zIndex = 0;
+        dying.push(t);
+        target.v *= 2; gained += target.v;
+        merged.add(target.id);
+        moved = true;
+      } else {
+        if (nr !== r || nc !== c) moved = true;
+        t.r = nr; t.c = nc; place(t);
+        grid[nr * N + nc] = t;
+      }
+    }
+
+    if (!moved) return;
+    prev = before;
+    score += gained;
+    busy = true;
+    setTimeout(() => {
+      dying.forEach(t => t.el.remove());
+      merged.forEach(id => {
+        const t = grid.find(x => x && x.id === id);
+        if (t) { paint(t); t.el.classList.add('merged'); }
+      });
+      addRandom();
+      updateScore();
+      busy = false;
+      if (!won && grid.some(t => t && t.v >= 2048)) { won = true; showOverlay('win'); }
+      else if (!canMove()) { over = true; showOverlay('over'); }
+    }, 110);
+  }
+
+  function showOverlay(kind) {
+    const o = document.createElement('div');
+    o.className = 'overlay';
+    if (kind === 'win') {
+      o.innerHTML = `<div class="seal">成</div><h2>拼出 2048！</h2><p>本局 ${score} 分</p>
+        <div class="btns"><button id="cont">继续挑战</button><button class="ghost" id="again">再来一局</button></div>`;
+    } else {
+      o.innerHTML = `<h2>无路可走</h2><p>本局 ${score} 分 · 最高 ${best} 分</p>
+        <div class="btns"><button id="again">再来一局</button><button class="ghost" id="ovUndo">撤销一步</button></div>`;
+    }
+    board.appendChild(o);
+    const cont = o.querySelector('#cont');
+    if (cont) cont.onclick = () => { keepGoing = true; o.remove(); };
+    o.querySelector('#again').onclick = newGame;
+    const ou = o.querySelector('#ovUndo');
+    if (ou) ou.onclick = undo;
+  }
+
+  function undo() {
+    if (!prev || busy) return;
+    const s = prev; prev = null;
+    load(s);
+    keepGoing = s.won;
+    updateScore();
+  }
+
+  document.getElementById('restart').onclick = newGame;
+  undoBtn.onclick = undo;
+
+  const keys = { ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3, w: 0, d: 1, s: 2, a: 3, W: 0, D: 1, S: 2, A: 3 };
+  document.addEventListener('keydown', e => {
+    if (e.key in keys && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); move(keys[e.key]); }
+  });
+
+  let sx = 0, sy = 0, tracking = false;
+  board.addEventListener('pointerdown', e => {
+    if (e.target.closest('button')) return;
+    sx = e.clientX; sy = e.clientY; tracking = true;
+  });
+  board.addEventListener('pointerup', e => {
+    if (!tracking) return;
+    tracking = false;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+    move(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0));
+  });
+  board.addEventListener('pointercancel', () => { tracking = false; });
+
+  newGame();
+})();
+</script>
+
+</html>
