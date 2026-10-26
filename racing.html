@@ -1618,6 +1618,57 @@ const City = (() => {
     if (bike) o = Math.min(e.hw - 0.7, (e.oneway ? (n * LANE) / 2 - LANE / 2 : LANE / 2 + (n - 1) * LANE) + 1.1);
     return o;
   }
+  // lane arrows: which moves (L straight S, R) each lane may make at a signalised junction,
+  // worked out from the real junction shape and the usual Taiwan layout
+  // (left lane turns left, right lane turns right, the rest go straight)
+  // turn class of every exit for an approach; the exit closest to straight ahead is "S",
+  // sharp reversals (the other carriageway of a divided road) are "U"
+  const moveCache = {};
+  function exitsOf(e, dir) {
+    const key = e.i * 2 + (dir > 0 ? 1 : 0);
+    if (moveCache[key]) return moveCache[key];
+    const n = nodes[endNode(e, dir)], d1 = Math.min(n.r + 15, e.L * 0.7);
+    const [ax, az] = lanePt(e, dir, e.L - d1, 0), ix = n.x - ax, iz = n.z - az, out = [];
+    for (const ei of n.edges) for (const d2 of [1, -1]) {
+      const e2 = edges[ei];
+      if (startNode(e2, d2) !== n.i || !usable(e2, d2)) continue;
+      const [bx, bz] = lanePt(e2, d2, Math.min(n.r + 15, e2.L * 0.7), 0), ox = bx - n.x, oz = bz - n.z;
+      out.push({ e: e2, dir: d2, ang: Math.atan2(ix * oz - iz * ox, ix * ox + iz * oz) });
+    }
+    let best = null;
+    for (const x of out) if (Math.abs(x.ang) < 0.9 && (!best || Math.abs(x.ang) < Math.abs(best.ang))) best = x;
+    for (const x of out) x.m = (x.e === e && x.dir === -dir) || Math.abs(x.ang) > 2.6 ? "U" : x === best ? "S" : x.ang > 0 ? "R" : "L";
+    return (moveCache[key] = out);
+  }
+  function moveOf(e, dir, e2, dir2) {
+    const x = exitsOf(e, dir).find(x => x.e === e2 && x.dir === dir2);
+    return x ? x.m : "U";
+  }
+  const laneCache = {};
+  function laneMoves(e, dir) {
+    const key = e.i * 2 + (dir > 0 ? 1 : 0);
+    if (key in laneCache) return laneCache[key];
+    let res = null;
+    const n = nodes[endNode(e, dir)];
+    if (n.sig && n.edges.length >= 3) {
+      const has = { L: false, S: false, R: false, U: false };
+      for (const x of exitsOf(e, dir)) has[x.m] = true;
+      const N = e.lanes, all = ["L", "S", "R"].filter(m => has[m]).join("");
+      if (all) {
+        res = [];
+        for (let k = 0; k < N; k++) {
+          let m;
+          if (N === 1 || all.length === 1) m = all;
+          else if (!has.S) m = k < N / 2 ? "L" : "R";
+          else if (k === 0) m = has.L ? (N === 2 ? "LS" : "L") : "S";
+          else if (k === N - 1) m = has.R ? "SR" : "S";
+          else m = "S";
+          res.push(m);
+        }
+      }
+    }
+    return (laneCache[key] = res);
+  }
   // signal groups: approaches roughly parallel to the node's main road share a phase
   nodes.forEach(n => {
     let ref = null, refCls = 9;
@@ -1869,6 +1920,44 @@ const City = (() => {
         }
       }
     }
+    // lane arrows (painted triangles): u = forward, v = to the right, 5 m long
+    const AR0 = [], AR1 = [];
+    function arrowTris(moves) {
+      const T = [], rect = (u0, u1, v0, v1) => T.push([u0, v0], [u1, v0], [u1, v1], [u0, v0], [u1, v1], [u0, v1]);
+      const S = moves.includes("S"), sides = [moves.includes("L") ? -1 : 0, moves.includes("R") ? 1 : 0].filter(Boolean);
+      const top = S ? 3.4 : 2.9;
+      rect(0, top, -0.13, 0.13);
+      if (S) T.push([3.4, -0.5], [5, 0], [3.4, 0.5]);
+      for (const sd of sides) {
+        const u0 = S ? 1.9 : 2.5;
+        if (sd > 0) rect(u0, u0 + 0.36, 0.13, 0.85); else rect(u0, u0 + 0.36, -0.85, -0.13);
+        T.push([u0 - 0.42, 0.85 * sd], [u0 + 0.18, 1.65 * sd], [u0 + 0.78, 0.85 * sd]);
+      }
+      return T;
+    }
+    function paintArrow(list, e, dir, sTip, off, moves) {
+      const [bx, bz, tx, tz] = lanePt(e, dir, sTip - 5, off), sa = dir > 0 ? sTip - 5 : e.L - sTip + 5, sb = dir > 0 ? sTip : e.L - sTip;
+      const y0 = yAt(e, sa), y1 = yAt(e, sb);
+      for (const [u, v] of arrowTris(moves)) list.push(bx + tx * u - tz * v, y0 + (y1 - y0) * u / 5, bz + tz * u + tx * v);
+    }
+    for (const e of edges) for (const dir of [1, -1]) {
+      if (!usable(e, dir)) continue;
+      const list = e.ug ? AR1 : AR0, a = s0(e, dir), b = s1(e, dir);
+      const lm = laneMoves(e, dir);
+      if (lm && e.lanes >= 2) {
+        const sets = b - a > 45 ? [b - 1.5, b - 28] : b - a > 9 ? [b - 1.5] : [];
+        for (const tip of sets) lm.forEach((m, k) => paintArrow(list, e, dir, tip, laneOff(e, k), m));
+      } else if (e.oneway && b - a > 30) {
+        // one-way streets: straight arrows along the block show the direction of travel
+        for (let tip = b - 6; tip - 5 > a + 4; tip -= 40) for (let k = 0; k < e.lanes; k++) paintArrow(list, e, dir, tip, laneOff(e, k), "S");
+      }
+    }
+    for (const [list, st] of [[AR0, 1], [AR1, 0]]) {
+      if (!list.length) continue;
+      const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(list.map((v, i) => i % 3 === 1 ? v + 0.052 : v), 3));
+      const mat = new THREE.MeshBasicMaterial(st ? { color: 0xf2f2f2, side: THREE.DoubleSide, stencilWrite: true, stencilRef: 1, stencilFunc: THREE.NotEqualStencilFunc } : { color: 0xf2f2f2, side: THREE.DoubleSide });
+      scene.add(new THREE.Mesh(g, mat));
+    }
     const markGeo = new THREE.PlaneGeometry(1, 1); markGeo.rotateX(-Math.PI / 2);
     for (const [list, color, y, st] of [[W0, 0xf2f2f2, 0.05, 1], [Y0, 0xf2c230, 0.055, 1], [W1, 0xf2f2f2, 0.05, 0], [Y1, 0xf2c230, 0.055, 0]]) {
       if (!list.length) continue;
@@ -2046,7 +2135,9 @@ const City = (() => {
     return out;
   }
   function chooseNext(o) {
-    const opts = options(o);
+    let opts = options(o);
+    const lm = !o.bike && laneMoves(o.e, o.dir);
+    if (lm) { const ok = lm[Math.min(o.k, o.e.lanes - 1)], f = opts.filter(op => ok.includes(moveOf(o.e, o.dir, op.e, op.dir))); if (f.length) opts = f; }
     if (!opts.length) return null;
     let r = rng() * opts.reduce((a, b) => a + b.w, 0);
     for (const op of opts) { r -= op.w; if (r <= 0) return op; }
