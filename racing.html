@@ -118,6 +118,19 @@ body[data-mode="menu"] .hud, body[data-mode="menu"] .pads { display: none; }
 .how { margin: 0; font-size: 14px; line-height: 1.75; opacity: 0.92; max-width: 34em; }
 .how b { color: var(--sun); }
 .modes { display: grid; gap: 10px; width: 100%; }
+.cars { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; width: 100%; }
+.car {
+  display: grid; gap: 4px; justify-items: center; cursor: pointer; color: var(--ink);
+  background: rgba(12, 20, 38, 0.7); border: 1px solid var(--line); border-radius: 14px; padding: 6px 4px 8px;
+  font: 600 11px var(--f-body); line-height: 1.3;
+}
+.car canvas { width: 100%; max-width: 90px; aspect-ratio: 9 / 8; }
+.car.on { border-color: var(--sun); background: rgba(255, 207, 107, 0.18); box-shadow: 0 0 0 1px var(--sun) inset; }
+.car:focus-visible, .sw:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
+.swatches { display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap; }
+.swatches span { font-size: 12px; opacity: 0.8; }
+.sw { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--line); cursor: pointer; padding: 0; }
+.sw.on { border-color: var(--sun); box-shadow: 0 0 0 2px var(--sun); }
 .mode {
   width: 100%; display: grid; gap: 4px; text-align: left; cursor: pointer; color: var(--ink);
   background: rgba(12, 20, 38, 0.7); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px;
@@ -199,9 +212,12 @@ body[data-mode="menu"] .hud, body[data-mode="menu"] .pads { display: none; }
 
 <div class="screen" id="startScreen">
   <div class="card">
-    <p class="tag">LUXGEN U6 GT · DRIVE</p>
+    <p class="tag">PICK YOUR CAR · DRIVE</p>
     <h1 class="logo">U6 開車趣</h1>
-    <p class="how">開著你的<b>納智捷 U6 GT</b>，選一種玩法：</p>
+    <p class="how">先選你的車和顏色：</p>
+    <div class="cars" id="carPick"></div>
+    <div class="swatches" id="swatches"></div>
+    <p class="how">再選一種玩法：</p>
     <div class="modes">
       <button class="mode" data-mode="city" type="button"><b>城市自由開</b><span>在城市裡隨便開。有紅綠燈、汽車和很多機車，可以切 R 檔倒車。闖紅燈會被記一次。</span></button>
       <button class="mode" data-mode="scenic" type="button"><b>慢遊公路</b><span>沿著海岸、櫻花、松林、花田和城市慢慢兜風，天色從黃昏變到夜晚。</span></button>
@@ -515,6 +531,83 @@ const Veh = (() => {
     ctx.fillStyle = "#c9a227"; poly2([[-0.022, -0.37], [0.022, -0.37], [0.02, -0.345], [0, -0.33], [-0.02, -0.345]]); ctx.fill();
     text("LAMBORGHINI", 0, -0.255, 0.032, "rgba(230,233,240,0.85)", 700, 0.008);
   }
+  // Nissan X-Trail: black floating-roof pillars, boomerang lamps, chrome strip, X-TRAIL lettering
+  function drawXTrail(c, lit) {
+    tire(-0.385, 0.17, 0.17); tire(0.385, 0.17, 0.17);
+    ctx.fillStyle = "#17181c"; poly2([[-0.46, -0.06], [0.46, -0.06], [0.49, -0.29], [-0.49, -0.29]]); ctx.fill();
+    chromeRect(-0.24, -0.135, 0.48, 0.03);
+    ctx.fillStyle = "#b3121f"; ctx.fillRect(-0.46, -0.22, 0.06, 0.02); ctx.fillRect(0.4, -0.22, 0.06, 0.02);
+    ctx.fillStyle = bodyGrad(c, -0.7, -0.27);
+    ctx.beginPath(); ctx.moveTo(-0.485, -0.28); ctx.lineTo(-0.5, -0.55); ctx.quadraticCurveTo(-0.495, -0.65, -0.43, -0.675);
+    ctx.lineTo(0.43, -0.675); ctx.quadraticCurveTo(0.495, -0.65, 0.5, -0.55); ctx.lineTo(0.485, -0.28); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#16181c";
+    poly2([[-0.43, -0.675], [-0.37, -0.94], [-0.31, -0.97], [0.31, -0.97], [0.37, -0.94], [0.43, -0.675]]); ctx.fill();
+    glass([[-0.35, -0.7], [-0.31, -0.92], [0.31, -0.92], [0.35, -0.7]]);
+    ctx.fillStyle = bodyGrad(c, -0.99, -0.95); ctx.fillRect(-0.32, -0.99, 0.64, 0.035);
+    lampRect(-0.07, -0.965, 0.14, 0.012, lit);
+    chromeRect(-0.37, -1.01, 0.05, 0.02); chromeRect(0.32, -1.01, 0.05, 0.02);
+    highlight(-0.665, -0.42, 0.42);
+    const Lp = [[-0.5, -0.645], [-0.23, -0.65], [-0.24, -0.62], [-0.41, -0.605], [-0.44, -0.545], [-0.5, -0.535]];
+    lampPoly(Lp, lit); lampPoly(mirror(Lp), lit);
+    chromeRect(-0.23, -0.637, 0.46, 0.012);
+    ctx.strokeStyle = chromeFill(-0.6, -0.5); ctx.lineWidth = 0.009;
+    ctx.beginPath(); ctx.arc(0, -0.55, 0.042, Math.PI * 0.15, Math.PI * 0.85, true); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, -0.55, 0.042, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
+    chromeRect(-0.065, -0.559, 0.13, 0.018);
+    text("X-TRAIL", 0, -0.47, 0.04, "rgba(70,74,84,0.95)", 700, 0.025);
+    plate(-0.37, "XT-33");
+  }
+  // Mazda CX-5: slim lamps with twin rings, chrome wing under the emblem, twin round exhausts
+  function drawCX5(c, lit) {
+    tire(-0.38, 0.17, 0.16); tire(0.38, 0.17, 0.16);
+    ctx.fillStyle = "#16171b"; poly2([[-0.46, -0.06], [0.46, -0.06], [0.49, -0.21], [-0.49, -0.21]]); ctx.fill();
+    exhaust(-0.33, -0.12, 0.038); exhaust(0.33, -0.12, 0.038);
+    ctx.fillStyle = bodyGrad(c, -0.67, -0.2);
+    ctx.beginPath(); ctx.moveTo(-0.485, -0.2); ctx.lineTo(-0.5, -0.52); ctx.quadraticCurveTo(-0.495, -0.63, -0.42, -0.655);
+    ctx.lineTo(0.42, -0.655); ctx.quadraticCurveTo(0.495, -0.63, 0.5, -0.52); ctx.lineTo(0.485, -0.2); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,0.16)"; ctx.fillRect(-0.48, -0.3, 0.96, 0.012);
+    ctx.fillStyle = bodyGrad(c, -0.95, -0.65);
+    poly2([[-0.42, -0.655], [-0.34, -0.9], [-0.27, -0.94], [0.27, -0.94], [0.34, -0.9], [0.42, -0.655]]); ctx.fill();
+    glass([[-0.355, -0.68], [-0.295, -0.885], [0.295, -0.885], [0.355, -0.68]]);
+    ctx.fillStyle = bodyGrad(c, -0.96, -0.92); ctx.fillRect(-0.3, -0.955, 0.6, 0.035);
+    lampRect(-0.07, -0.93, 0.14, 0.012, lit);
+    highlight(-0.645, -0.42, 0.42);
+    const Lp = [[-0.5, -0.61], [-0.19, -0.615], [-0.21, -0.58], [-0.49, -0.56]];
+    lampPoly(Lp, lit); lampPoly(mirror(Lp), lit);
+    ctx.strokeStyle = lit ? "#ffd0d0" : "#ff8a95"; ctx.lineWidth = 0.008;
+    for (const x of [-0.44, -0.36, 0.36, 0.44]) { ctx.beginPath(); ctx.arc(x, -0.588, 0.016, 0, Math.PI * 2); ctx.stroke(); }
+    chromeRect(-0.19, -0.602, 0.38, 0.014);
+    ctx.strokeStyle = chromeFill(-0.58, -0.5); ctx.lineWidth = 0.009;
+    ctx.beginPath(); ctx.ellipse(0, -0.545, 0.05, 0.035, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.lineWidth = 0.007; ctx.beginPath(); ctx.moveTo(-0.032, -0.53); ctx.quadraticCurveTo(-0.012, -0.552, 0, -0.567); ctx.quadraticCurveTo(0.012, -0.552, 0.032, -0.53); ctx.stroke();
+    text("CX-5", 0.34, -0.48, 0.04, "rgba(200,204,212,0.95)", 700, 0.01);
+    text("MAZDA", -0.34, -0.48, 0.032, "rgba(200,204,212,0.9)", 700, 0.012);
+    plate(-0.37, "CX-5");
+  }
+  // Tesla Model Y: rounded tail, all-glass roof, C-shaped lamps, T badge, spaced lettering, no exhaust
+  function drawModelY(c, lit) {
+    tire(-0.385, 0.17, 0.16); tire(0.385, 0.17, 0.16);
+    ctx.fillStyle = "#16171b"; poly2([[-0.44, -0.06], [0.44, -0.06], [0.47, -0.16], [-0.47, -0.16]]); ctx.fill();
+    ctx.fillStyle = "#b3121f"; ctx.fillRect(-0.45, -0.19, 0.05, 0.015); ctx.fillRect(0.4, -0.19, 0.05, 0.015);
+    ctx.fillStyle = bodyGrad(c, -0.66, -0.14);
+    ctx.beginPath(); ctx.moveTo(-0.475, -0.15); ctx.lineTo(-0.5, -0.42); ctx.quadraticCurveTo(-0.5, -0.6, -0.38, -0.645);
+    ctx.lineTo(0.38, -0.645); ctx.quadraticCurveTo(0.5, -0.6, 0.5, -0.42); ctx.lineTo(0.475, -0.15); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,0.12)"; ctx.fillRect(-0.47, -0.27, 0.94, 0.01);
+    ctx.fillStyle = bodyGrad(c, -0.95, -0.64);
+    ctx.beginPath(); ctx.moveTo(-0.4, -0.645); ctx.lineTo(-0.32, -0.88); ctx.quadraticCurveTo(-0.24, -0.945, 0, -0.95);
+    ctx.quadraticCurveTo(0.24, -0.945, 0.32, -0.88); ctx.lineTo(0.4, -0.645); ctx.closePath(); ctx.fill();
+    glass([[-0.37, -0.655], [-0.3, -0.87], [-0.2, -0.925], [0.2, -0.925], [0.3, -0.87], [0.37, -0.655]]);
+    ctx.fillStyle = bodyGrad(c, -0.665, -0.64); ctx.fillRect(-0.36, -0.665, 0.72, 0.022);
+    highlight(-0.635, -0.38, 0.38);
+    const Lp = [[-0.5, -0.565], [-0.27, -0.592], [-0.245, -0.57], [-0.3, -0.54], [-0.44, -0.525], [-0.49, -0.48]];
+    lampPoly(Lp, lit); lampPoly(mirror(Lp), lit);
+    ctx.strokeStyle = "rgba(20,10,12,0.8)"; ctx.lineWidth = 0.006;
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * 0.48, -0.555); ctx.lineTo(s * 0.29, -0.575); ctx.lineTo(s * 0.32, -0.552); ctx.stroke(); }
+    ctx.fillStyle = chromeFill(-0.625, -0.57);
+    poly2([[-0.035, -0.615], [0.035, -0.615], [0.03, -0.603], [0.007, -0.605], [0.004, -0.565], [-0.004, -0.565], [-0.007, -0.605], [-0.03, -0.603]]); ctx.fill();
+    text("TESLA", 0, -0.49, 0.036, "rgba(120,124,132,0.95)", 700, 0.04);
+    plate(-0.31, "MODEL-Y");
+  }
   // scooter seen from behind (units of scooter width)
   function drawScooter(c, lit, rider) {
     tire(0, 0.18, 0.32);
@@ -535,6 +628,9 @@ const Veh = (() => {
     mitsubishi: { cn: "三菱",     dmg: 18, wm: 1.04, h: 1.0,  lx: 0.4,  ly: 0.56, weight: 20, spd: [0.45, 0.65], colors: ["#a3141c", "#1d2a4d", "#f2f2f2", "#4a4f57"], L: 4.7, W: 1.86, top: 0.65, cab: [0.62, -0.06], draw: drawMitsubishi },
     ford:       { cn: "福特",     dmg: 25, wm: 1.1,  h: 1.05, lx: 0.45, ly: 0.55, weight: 20, spd: [0.5, 0.72],  colors: ["#16181d", "#1f3f7a", "#8a8f98", "#7d1a1a"], L: 5.8, W: 2.0, top: 0.75, cab: [0.32, 0.15], draw: drawF150 },
     nissan:     { cn: "日產",     dmg: 30, wm: 1.02, h: 0.8,  lx: 0.32, ly: 0.42, weight: 16, spd: [0.6, 0.85],  colors: ["#b8bcc4", "#3a3e46", "#f0f0f2", "#14365e"], L: 4.7, W: 1.9, top: 0.535, cab: [0.45, -0.02], draw: drawGTR },
+    xtrail:     { cn: "日產 X-Trail", dmg: 0, wm: 1.0, h: 1.0, lx: 0.4, ly: 0.6, L: 4.68, W: 1.84, top: 0.675, cab: [0.58, -0.05], draw: drawXTrail },
+    cx5:        { cn: "Mazda CX-5", dmg: 0, wm: 1.0, h: 0.95, lx: 0.38, ly: 0.59, L: 4.55, W: 1.84, top: 0.655, cab: [0.52, -0.05], draw: drawCX5 },
+    modely:     { cn: "Tesla Model Y", dmg: 0, wm: 1.0, h: 0.95, lx: 0.38, ly: 0.55, L: 4.75, W: 1.92, top: 0.645, cab: [0.56, -0.02], draw: drawModelY },
     lambo:      { cn: "藍寶堅尼", dmg: 45, wm: 1.08, h: 0.56, lx: 0.36, ly: 0.35, weight: 12, spd: [0.7, 0.95],  colors: ["#f2c200", "#7bd000", "#ff6a00", "#e8e8e8"], L: 4.5, W: 1.95, top: 0.385, cab: [0.38, 0.04], draw: drawLambo }
   };
   const TRAFFIC = Object.keys(MODELS).filter(k => MODELS[k].weight);
@@ -757,6 +853,49 @@ const GameAudio = (() => {
   $("gearBtn").addEventListener("pointerdown", e => { e.preventDefault(); if (Game.onGear) Game.onGear(); });
   addEventListener("blur", () => Object.keys(Game.keys).forEach(k => (Game.keys[k] = false)));
   if (!Game.coarse) $("howKeys").innerHTML = "鍵盤：<b>← →</b> 轉彎、<b>↑</b> 油門、<b>↓</b> 煞車、<b>R</b> 切換倒車檔。撞到東西會損血，撞越貴的車扣越多。";
+})();
+
+/* ===================== car picker ===================== */
+(() => {
+  const CARS = {
+    u6:     { name: "納智捷\nU6 GT", colors: ["#eef0f2", "#1f3b6e", "#2b2e33", "#a01a22"] },
+    xtrail: { name: "日產\nX-Trail", colors: ["#f1f2f4", "#2f4a6b", "#8a9099", "#1d1f23"] },
+    cx5:    { name: "Mazda\nCX-5", colors: ["#a3121e", "#e9eaec", "#5b6168", "#1b2a44"] },
+    modely: { name: "Tesla\nModel Y", colors: ["#f4f5f6", "#1e3f8a", "#7d8188", "#a1141c", "#16171a"] }
+  };
+  Game.car = { key: "u6", color: "#eef0f2" };
+  try {
+    const saved = JSON.parse(localStorage.getItem("player-car") || "null");
+    if (saved && CARS[saved.key] && CARS[saved.key].colors.includes(saved.color)) Game.car = saved;
+  } catch (e) {}
+  const save = () => { try { localStorage.setItem("player-car", JSON.stringify(Game.car)); } catch (e) {} };
+  const pick = $("carPick"), sw = $("swatches"), cards = {};
+  function paint(key) {
+    const cv = cards[key].querySelector("canvas"), g = cv.getContext("2d");
+    const color = Game.car.key === key ? Game.car.color : CARS[key].colors[0];
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
+    g.translate(cv.width / 2, cv.height - 8); g.scale(150, 150);
+    Veh.draw(g, key, color, false, 150);
+  }
+  function refresh() {
+    for (const k in cards) { cards[k].classList.toggle("on", k === Game.car.key); cards[k].setAttribute("aria-pressed", k === Game.car.key); paint(k); }
+    sw.innerHTML = "<span>顏色</span>";
+    for (const c of CARS[Game.car.key].colors) {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "sw" + (c === Game.car.color ? " on" : ""); b.style.background = c; b.setAttribute("aria-label", "車身顏色 " + c);
+      b.addEventListener("click", () => { Game.car.color = c; save(); refresh(); });
+      sw.appendChild(b);
+    }
+  }
+  for (const k in CARS) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "car";
+    b.innerHTML = `<canvas width="180" height="160"></canvas><span>${CARS[k].name.replace("\n", "<br>")}</span>`;
+    b.addEventListener("click", () => { Game.car = { key: k, color: CARS[k].colors[0] }; save(); refresh(); });
+    cards[k] = b; pick.appendChild(b);
+  }
+  refresh();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(refresh);
 })();
 </script>
 
@@ -1274,7 +1413,7 @@ const Scenic = (() => {
       }
     }
     const blinkOff = invuln > 0 && Math.floor(invuln * 12) % 2 === 0;
-    if (!blinkOff) drawVehicle(W / 2, py + bounce, pw, "u6", hp <= 0 ? "#5a5d64" : "#eef0f2", steerVis, Game.keys.brake && state === "play");
+    if (!blinkOff) drawVehicle(W / 2, py + bounce, pw, Game.car.key, hp <= 0 ? "#5a5d64" : Game.car.color, steerVis, Game.keys.brake && state === "play");
     const tn = env.tint;
     if (tn[3] > 0.005) { ctx.globalCompositeOperation = "source-atop"; ctx.fillStyle = css(tn, tn[3]); ctx.fillRect(-60, -60, W + 120, H + 120); }
     ctx.globalCompositeOperation = "lighter";
@@ -1535,8 +1674,7 @@ const City = (() => {
     lightRefs = refs;
 
     // the player's car
-    pMesh = carMesh("u6", "#eef0f2");
-    scene.add(pMesh);
+    pMesh = null;
     built = true;
     addEventListener("resize", resize);
   }
@@ -1841,7 +1979,7 @@ const City = (() => {
   function loop(now) {
     if (!running) return;
     raf = requestAnimationFrame(loop);
-    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    const dt = limit((now - last) / 1000, 0, 0.05); last = now;
     if (!Game.paused) {
       simT += dt;
       updateVehicles(dt);
@@ -1864,6 +2002,11 @@ const City = (() => {
     try { await load(); } catch (e) { showToast("城市載入失敗，請確認網路後再試", 2500, true); Flow.menu(); return; }
     if (Game.mode !== "city") return;
     if (!built) build();
+    const want = Game.car.key + Game.car.color;
+    if (!pMesh || pMesh.userData.car !== want) {
+      if (pMesh) scene.remove(pMesh);
+      pMesh = carMesh(Game.car.key, Game.car.color); pMesh.userData.car = want; scene.add(pMesh);
+    }
     reset(); resize(); updateLights();
     running = true; last = performance.now();
     cancelAnimationFrame(raf); raf = requestAnimationFrame(loop);
@@ -1877,7 +2020,7 @@ const City = (() => {
     Flow.over({ meters: m, best, isBest, line: `闖紅燈 ${player.viol} 次` });
   }
   Game.onGear = () => { if (Game.mode === "city" && player && !player.over) { setGear(player.gear === "D" ? "R" : "D"); GameAudio.blip(500, 0.06, "square", 0.05); } };
-  window.__city = { player: () => player, setTime: t => (simT = t) };
+  window.__city = { player: () => player, setTime: t => (simT = t), mesh: () => pMesh && { vis: pMesh.visible, x: pMesh.position.x, z: pMesh.position.z, inScene: !!pMesh.parent }, cam: () => camPos && camPos.toArray() };
   return { start, stop };
 })();
 </script>
