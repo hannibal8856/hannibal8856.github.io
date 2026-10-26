@@ -2062,6 +2062,8 @@ const City = (() => {
     }
     return true;
   }
+  // some lanes run under arcades and passages, so road surface never counts as a wall
+  function onRoad(x, z) { const r = nearestRoad(x, z); return r.d < r.e.hw; }
   function blockedAt(me) {
     const pts = corners(me), s = Math.sin(me.h), c = Math.cos(me.h);
     pts.push([me.x + s * me.hl, me.z + c * me.hl], [me.x - s * me.hl, me.z - c * me.hl], [me.x + c * me.hw, me.z - s * me.hw], [me.x - c * me.hw, me.z + s * me.hw]);
@@ -2069,7 +2071,7 @@ const City = (() => {
     for (const [x, z] of pts) for (const o of hash[cellKey(x, z)] || []) {
       if (seen.has(o)) continue; seen.add(o);
       if (o.kind === "tree") { if (hit(me, o)) return o; }
-      else if (pts.some(([px, pz]) => px > o.x0 && px < o.x1 && pz > o.z0 && pz < o.z1 && inPoly(px, pz, o.poly))) return o;
+      else if (pts.some(([px, pz]) => px > o.x0 && px < o.x1 && pz > o.z0 && pz < o.z1 && inPoly(px, pz, o.poly) && !onRoad(px, pz))) return o;
     }
     return null;
   }
@@ -2112,10 +2114,52 @@ const City = (() => {
     if (police) { police.tickets.push([label, fine]); return; }
     if (rng() < (kind === "red" ? 0.6 : 0.5)) callPolice([label, fine]);
   }
+  // points along an edge from distance sFrom to sTo (either direction), not including the start
+  function along(e, sFrom, sTo) {
+    const out = [];
+    if (sTo > sFrom) { for (let k = 1; k < e.pts.length - 1; k++) if (e.cum[k] > sFrom && e.cum[k] < sTo) out.push(e.pts[k]); }
+    else { for (let k = e.pts.length - 2; k > 0; k--) if (e.cum[k] < sFrom && e.cum[k] > sTo) out.push(e.pts[k]); }
+    const q = at(e, sTo); out.push([q[0], q[1]]);
+    return out;
+  }
+  // shortest way along the streets from one point to another (police may ignore one-way rules)
+  function route(fx, fz, tx, tz) {
+    const A = nearestRoad(fx, fz), B = nearestRoad(tx, tz);
+    if (A.e === B.e) return [...along(A.e, A.s, B.s), [tx, tz]];
+    const N = nodes.length, dist = new Array(N).fill(Infinity), prev = new Array(N).fill(null), done = new Array(N).fill(false);
+    dist[A.e.a] = A.s; dist[A.e.b] = A.e.L - A.s;
+    for (;;) {
+      let u = -1; for (let i = 0; i < N; i++) if (!done[i] && dist[i] < Infinity && (u < 0 || dist[i] < dist[u])) u = i;
+      if (u < 0) break; done[u] = true;
+      for (const ei of nodes[u].edges) {
+        const e = edges[ei], v = e.a === u ? e.b : e.a;
+        if (dist[u] + e.L < dist[v]) { dist[v] = dist[u] + e.L; prev[v] = [u, e]; }
+      }
+    }
+    const endA = dist[B.e.a] + B.s, endB = dist[B.e.b] + B.e.L - B.s;
+    if (!isFinite(Math.min(endA, endB))) return [[tx, tz]];
+    const last = endA <= endB ? B.e.a : B.e.b, chain = [];
+    for (let n = last; prev[n]; n = prev[n][0]) chain.unshift([prev[n][0], n, prev[n][1]]);
+    const first = chain.length ? chain[0][0] : last;
+    const pts = along(A.e, A.s, first === A.e.a ? 0 : A.e.L);
+    for (const [u, v, e] of chain) pts.push(...along(e, u === e.a ? 0 : e.L, v === e.a ? 0 : e.L));
+    pts.push(...along(B.e, last === B.e.a ? 0 : B.e.L, B.s), [tx, tz]);
+    return pts;
+  }
   function callPolice(ticket) {
     const fx = Math.sin(player.h), fz = Math.cos(player.h);
+    let spot = null, bestScore = Infinity;
+    const pathLen = pts => { let L = 0, x = 0, z = 0; pts.forEach(([px, pz], i) => { if (i) L += Math.hypot(px - x, pz - z); x = px; z = pz; }); return L; };
+    for (const n of nodes) {
+      const dx = n.x - player.x, dz = n.z - player.z, d = Math.hypot(dx, dz);
+      if (d < 50 || d > 260 || buildingAt(n.x, n.z)) continue;
+      const L = pathLen([[n.x, n.z], ...route(n.x, n.z, player.x, player.z)]);
+      const score = Math.abs(L - 120) + (dx * fx + dz * fz > 0 ? 150 : 0);
+      if (score < bestScore) { bestScore = score; spot = n; }
+    }
+    if (!spot) spot = nodes.reduce((a, n) => Math.hypot(n.x - player.x, n.z - player.z) > Math.hypot(a.x - player.x, a.z - player.z) ? n : a);
     const m = policeMesh(); scene.add(m);
-    police = { mesh: m, x: player.x - fx * 55, z: player.z - fz * 55, h: player.h, v: 14, t: 0, stopT: 0, tickets: [ticket], state: "chase" };
+    police = { mesh: m, x: spot.x, z: spot.z, h: Math.atan2(player.x - spot.x, player.z - spot.z), v: 6, t: 0, stopT: 0, tickets: [ticket], state: "chase", path: [], replan: 0 };
     GameAudio.siren(true);
     const chip = $("policeChip"); chip.hidden = false; chip.textContent = "警車要你靠邊停車";
     showToast("警車來了！請靠邊停車", 1800, true);
@@ -2135,25 +2179,40 @@ const City = (() => {
     const p = police, flash = Math.floor(simT * 6) % 2 === 0;
     p.mesh.userData.red.visible = flash || p.state === "leave"; p.mesh.userData.blue.visible = !flash || p.state === "leave";
     p.t += dt;
+    p.replan -= dt;
     if (p.state === "chase") {
       const fx = Math.sin(player.h), fz = Math.cos(player.h);
-      const tx = player.x - fx * 8, tz = player.z - fz * 8, dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz);
-      const want = Math.atan2(dx, dz);
-      let dh = ((want - p.h + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
-      if (d > 3) p.h += limit(dh, -2.2 * dt, 2.2 * dt);
-      const target = d < 4 ? 0 : limit(d * 0.9, 0, 24);
-      p.v += limit(target - p.v, -10 * dt, 6 * dt);
-      p.x += Math.sin(p.h) * p.v * dt; p.z += Math.cos(p.h) * p.v * dt;
+      if (p.replan <= 0) { p.path = route(p.x, p.z, player.x, player.z); p.replan = 0.8; }
       const gap = Math.hypot(player.x - p.x, player.z - p.z);
-      if (Math.abs(player.v) < 0.6 && gap < 18) { p.stopT += dt; $("policeChip").textContent = "停好了，警察過來開單…"; if (p.stopT > 2) ticket(false); }
+      drivePath(p, dt, Math.min(22, Math.max(0, (gap - 8) * 0.9)));
+      if (Math.abs(player.v) < 0.6 && gap < 24) { p.stopT += dt; $("policeChip").textContent = "停好了，警察過來開單…"; if (p.stopT > 2) ticket(false); }
       else { p.stopT = 0; $("policeChip").textContent = "警車要你靠邊停車"; }
       if (p.state === "chase" && p.t > 35) ticket(true);
     } else {
-      p.v = Math.min(16, p.v + 4 * dt);
-      p.x += Math.sin(p.h) * p.v * dt; p.z += Math.cos(p.h) * p.v * dt;
-      if (p.t > 8) { scene.remove(p.mesh); police = null; return; }
+      if (!p.leaveTo) {
+        const far = nodes.filter(n => Math.hypot(n.x - player.x, n.z - player.z) > 250);
+        p.leaveTo = far.length ? far[Math.floor(rng() * far.length)] : nodes[0];
+        p.path = route(p.x, p.z, p.leaveTo.x, p.leaveTo.z);
+      }
+      drivePath(p, dt, 15);
+      if (p.t > 12 || !p.path.length) { scene.remove(p.mesh); police = null; return; }
     }
     p.mesh.position.set(p.x, 0, p.z); p.mesh.rotation.y = p.h;
+  }
+  // follow a list of street waypoints, slowing for corners and for the end of the path
+  function drivePath(p, dt, vmax) {
+    while (p.path.length > 1 && Math.hypot(p.path[0][0] - p.x, p.path[0][1] - p.z) < 4) p.path.shift();
+    if (!p.path.length) { p.v = Math.max(0, p.v - 10 * dt); return; }
+    const [wx, wz] = p.path[0], dx = wx - p.x, dz = wz - p.z, d = Math.hypot(dx, dz);
+    let remain = d;
+    for (let i = 1; i < p.path.length; i++) remain += Math.hypot(p.path[i][0] - p.path[i - 1][0], p.path[i][1] - p.path[i - 1][1]);
+    const dh = ((Math.atan2(dx, dz) - p.h + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+    if (d > 1) p.h += limit(dh, -2.8 * dt, 2.8 * dt);
+    let target = Math.min(vmax, remain * 0.9);
+    if (Math.abs(dh) > 0.5) target = Math.min(target, 8);
+    if (p.path.length === 1 && d < 3) { target = 0; p.path.shift(); }
+    p.v += limit(target - p.v, -10 * dt, 6 * dt);
+    p.x += Math.sin(p.h) * p.v * dt; p.z += Math.cos(p.h) * p.v * dt;
   }
   function horn() {
     const fx = Math.sin(player.h), fz = Math.cos(player.h);
@@ -2358,7 +2417,7 @@ const City = (() => {
     Flow.over({ meters: m, best, isBest, line: `違規 ${player.viol} 次，罰單 NT$${player.fines.toLocaleString()}` });
   }
   Game.onGear = () => { if (Game.mode === "city" && player && !player.over) { setGear(player.gear === "D" ? "R" : "D"); GameAudio.blip(500, 0.06, "square", 0.05); } };
-  window.__city = { player: () => player, setTime: t => (simT = t), police: () => police && { x: police.x, z: police.z, state: police.state },
+  window.__city = { player: () => player, setTime: t => (simT = t), police: () => police && { x: police.x, z: police.z, state: police.state, v: police.v, stopT: police.stopT, path: police.path.length },
     callPolice: () => callPolice(["測試", 0]), _v: () => vehicles, step: (n, dt) => { for (let i = 0; i < n; i++) { simT += dt; updateVehicles(dt); updatePlayer(dt); updatePolice(dt); } }, nodes, edges, vehicles: () => vehicles.length };
   return { start, stop };
 })();
