@@ -13,7 +13,15 @@ import json, math, sys, collections
 
 src, dst = sys.argv[1], sys.argv[2]
 d = json.load(open(src))
-lat0, lon0 = 25.0355, 121.56375
+# map extent: the bounding box of any administrative boundary relations in the dump (the districts asked for),
+# otherwise the original 信義區 box around Taipei 101
+rels = [e for e in d['elements'] if e['type'] == 'relation' and 'bounds' in e]
+if rels:
+    minlat = min(r['bounds']['minlat'] for r in rels); maxlat = max(r['bounds']['maxlat'] for r in rels)
+    minlon = min(r['bounds']['minlon'] for r in rels); maxlon = max(r['bounds']['maxlon'] for r in rels)
+    lat0, lon0 = (minlat + maxlat) / 2, (minlon + maxlon) / 2
+else:
+    lat0, lon0 = 25.0355, 121.56375
 KX = math.cos(math.radians(lat0)) * 111320.0
 KZ = 110540.0
 def proj(lat, lon):
@@ -42,7 +50,12 @@ for w in ways:
         continue
     if not ug and t.get('tunnel') in ('yes', 'building_passage'):
         continue
-    if not ug and t.get('layer', '0').lstrip('-').isdigit() and int(t.get('layer', '0')) < 0:
+    layer = int(t.get('layer', '0')) if t.get('layer', '0').lstrip('-').isdigit() else 0
+    if not ug and layer < 0:
+        continue
+    if layer >= 1 or t.get('bridge') == 'viaduct':
+        continue  # elevated expressways (建國高架, 市民大道高架) would sit on top of the streets below
+    if t['highway'].endswith('_link') and t.get('bridge'):
         continue
     pts = [n for n in w['nodes'] if n in nodes]
     if len(pts) < 2:
@@ -90,14 +103,19 @@ def find(n):
     while parent[n] != n:
         parent[n] = parent[parent[n]]; n = parent[n]
     return n
-for i, a in enumerate(gl):
-    ax, az = nodes[a]
-    for b in gl[i + 1:]:
-        bx, bz = nodes[b]
-        if (a in surface_node) != (b in surface_node):
-            continue
-        if abs(ax - bx) < CL and abs(az - bz) < CL and math.hypot(ax - bx, az - bz) < CL:
-            parent[find(a)] = find(b)
+cgrid = collections.defaultdict(list)
+for a in gl:
+    cgrid[(int(nodes[a][0] // CL), int(nodes[a][1] // CL))].append(a)
+for a in gl:
+    ax, az = nodes[a]; gx, gz = int(ax // CL), int(az // CL)
+    for i in (-1, 0, 1):
+        for j in (-1, 0, 1):
+            for b in cgrid[(gx + i, gz + j)]:
+                if b <= a or (a in surface_node) != (b in surface_node):
+                    continue
+                bx, bz = nodes[b]
+                if math.hypot(ax - bx, az - bz) < CL:
+                    parent[find(a)] = find(b)
 clusters = collections.defaultdict(list)
 for n in gl:
     clusters[find(n)].append(n)
@@ -137,7 +155,11 @@ for s in segs:
     cnodes[a]['edges'].append(len(edges) - 1); cnodes[b]['edges'].append(len(edges) - 1)
 
 # clip to the requested box
-BX0, BX1, BZ0, BZ1 = -535.0, 535.0, -445.0, 445.0
+if rels:
+    (BX0, BZ1), (BX1, BZ0) = proj(minlat, minlon), proj(maxlat, maxlon)
+    BX0, BX1, BZ0, BZ1 = round(BX0), round(BX1), round(BZ0), round(BZ1)
+else:
+    BX0, BX1, BZ0, BZ1 = -535.0, 535.0, -445.0, 445.0
 def inside(p):
     return BX0 <= p[0] <= BX1 and BZ0 <= p[1] <= BZ1
 def cross(p, q):
@@ -187,9 +209,9 @@ for i, e in enumerate(edges):
 
 # the two one-way underpass carriageways are mapped only a few metres apart (they even overlap),
 # so merge them into one two-way corridor: centre line halfway between them, 2 lanes each way
-def merge_underpass():
+def merge_underpass(name):
     global edges
-    ug = [i for i, e in enumerate(edges) if e['ug']]
+    ug = [i for i, e in enumerate(edges) if e['ug'] and e['name'] == name]
     if not ug:
         return
     only_ug = lambda n: all(edges[j]['ug'] for j in cnodes[n]['edges'])
@@ -197,7 +219,7 @@ def merge_underpass():
     def chain(start_edge):
         out, e = [start_edge], edges[start_edge]
         while only_ug(e['b']):
-            nxt = [j for j in cnodes[e['b']]['edges'] if j not in out and j not in taken and edges[j]['ug'] and edges[j]['a'] == e['b']
+            nxt = [j for j in cnodes[e['b']]['edges'] if j not in out and j not in taken and edges[j]['ug'] and edges[j]['name'] == name and edges[j]['a'] == e['b']
                    and not (edges[j]['b'] == e['a'])]
             if not nxt:
                 break
@@ -207,8 +229,18 @@ def merge_underpass():
     starts = [i for i in ug if not only_ug(edges[i]['a']) or len(cnodes[edges[i]['a']]['edges']) == 1]
     starts.sort(key=lambda i: only_ug(edges[i]['a']))  # the carriageway leaving the surface junction first
     chains = [chain(i) for i in starts]
+    if all(not edges[i]['oneway'] for i in ug):
+        print('underpass %s: already two-way' % name); return
     if len(chains) != 2:
-        print('underpass: expected 2 carriageways, got', len(chains)); return
+        # an odd shape we cannot pair up: leave it out rather than draw overlapping walls
+        print('underpass %s: %d one-way pieces, left out' % (name, len(chains)))
+        drop = set(ug)
+        edges = [e for i, e in enumerate(edges) if i not in drop]
+        for n in cnodes:
+            n['edges'] = []
+        for i, e in enumerate(edges):
+            cnodes[e['a']]['edges'].append(i); cnodes[e['b']]['edges'].append(i)
+        return
     def poly_of(ch):
         pts = []
         for j in ch:
@@ -241,7 +273,7 @@ def merge_underpass():
         n['edges'] = []
     for i, e in enumerate(edges):
         cnodes[e['a']]['edges'].append(i); cnodes[e['b']]['edges'].append(i)
-    print('underpass merged: length %.0f m, carriageways %d+%d edges' % (sum(math.hypot(mid[i][0]-mid[i-1][0], mid[i][1]-mid[i-1][1]) for i in range(1, len(mid))), len(chains[0]), len(chains[1])))
+    print(name, 'merged: length %.0f m, carriageways %d+%d edges' % (sum(math.hypot(mid[i][0]-mid[i-1][0], mid[i][1]-mid[i-1][1]) for i in range(1, len(mid))), len(chains[0]), len(chains[1])))
 
 # underpass depth: 0 where it meets surface streets, down to DEEP metres, back to 0 at the map edge
 DEEP, DOWN, UP = -7.0, 220.0, 90.0
@@ -253,7 +285,8 @@ def densify(poly, step=10.0):
         for k in range(1, n + 1):
             out.append((x1 + (x2 - x1) * k / n, z1 + (z2 - z1) * k / n))
     return out
-merge_underpass()
+for nm in sorted({e['name'] for e in edges if e['ug']}):
+    merge_underpass(nm)
 for e in edges:
     if e['ug']:
         e['poly'] = densify(e['poly'])
