@@ -1561,6 +1561,7 @@ const Scenic = (() => {
 /* ===================== mode 2: free driving in Taipei Xinyi (OpenStreetMap data) ===================== */
 const City = (() => {
   const MAP = JSON.parse(document.getElementById("xinyiMap").textContent);
+  const VIEW = 1000;   // metres of city drawn around the player (fog ends just past this)
   const VFWD = 33.3, VREV = 4.5, ACCR = 2.5, BRK = 9, ROLL = 1.0, WB = 2.7;
   const P_HL = 2.3, P_HW = 0.93, LANE = 3.2;
   const NCARS = 44, NBIKES = 36;
@@ -1691,22 +1692,59 @@ const City = (() => {
     return ph >= 14 && ph < 24 ? "G" : ph >= 24 && ph < 27 ? "Y" : "R";
   }
   // nearest road to a point: edge, distance along, signed lateral offset, tangent
+  // road segments in a grid, so finding the nearest road stays fast on a big map
+  const SEG = 32, segGrid = new Map();
+  edges.forEach(e => {
+    for (let k = 1; k < e.pts.length; k++) {
+      const [x1, z1] = e.pts[k - 1], [x2, z2] = e.pts[k];
+      for (let cx = Math.floor(Math.min(x1, x2) / SEG); cx <= Math.floor(Math.max(x1, x2) / SEG); cx++)
+        for (let cz = Math.floor(Math.min(z1, z2) / SEG); cz <= Math.floor(Math.max(z1, z2) / SEG); cz++) {
+          const key = cx * 65536 + cz; let l = segGrid.get(key); if (!l) segGrid.set(key, l = []); l.push(e, k);
+        }
+    }
+  });
+  function segTest(e, k, x, z, accept, best) {
+    const [x1, z1] = e.pts[k - 1], [x2, z2] = e.pts[k], dx = x2 - x1, dz = z2 - z1, L2 = dx * dx + dz * dz || 1;
+    const u = limit(((x - x1) * dx + (z - z1) * dz) / L2, 0, 1), px = x1 + dx * u, pz = z1 + dz * u;
+    const d = Math.hypot(x - px, z - pz);
+    if (best && d >= best.d) return best;
+    const len = Math.sqrt(L2), s = e.cum[k - 1] + u * len;
+    if (accept && !accept(e, s)) return best;
+    const tx = dx / len, tz = dz / len;
+    return { e, d, s, tx, tz, lat: (x - px) * -tz + (z - pz) * tx };
+  }
   function nearestRoad(x, z, accept, list) {
     let best = null;
-    for (const e of list || edges) {
-      for (let k = 1; k < e.pts.length; k++) {
-        const [x1, z1] = e.pts[k - 1], [x2, z2] = e.pts[k], dx = x2 - x1, dz = z2 - z1, L2 = dx * dx + dz * dz || 1;
-        const u = limit(((x - x1) * dx + (z - z1) * dz) / L2, 0, 1), px = x1 + dx * u, pz = z1 + dz * u;
-        const d = Math.hypot(x - px, z - pz);
-        if (!best || d < best.d) {
-          const len = Math.sqrt(L2), s = e.cum[k - 1] + u * len;
-          if (accept && !accept(e, s)) continue;
-          const tx = dx / len, tz = dz / len;
-          best = { e, d, s, tx, tz, lat: (x - px) * -tz + (z - pz) * tx };
+    if (!list) {
+      const cx = Math.floor(x / SEG), cz = Math.floor(z / SEG);
+      for (let r = 0; r <= 16; r++) {
+        if (best && best.d <= (r - 1) * SEG) break;
+        for (let i = -r; i <= r; i++) for (let j = -r; j <= r; j++) {
+          if (Math.max(Math.abs(i), Math.abs(j)) !== r) continue;
+          const l = segGrid.get((cx + i) * 65536 + cz + j);
+          if (l) for (let q = 0; q < l.length; q += 2) best = segTest(l[q], l[q + 1], x, z, accept, best);
         }
       }
+      if (best) return best;
     }
+    for (const e of list || edges) for (let k = 1; k < e.pts.length; k++) best = segTest(e, k, x, z, accept, best);
     return best || { e: edges[0], d: 1e9, s: 0, tx: 1, tz: 0, lat: 0 };
+  }
+  // junctions in a grid too
+  const nodeGrid = new Map();
+  nodes.forEach(n => { const key = Math.floor(n.x / 60) * 65536 + Math.floor(n.z / 60); let l = nodeGrid.get(key); if (!l) nodeGrid.set(key, l = []); l.push(n); });
+  function nodesNear(x, z, r) {
+    const out = [], R = Math.ceil(r / 60);
+    for (let i = -R; i <= R; i++) for (let j = -R; j <= R; j++) for (const n of nodeGrid.get((Math.floor(x / 60) + i) * 65536 + Math.floor(z / 60) + j) || []) if (Math.hypot(n.x - x, n.z - z) < r) out.push(n);
+    return out;
+  }
+  // render tiles: buildings, trees and markings are grouped per tile and hidden when far away
+  const TILE = 250, tiles = new Map();
+  function tileAt(x, z) {
+    const tx = Math.floor(x / TILE), tz = Math.floor(z / TILE), key = tx * 65536 + tz;
+    let t = tiles.get(key);
+    if (!t) { t = { g: new THREE.Group(), x: (tx + 0.5) * TILE, z: (tz + 0.5) * TILE }; tiles.set(key, t); }
+    return t;
   }
   const surfaceOk = (e, s) => !e.ug || yAt(e, s) > -0.6;
 
@@ -1765,14 +1803,14 @@ const City = (() => {
 
     // ground and surface streets skip pixels covered by the open underpass trench (stencil mask)
     const behind = c => new THREE.MeshLambertMaterial({ color: c, stencilWrite: true, stencilRef: 1, stencilFunc: THREE.NotEqualStencilFunc });
-    const grass = new THREE.Mesh(new THREE.PlaneGeometry(5000, 5000), behind(0x7aa860));
-    grass.rotation.x = -Math.PI / 2; grass.position.y = -0.06; scene.add(grass);
+    const grass = new THREE.Mesh(new THREE.PlaneGeometry(BX1 - BX0 + 6000, BZ1 - BZ0 + 6000), behind(0x7aa860));
+    grass.rotation.x = -Math.PI / 2; grass.position.set((BX0 + BX1) / 2, -0.06, (BZ0 + BZ1) / 2); scene.add(grass);
     const pave = new THREE.Mesh(new THREE.PlaneGeometry(BX1 - BX0 + 60, BZ1 - BZ0 + 60), behind(0x8e8b84));
     pave.rotation.x = -Math.PI / 2; pave.position.set((BX0 + BX1) / 2, 0, (BZ0 + BZ1) / 2); scene.add(pave);
     for (let k = 0; k < 20; k++) {
-      const a = k / 20 * Math.PI * 2, r = 1300 + (k % 3) * 120;
+      const a = k / 20 * Math.PI * 2, r = Math.hypot(BX1 - BX0, BZ1 - BZ0) / 2 + 500 + (k % 3) * 120;
       const hm = new THREE.Mesh(new THREE.ConeGeometry(260 + (k % 4) * 60, 220 + (k % 5) * 70, 7), lam([0x6f9a6a, 0x7fa676, 0x86a88a][k % 3]));
-      hm.position.set(Math.cos(a) * r, 80, Math.sin(a) * r); scene.add(hm);
+      hm.position.set((BX0 + BX1) / 2 + Math.cos(a) * r, 80, (BZ0 + BZ1) / 2 + Math.sin(a) * r); scene.add(hm);
     }
 
     // road surface: ribbons (surface streets and underpass separately) plus a disc at every junction
@@ -1802,7 +1840,12 @@ const City = (() => {
     scene.add(new THREE.Mesh(ribbon(edges.filter(e => !e.ug), e => e.hw, () => 0.02), asphalt));
     scene.add(new THREE.Mesh(ribbon(ugEdges, e => e.hw, (e, k) => ys(e, k) + 0.02), asphaltU));
     const disc = new THREE.CircleGeometry(1, 24); disc.rotateX(-Math.PI / 2);
-    for (const n of nodes) { const m = new THREE.Mesh(disc, n.under ? asphaltU : asphalt); m.scale.set(n.r, 1, n.r); m.position.set(n.x, n.y + 0.021, n.z); scene.add(m); }
+    for (const [under, mat] of [[false, asphalt], [true, asphaltU]]) {
+      const ns = nodes.filter(n => n.under === under); if (!ns.length) continue;
+      const im = new THREE.InstancedMesh(disc, mat, ns.length), M0 = new THREE.Matrix4();
+      ns.forEach((n, k) => im.setMatrixAt(k, M0.makeScale(n.r, 1, n.r).setPosition(n.x, n.y + 0.021, n.z)));
+      scene.add(im);
+    }
     // the open trench: a stencil mask over it, retaining walls, a ceiling where it is covered, and tunnel lights
     const openSeg = (e, k) => OPEN(e.ys[k - 1]) || OPEN(e.ys[k]);
     const mask = new THREE.Mesh(ribbon(ugEdges, e => e.hw + 0.4, () => 0.03, openSeg),
@@ -1841,8 +1884,36 @@ const City = (() => {
     }
     wg.fillStyle = "rgba(0,0,0,0.12)"; for (let r = 0; r < 3; r++) wg.fillRect(0, r * 42 + 39, 128, 3);
     const winTex = new THREE.CanvasTexture(wc); winTex.wrapS = winTex.wrapT = THREE.RepeatWrapping; winTex.repeat.set(1 / 8, 1 / 10.5);
-    const walls = [0xe8e2d6, 0xc9cfd8, 0xd8c6a8, 0xb7c4cc, 0xe6d3c3, 0xa9b2bd, 0xf0ece4].map(c => [new THREE.MeshLambertMaterial({ color: c }), new THREE.MeshLambertMaterial({ color: c, map: winTex })]);
-    const glassT = [0x8fb3c9, 0x7fa0bf, 0x9fb7c2].map(c => [new THREE.MeshLambertMaterial({ color: 0xc9d3db }), new THREE.MeshLambertMaterial({ color: c, map: winTex })]);
+    const WALLS = [0xe8e2d6, 0xc9cfd8, 0xd8c6a8, 0xb7c4cc, 0xe6d3c3, 0xa9b2bd, 0xf0ece4].map(c => new THREE.Color(c));
+    const GLASS = [0x8fb3c9, 0x7fa0bf, 0x9fb7c2].map(c => new THREE.Color(c)), ROOF_G = new THREE.Color(0xc9d3db);
+    const roofMat = new THREE.MeshLambertMaterial({ vertexColors: true }), sideMat = new THREE.MeshLambertMaterial({ vertexColors: true, map: winTex });
+    // one merged mesh per tile for roofs and one for walls, built straight from the footprints
+    const bTiles = new Map();
+    function bAdd(flat, hh, k, glass) {
+      let cx = 0, cz = 0; for (let i = 0; i < flat.length; i += 2) { cx += flat[i]; cz += flat[i + 1]; } cx /= flat.length / 2; cz /= flat.length / 2;
+      const t = tileAt(cx, cz); let b = bTiles.get(t); if (!b) bTiles.set(t, b = { rP: [], rN: [], rC: [], sP: [], sN: [], sC: [], sU: [] });
+      const wc = glass ? GLASS[k % GLASS.length] : WALLS[k % WALLS.length], rc = glass ? ROOF_G : wc;
+      const n = flat.length / 2; let area = 0;
+      for (let i = 0, j = n - 1; i < n; j = i++) area += flat[j * 2] * flat[i * 2 + 1] - flat[i * 2] * flat[j * 2 + 1];
+      const sg = area > 0 ? 1 : -1;
+      const contour = []; for (let i = 0; i < n; i++) contour.push(new THREE.Vector2(flat[i * 2], flat[i * 2 + 1]));
+      for (const [a, bb, c] of THREE.ShapeUtils.triangulateShape(contour, [])) {
+        const A = contour[a], B = contour[bb], C2 = contour[c];
+        const up = (B.x - A.x) * (C2.y - A.y) - (B.y - A.y) * (C2.x - A.x) < 0;   // triangle faces up when wound this way in x/z
+        for (const q of up ? [A, B, C2] : [A, C2, B]) { b.rP.push(q.x, hh, q.y); b.rN.push(0, 1, 0); b.rC.push(rc.r, rc.g, rc.b); }
+      }
+      let u = 0;
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n, x1 = flat[i * 2], z1 = flat[i * 2 + 1], x2 = flat[j * 2], z2 = flat[j * 2 + 1], L = Math.hypot(x2 - x1, z2 - z1);
+        if (L < 0.01) continue;
+        const nx = (z2 - z1) / L * sg, nz = -(x2 - x1) / L * sg;
+        const v = [[x1, 0, z1, u, 0], [x2, 0, z2, u + L, 0], [x2, hh, z2, u + L, hh], [x1, hh, z1, u, hh]];
+        // keep the front face outward
+        const out = (x2 - x1) * nz - (z2 - z1) * nx > 0;
+        for (const idx of out ? [0, 1, 2, 0, 2, 3] : [0, 2, 1, 0, 3, 2]) { const q = v[idx]; b.sP.push(q[0], q[1], q[2]); b.sN.push(nx, 0, nz); b.sC.push(wc.r, wc.g, wc.b); b.sU.push(q[3], q[4]); }
+        u += L;
+      }
+    }
     let tower = null;
     MAP.blds.forEach(([h, ni, flat], k) => {
       const name = ni >= 0 ? MAP.names[ni] : "";
@@ -1851,14 +1922,15 @@ const City = (() => {
       cx /= flat.length / 2; cz /= flat.length / 2;
       const is101 = name === "台北101" && h > 400;
       if (is101) tower = [cx, cz];
-      const shape = new THREE.Shape();
-      for (let i = 0; i < flat.length; i += 2) (i ? shape.lineTo(flat[i], -flat[i + 1]) : shape.moveTo(flat[i], -flat[i + 1]));
       const hh = is101 ? 60 : Math.min(h, 320);
-      const g = new THREE.ExtrudeGeometry(shape, { depth: hh, bevelEnabled: false }); g.rotateX(-Math.PI / 2);
-      const mats = hh > 70 ? glassT[k % glassT.length] : walls[k % walls.length];
-      const m = new THREE.Mesh(g, mats); scene.add(m);
+      bAdd(flat, hh, k, hh > 70);
       hashAdd({ kind: "building", poly: flat, x0, z0, x1, z1, name }, x0, z0, x1, z1);
     });
+    for (const [t, b] of bTiles) {
+      const geo = (P, N, C, U) => { const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); g.setAttribute("normal", new THREE.Float32BufferAttribute(N, 3)); g.setAttribute("color", new THREE.Float32BufferAttribute(C, 3)); if (U) g.setAttribute("uv", new THREE.Float32BufferAttribute(U, 2)); g.computeBoundingSphere(); return g; };
+      if (b.rP.length) t.g.add(new THREE.Mesh(geo(b.rP, b.rN, b.rC), roofMat));
+      if (b.sP.length) t.g.add(new THREE.Mesh(geo(b.sP, b.sN, b.sC, b.sU), sideMat));
+    }
     if (tower) scene.add(make101(tower[0], tower[1]));
 
     // street trees along the kerbs
@@ -1873,21 +1945,25 @@ const City = (() => {
           if (nr.d < nr.e.hw + 1.2) continue;
           const nu = nearestRoad(px, pz, null, ugEdges);
           if (nu.d < nu.e.hw + 2) continue;
-          if (nodes.some(n => Math.hypot(n.x - px, n.z - pz) < n.r + 6)) continue;
+          if (nodesNear(px, pz, 36).some(n => Math.hypot(n.x - px, n.z - pz) < n.r + 6)) continue;
           treePts.push([px, pz, 0.85 + rng() * 0.3]);
           hashAdd({ kind: "tree", x: px, z: pz, hw: 0.35, hl: 0.35, h: 0 }, px, pz, px, pz);
         }
       }
     }
-    const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.14, 0.2, 2.2, 6), lam(0x6b4b34), treePts.length);
-    const crown = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1.5, 0), new THREE.MeshLambertMaterial({ color: 0xffffff }), treePts.length);
     const M = M4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), SC = new THREE.Vector3(), C = new THREE.Color(), UP = new THREE.Vector3(0, 1, 0);
-    treePts.forEach(([x, z, k], i) => {
-      M.compose(V.set(x, 1.1 * k, z), Q.identity(), SC.set(k, k, k)); trunk.setMatrixAt(i, M);
-      M.compose(V.set(x, 3.0 * k, z), Q.setFromAxisAngle(UP, i), SC.set(k, k * 1.1, k)); crown.setMatrixAt(i, M);
-      crown.setColorAt(i, C.set([0x3f8f46, 0x4f9d4a, 0x5aa85a, 0x367f40][i % 4]));
-    });
-    scene.add(trunk, crown);
+    const trunkGeo = new THREE.CylinderGeometry(0.14, 0.2, 2.2, 6), trunkMat = lam(0x6b4b34), crownGeo = new THREE.IcosahedronGeometry(1.5, 0), crownMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+    const byTile = new Map();
+    treePts.forEach((p, i) => { const t = tileAt(p[0], p[1]); if (!byTile.has(t)) byTile.set(t, []); byTile.get(t).push([...p, i]); });
+    for (const [t, list] of byTile) {
+      const trunk = new THREE.InstancedMesh(trunkGeo, trunkMat, list.length), crown = new THREE.InstancedMesh(crownGeo, crownMat, list.length);
+      list.forEach(([x, z, k, i], j) => {
+        M.compose(V.set(x, 1.1 * k, z), Q.identity(), SC.set(k, k, k)); trunk.setMatrixAt(j, M);
+        M.compose(V.set(x, 3.0 * k, z), Q.setFromAxisAngle(UP, i), SC.set(k, k * 1.1, k)); crown.setMatrixAt(j, M);
+        crown.setColorAt(j, C.set([0x3f8f46, 0x4f9d4a, 0x5aa85a, 0x367f40][i % 4]));
+      });
+      t.g.add(trunk, crown);
+    }
 
     // road markings: centre lines, lane lines, kerb lines, stop lines, zebra crossings
     const W0 = [], Y0 = [], W1 = [], Y1 = [];
@@ -1954,17 +2030,22 @@ const City = (() => {
     }
     for (const [list, st] of [[AR0, 1], [AR1, 0]]) {
       if (!list.length) continue;
-      const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(list.map((v, i) => i % 3 === 1 ? v + 0.052 : v), 3));
       const mat = new THREE.MeshBasicMaterial(st ? { color: 0xf2f2f2, side: THREE.DoubleSide, stencilWrite: true, stencilRef: 1, stencilFunc: THREE.NotEqualStencilFunc } : { color: 0xf2f2f2, side: THREE.DoubleSide });
-      scene.add(new THREE.Mesh(g, mat));
+      const per = new Map();
+      for (let i = 0; i < list.length; i += 9) { const t = tileAt(list[i], list[i + 2]); let a = per.get(t); if (!a) per.set(t, a = []); for (let q = 0; q < 9; q++) a.push(q % 3 === 1 ? list[i + q] + 0.052 : list[i + q]); }
+      for (const [t, a] of per) { const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(a, 3)); t.g.add(new THREE.Mesh(g, mat)); }
     }
     const markGeo = new THREE.PlaneGeometry(1, 1); markGeo.rotateX(-Math.PI / 2);
     for (const [list, color, y, st] of [[W0, 0xf2f2f2, 0.05, 1], [Y0, 0xf2c230, 0.055, 1], [W1, 0xf2f2f2, 0.05, 0], [Y1, 0xf2c230, 0.055, 0]]) {
       if (!list.length) continue;
       const mat = st ? new THREE.MeshBasicMaterial({ color, stencilWrite: true, stencilRef: 1, stencilFunc: THREE.NotEqualStencilFunc }) : new THREE.MeshBasicMaterial({ color });
-      const im = new THREE.InstancedMesh(markGeo, mat, list.length);
-      list.forEach(([x, z, ang, len, wid, yy], k) => { M.compose(V.set(x, y + yy, z), Q.setFromAxisAngle(UP, ang), SC.set(len, 1, wid)); im.setMatrixAt(k, M); });
-      scene.add(im);
+      const per = new Map();
+      for (const it of list) { const t = tileAt(it[0], it[1]); let a = per.get(t); if (!a) per.set(t, a = []); a.push(it); }
+      for (const [t, a] of per) {
+        const im = new THREE.InstancedMesh(markGeo, mat, a.length);
+        a.forEach(([x, z, ang, len, wid, yy], k) => { M.compose(V.set(x, y + yy, z), Q.setFromAxisAngle(UP, ang), SC.set(len, 1, wid)); im.setMatrixAt(k, M); });
+        t.g.add(im);
+      }
     }
 
     // traffic lights at signalised junctions, one per inbound approach on the right-hand kerb
@@ -1998,6 +2079,9 @@ const City = (() => {
     });
     scene.add(poles, arms, heads, ...lamps);
     lightRefs = refs;
+    // instanced meshes are culled by tile distance instead (three.js would cull them by their first copy)
+    scene.traverse(o => { if (o.isInstancedMesh) o.frustumCulled = false; });
+    for (const t of tiles.values()) scene.add(t.g);
     built = true;
     addEventListener("resize", resize);
   }
@@ -2091,12 +2175,26 @@ const City = (() => {
     o.e = e; o.dir = dir; o.s = s; o.off = laneOff(e, o.k, o.bike); o.state = "road"; o.next = null;
     const [x, z, tx, tz] = lanePt(e, dir, s, o.off); o.x = x; o.z = z; o.h = Math.atan2(tx, tz); o.y = yAt(e, dir > 0 ? s : e.L - s);
   }
+  // routes grouped by tile, so new traffic can be placed around the player
+  const routeTiles = new Map();
+  for (const r of routes) {
+    const [e] = r, [mx, mz] = at(e, e.L / 2), key = Math.floor(mx / TILE) * 65536 + Math.floor(mz / TILE);
+    let l = routeTiles.get(key); if (!l) routeTiles.set(key, l = []); l.push(r);
+  }
+  const SPAWN_R = 450;
+  function routesNear() {
+    const out = [], cx = Math.floor(player.x / TILE), cz = Math.floor(player.z / TILE), R = Math.ceil(SPAWN_R / TILE);
+    for (let i = -R; i <= R; i++) for (let j = -R; j <= R; j++) { const l = routeTiles.get((cx + i) * 65536 + cz + j); if (l) out.push(...l); }
+    return out.length ? out : routes;
+  }
   function respawn(o, minDist) {
+    const near = routesNear();
     for (let tries = 0; tries < 60; tries++) {
-      const [e, dir] = routes[Math.floor(rng() * routes.length)];
+      const [e, dir] = near[Math.floor(rng() * near.length)];
       const s = s0(e, dir) + rng() * (s1(e, dir) - s0(e, dir));
       const [x, z] = lanePt(e, dir, s, laneOff(e, o.k, o.bike));
-      if (Math.hypot(x - player.x, z - player.z) < minDist) continue;
+      const d = Math.hypot(x - player.x, z - player.z);
+      if (d < minDist || d > SPAWN_R) continue;
       if (vehicles.some(v => v !== o && v.e === e && v.dir === dir && Math.abs(v.s - s) < 10)) continue;
       place(o, e, dir, s); o.v = o.vmax * 0.5; return true;
     }
@@ -2147,6 +2245,14 @@ const City = (() => {
     const a = 1 - u;
     return [a * a * a * P[0][0] + 3 * a * a * u * P[1][0] + 3 * a * u * u * P[2][0] + u * u * u * P[3][0],
             a * a * a * P[0][1] + 3 * a * a * u * P[1][1] + 3 * a * u * u * P[2][1] + u * u * u * P[3][1]];
+  }
+  // show only the tiles near the player
+  let tileTick = 0;
+  function updateTiles(force) {
+    if (!force && (tileTick -= 1) > 0) return;
+    tileTick = 20;
+    const R = VIEW + TILE * 0.75;
+    for (const t of tiles.values()) t.g.visible = Math.abs(t.x - player.x) < R && Math.abs(t.z - player.z) < R && Math.hypot(t.x - player.x, t.z - player.z) < R;
   }
   function updateVehicles(dt) {
     const pfx = Math.sin(player.h), pfz = Math.cos(player.h);
@@ -2211,6 +2317,7 @@ const City = (() => {
       o.blockT = byPlayer && o.v < 0.6 ? o.blockT + dt : 0;
       const far = Math.abs(o.x - player.x) > 230 || Math.abs(o.z - player.z) > 230;
       o.mesh.visible = !far;
+      if (!o.stalled && (Math.abs(o.x - player.x) > 520 || Math.abs(o.z - player.z) > 520)) respawn(o, 220);
       o.mesh.position.set(o.x, o.y || 0, o.z); o.mesh.rotation.y = o.h;
     }
   }
@@ -2315,6 +2422,7 @@ const City = (() => {
     GameAudio.siren(false);
     $("policeChip").hidden = true;
     spawn();
+    updateTiles(true);
     camPos = new THREE.Vector3(sx - Math.sin(sh) * 11.5, 4.4, sz - Math.cos(sh) * 11.5);
     camLook = new THREE.Vector3(sx + Math.sin(sh) * 4, 1.2, sz + Math.cos(sh) * 4);
     pMesh.visible = true;
@@ -2355,15 +2463,21 @@ const City = (() => {
   function route(fx, fz, tx, tz) {
     const A = nearestRoad(fx, fz, e => !e.ug), B = nearestRoad(tx, tz, e => !e.ug);
     if (A.e === B.e) return [...along(A.e, A.s, B.s), [tx, tz]];
-    const N = nodes.length, dist = new Array(N).fill(Infinity), prev = new Array(N).fill(null), done = new Array(N).fill(false);
+    const N = nodes.length, dist = new Float64Array(N).fill(Infinity), prev = new Array(N).fill(null), done = new Uint8Array(N);
     dist[A.e.a] = A.s; dist[A.e.b] = A.e.L - A.s;
-    for (;;) {
-      let u = -1; for (let i = 0; i < N; i++) if (!done[i] && dist[i] < Infinity && (u < 0 || dist[i] < dist[u])) u = i;
-      if (u < 0) break; done[u] = true;
+    const heap = [[A.s, A.e.a], [A.e.L - A.s, A.e.b]];
+    const push = it => { heap.push(it); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+    const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
+    heap.sort((a, b) => a[0] - b[0]);
+    while (heap.length) {
+      const [d, u] = pop();
+      if (done[u]) continue; done[u] = 1;
+      if (done[B.e.a] && done[B.e.b]) break;
+      if (d > 3000) break;
       for (const ei of nodes[u].edges) {
         const e = edges[ei], v = e.a === u ? e.b : e.a;
         if (e.ug) continue;
-        if (dist[u] + e.L < dist[v]) { dist[v] = dist[u] + e.L; prev[v] = [u, e]; }
+        if (d + e.L < dist[v]) { dist[v] = d + e.L; prev[v] = [u, e]; push([dist[v], v]); }
       }
     }
     const endA = dist[B.e.a] + B.s, endB = dist[B.e.b] + B.e.L - B.s;
@@ -2569,22 +2683,27 @@ const City = (() => {
   // ---------- HUD ----------
   const mm = $("minimap"), mg = mm.getContext("2d");
   let mapBg = null;
+  // minimap: the whole map when it is small, otherwise a window of about 900 m that follows the player
   function drawMinimap() {
-    const sz = 208, pad = 8, sc = (sz - 2 * pad) / Math.max(BX1 - BX0, BZ1 - BZ0);
-    const tx = x => pad + (x - BX0) * sc, tz = z => pad + (z - BZ0) * sc;
+    const sz = 208, pad = 8, ext = Math.max(BX1 - BX0, BZ1 - BZ0), whole = ext <= 1300;
+    const sc = whole ? (sz - 2 * pad) / ext : sz / 900;
+    const bx = x => pad + (x - BX0) * sc, bz = z => pad + (z - BZ0) * sc;
     if (!mapBg) {
-      mapBg = document.createElement("canvas"); mapBg.width = mapBg.height = sz;
+      mapBg = document.createElement("canvas");
+      mapBg.width = Math.ceil((BX1 - BX0) * sc + 2 * pad); mapBg.height = Math.ceil((BZ1 - BZ0) * sc + 2 * pad);
       const g = mapBg.getContext("2d");
       g.fillStyle = "rgba(255,255,255,0.18)";
-      for (const [, , flat] of MAP.blds) { g.beginPath(); for (let i = 0; i < flat.length; i += 2) g[i ? "lineTo" : "moveTo"](tx(flat[i]), tz(flat[i + 1])); g.closePath(); g.fill(); }
-      g.strokeStyle = "rgba(255,255,255,0.75)"; g.lineCap = "round";
+      for (const [, , flat] of MAP.blds) { g.beginPath(); for (let i = 0; i < flat.length; i += 2) g[i ? "lineTo" : "moveTo"](bx(flat[i]), bz(flat[i + 1])); g.closePath(); g.fill(); }
+      g.lineCap = "round";
       for (const e of edges) {
         g.strokeStyle = e.ug ? "rgba(255,207,107,0.85)" : "rgba(255,255,255,0.75)"; g.setLineDash(e.ug ? [3, 3] : []);
-        g.lineWidth = Math.max(1.5, e.hw * (e.ug ? 1 : 2) * sc); g.beginPath(); e.pts.forEach(([x, z], i) => g[i ? "lineTo" : "moveTo"](tx(x), tz(z))); g.stroke();
+        g.lineWidth = Math.max(1.5, e.hw * (e.ug ? 1 : 2) * sc); g.beginPath(); e.pts.forEach(([x, z], i) => g[i ? "lineTo" : "moveTo"](bx(x), bz(z))); g.stroke();
       }
       g.setLineDash([]);
     }
-    mg.clearRect(0, 0, sz, sz); mg.drawImage(mapBg, 0, 0);
+    const ox = whole ? 0 : bx(player.x) - sz / 2, oz = whole ? 0 : bz(player.z) - sz / 2;
+    const tx = x => bx(x) - ox, tz = z => bz(z) - oz;
+    mg.clearRect(0, 0, sz, sz); mg.drawImage(mapBg, -ox, -oz);
     for (const o of vehicles) { mg.fillStyle = o.bike ? "#ffcf6b" : "#9fb4ff"; mg.fillRect(tx(o.x) - 1.5, tz(o.z) - 1.5, 3, 3); }
     if (jam) { mg.fillStyle = "#ff8a00"; mg.beginPath(); mg.arc(tx(jam.o.x), tz(jam.o.z), 4.5, 0, Math.PI * 2); mg.fill(); }
     if (police) { mg.fillStyle = Math.floor(simT * 6) % 2 ? "#ff3b3b" : "#3b7bff"; mg.beginPath(); mg.arc(tx(police.x), tz(police.z), 5, 0, Math.PI * 2); mg.fill(); }
@@ -2598,7 +2717,7 @@ const City = (() => {
     $("hudViol").textContent = p.viol;
     $("hudFine").textContent = "NT$" + p.fines.toLocaleString();
     nameTick -= 1;
-    if (nameTick <= 0) { nameTick = 15; const r = p.road; $("hudRoad").textContent = r && r.d < r.e.hw + 6 && r.e.name ? r.e.name : "信義區"; }
+    if (nameTick <= 0) { nameTick = 15; const r = p.road; $("hudRoad").textContent = r && r.d < r.e.hw + 6 && r.e.name ? r.e.name : "台北市"; }
     const ahead = p.gear === "D" ? lightAhead() : null, chip = $("hudLight");
     if (ahead) {
       const col = ahead.st === "G" ? "#2ee07f" : ahead.st === "Y" ? "#ffc21a" : "#ff3b3b";
@@ -2642,6 +2761,7 @@ const City = (() => {
     camLook.lerp(tB.set(p.x + fx * 4, p.y + 1.2, p.z + fz * 4), k);
     camera.position.copy(camPos); camera.lookAt(camLook);
     sky.position.copy(camPos);
+    updateTiles();
     renderer.render(scene, camera);
     hud();
     GameAudio.engine(Math.abs(p.v) / VFWD, Game.keys.gas, !p.over && !Game.paused);
