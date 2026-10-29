@@ -1589,10 +1589,11 @@ const City = (() => {
   const VFWD = 33.3, VREV = 4.5, ACCR = 2.5, BRK = 9, ROLL = 1.0, WB = 2.7;
   const P_HL = 2.3, P_HW = 0.93, LANE = 3.2;
   const NCARS = 44, NBIKES = 36;
-  const FINES = { red: ["闖紅燈", 2700], wrong: ["逆向行駛", 1200] };
+  const FINES = { red: ["闖紅燈", 2700], wrong: ["逆向行駛", 1200], nosignal: ["轉彎未打方向燈", 1200] };
   const [BX0, BZ0, BX1, BZ1] = MAP.bounds;
   const canvas = $("city");
   let THREE, renderer, scene, camera, sky, built = false, loading = null, running = false, raf = 0, last = 0;
+  const sigSeen = { L: -99, R: -99 };
   let blinkGeo = null, blinkMat = null, sig = null, sigT = 0, sigTurn = 0, sigPhase = -1;
   let lamps = null, lightMeshes = [], lightRefs = [], vehicles = [], player = null, pMesh = null, simT = 0, police = null;
   let camPos = null, camLook = null, beepT = 0, lightTick = 0, honkCool = 0, nameTick = 0, hornCool = 0;
@@ -2468,7 +2469,7 @@ const City = (() => {
     rs = 777;
     const [sx, sz, sh] = MAP.start;
     player = { x: sx, z: sz, y: 0, h: sh, v: 0, steer: 0, gear: "D", hp: 100, viol: 0, fines: 0, dist: 0, invuln: 0, over: false,
-      road: null, inNode: -1, lastEdge: null, wrongT: 0, wrongFlag: false, stillT: 0 };
+      road: null, inNode: -1, lastEdge: null, wrongT: 0, wrongFlag: false, stillT: 0, jn: null, jh: 0 };
     simT = 0;
     if (police) { scene.remove(police.mesh); police = null; }
     GameAudio.siren(false);
@@ -2476,6 +2477,7 @@ const City = (() => {
     spawn();
     updateTiles(true);
     if (sig) setSignal(sig);
+    sigSeen.L = sigSeen.R = -99;
     camPos = new THREE.Vector3(sx - Math.sin(sh) * 11.5, 4.4, sz - Math.cos(sh) * 11.5);
     camLook = new THREE.Vector3(sx + Math.sin(sh) * 4, 1.2, sz + Math.cos(sh) * 4);
     pMesh.visible = true;
@@ -2502,7 +2504,7 @@ const City = (() => {
     showToast(label + "！", 1400, true);
     GameAudio.blip(880, 0.15, "square", 0.08); setTimeout(() => GameAudio.blip(660, 0.2, "square", 0.08), 160);
     if (police) { police.tickets.push([label, fine]); return; }
-    if (rng() < (kind === "red" ? 0.6 : 0.5)) callPolice([label, fine]);
+    if (rng() < (kind === "red" ? 0.6 : kind === "wrong" ? 0.5 : 0.35)) callPolice([label, fine]);
   }
   // points along an edge from distance sFrom to sTo (either direction), not including the start
   function along(e, sFrom, sTo) {
@@ -2639,6 +2641,7 @@ const City = (() => {
   }
   function updateSignal(dt, dh) {
     if (!sig) return;
+    if (sig !== "H") sigSeen[sig] = simT;
     sigT += dt;
     const ph = Math.floor(sigT / 0.36) % 2;
     if (ph !== sigPhase) { sigPhase = ph; GameAudio.blip(ph ? 1300 : 1700, 0.025, "square", 0.045); }
@@ -2729,6 +2732,20 @@ const City = (() => {
     p.wrongT = wrong ? p.wrongT + dt : Math.max(0, p.wrongT - dt * 0.7);
     if (p.wrongT > 1.2 && !p.wrongFlag && !p.over) { p.wrongFlag = true; violation("wrong"); }
     if (p.wrongT === 0) p.wrongFlag = false;
+    // turning at a junction without the matching turn signal (on within the last 4 seconds)
+    if (p.y > -0.5 && !p.over) {
+      let jn = null;
+      for (const n of nodesNear(p.x, p.z, 32)) if (n.edges.length >= 3 && Math.hypot(n.x - p.x, n.z - p.z) < n.r + 2) { jn = n; break; }
+      if (jn && p.jn !== jn.i && p.v > 1) { p.jn = jn.i; p.jh = p.h; }
+      else if (!jn && p.jn != null) {
+        const n = nodes[p.jn];
+        if (Math.hypot(n.x - p.x, n.z - p.z) > n.r + 6) {
+          const dh = Math.atan2(Math.sin(p.h - p.jh), Math.cos(p.h - p.jh));
+          if (p.v > 2 && Math.abs(dh) > 0.9 && simT - sigSeen[dh > 0 ? "L" : "R"] > 4) violation("nosignal");
+          p.jn = null;
+        }
+      }
+    }
     // idling at a green light with someone waiting behind
     honkCool = Math.max(0, honkCool - dt);
     p.stillT = Math.abs(p.v) < 0.5 ? p.stillT + dt : 0;
