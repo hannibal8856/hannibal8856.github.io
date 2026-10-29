@@ -100,6 +100,15 @@ body[data-mode="menu"] .hud, body[data-mode="menu"] .pads { display: none; }
 .pad.gear { width: 52px; height: 46px; border-radius: 14px; font: 700 18px var(--f-num); letter-spacing: 0; }
 .pad.horn { width: 52px; height: 46px; border-radius: 14px; font-size: 13px; letter-spacing: 0.02em; border-color: rgba(255, 207, 107, 0.8); }
 .pad.gear.r { background: rgba(255, 127, 107, 0.7); }
+.sigrow { display: flex; gap: 8px; justify-content: space-between; }
+.pad.sig { width: 40px; height: 36px; border-radius: 12px; }
+.pad.sig svg { width: 20px; height: 20px; }
+.pad.sig.lit { background: rgba(54, 224, 122, 0.55); border-color: #36e07a; }
+.pad.sig.hz { color: #ff6b5b; }
+.pad.sig.hz.lit { background: rgba(255, 107, 91, 0.5); border-color: #ff6b5b; color: #fff; }
+.blinkchip { display: inline-flex; gap: 6px; padding-inline: 8px; }
+.blinkchip i { font-style: normal; color: rgba(255, 255, 255, 0.22); }
+.blinkchip i.on { color: #36e07a; text-shadow: 0 0 8px #36e07a; }
 .pad.on { background-color: rgba(255, 255, 255, 0.3); transform: scale(0.95); }
 .pad:focus-visible, .btn:focus-visible, .smallbtn:focus-visible, .trk:focus-visible, .mode:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
 @media (pointer: fine) { .pads { display: none; } }
@@ -191,6 +200,7 @@ body[data-mode="menu"] .hud, body[data-mode="menu"] .pads { display: none; }
     <span class="chip s-only" id="hudZone">海岸公路</span>
     <span class="row c-only" style="gap:6px">
       <span class="chip gearchip" id="hudGear">D</span>
+      <span class="chip blinkchip" id="hudBlink" aria-label="方向燈"><i class="l">◀</i><i class="r">▶</i></span>
       <span class="chip lightchip" id="hudLight" hidden><i></i><span>前方號誌</span></span>
     </span>
     <span class="chip c-only" id="hudRoad">台北市</span>
@@ -208,9 +218,16 @@ body[data-mode="menu"] .hud, body[data-mode="menu"] .pads { display: none; }
 <div class="toast" id="toast"></div>
 
 <div class="pads">
-  <div class="group">
-    <button class="pad" data-key="left" type="button" aria-label="左轉"><svg viewBox="0 0 24 24"><path d="M15.5 3 6 12l9.5 9 2-2-7.4-7 7.4-7z"/></svg></button>
-    <button class="pad" data-key="right" type="button" aria-label="右轉"><svg viewBox="0 0 24 24"><path d="M8.5 3 18 12l-9.5 9-2-2 7.4-7-7.4-7z"/></svg></button>
+  <div class="col">
+    <div class="sigrow c-only">
+      <button class="pad sig" id="sigL" type="button" aria-label="左轉方向燈"><svg viewBox="0 0 24 24"><path d="M3 12 11 4v5h10v6H11v5z"/></svg></button>
+      <button class="pad sig hz" id="sigH" type="button" aria-label="警示燈（駐車燈）"><svg viewBox="0 0 24 24"><path d="M12 3 2 20h20zm0 5 5.6 9.5H6.4z"/></svg></button>
+      <button class="pad sig" id="sigR" type="button" aria-label="右轉方向燈"><svg viewBox="0 0 24 24"><path d="M21 12 13 4v5H3v6h10v5z"/></svg></button>
+    </div>
+    <div class="group">
+      <button class="pad" data-key="left" type="button" aria-label="左轉"><svg viewBox="0 0 24 24"><path d="M15.5 3 6 12l9.5 9 2-2-7.4-7 7.4-7z"/></svg></button>
+      <button class="pad" data-key="right" type="button" aria-label="右轉"><svg viewBox="0 0 24 24"><path d="M8.5 3 18 12l-9.5 9-2-2 7.4-7-7.4-7z"/></svg></button>
+    </div>
   </div>
   <div class="group">
     <div class="col c-only">
@@ -904,6 +921,8 @@ const GameAudio = (() => {
     const k = keyMap[e.code];
     if (k) { Game.keys[k] = true; e.preventDefault(); }
     if (e.code === "KeyR" && Game.onGear) Game.onGear();
+    const sg = { KeyQ: "L", KeyE: "R", KeyF: "H" }[e.code];
+    if (sg && !e.repeat && Game.onSignal) Game.onSignal(sg);
     if ((e.code === "KeyH" || e.code === "Space") && Game.mode === "city" && !e.repeat) { Game.horn = true; GameAudio.horn(true); e.preventDefault(); }
   });
   addEventListener("keyup", e => {
@@ -928,8 +947,12 @@ const GameAudio = (() => {
     btn.addEventListener("contextmenu", e => e.preventDefault());
   });
   $("gearBtn").addEventListener("pointerdown", e => { e.preventDefault(); if (Game.onGear) Game.onGear(); });
+  for (const [id, sg] of [["sigL", "L"], ["sigR", "R"], ["sigH", "H"]]) {
+    $(id).addEventListener("pointerdown", e => { e.preventDefault(); if (Game.onSignal) Game.onSignal(sg); });
+    $(id).addEventListener("contextmenu", e => e.preventDefault());
+  }
   addEventListener("blur", () => Object.keys(Game.keys).forEach(k => (Game.keys[k] = false)));
-  if (!Game.coarse) $("howKeys").innerHTML = "鍵盤：<b>← →</b> 轉彎、<b>↑</b> 油門、<b>↓</b> 煞車、<b>R</b> 切換倒車檔、<b>H</b> 或空白鍵按喇叭。撞到東西會損血，撞越貴的車扣越多。";
+  if (!Game.coarse) $("howKeys").innerHTML = "鍵盤：<b>← →</b> 轉彎、<b>↑</b> 油門、<b>↓</b> 煞車、<b>R</b> 切換倒車檔、<b>H</b> 或空白鍵按喇叭、<b>Q</b> / <b>E</b> 左右方向燈、<b>F</b> 警示燈（駐車燈）。撞到東西會損血，撞越貴的車扣越多。";
 })();
 
 /* ===================== car picker ===================== */
@@ -1570,6 +1593,7 @@ const City = (() => {
   const [BX0, BZ0, BX1, BZ1] = MAP.bounds;
   const canvas = $("city");
   let THREE, renderer, scene, camera, sky, built = false, loading = null, running = false, raf = 0, last = 0;
+  let blinkGeo = null, blinkMat = null, sig = null, sigT = 0, sigTurn = 0, sigPhase = -1;
   let lamps = null, lightMeshes = [], lightRefs = [], vehicles = [], player = null, pMesh = null, simT = 0, police = null;
   let camPos = null, camLook = null, beepT = 0, lightTick = 0, honkCool = 0, nameTick = 0, hornCool = 0;
   let best = 0;
@@ -1803,8 +1827,10 @@ const City = (() => {
     scene.add(sky);
 
     // ground and surface streets skip pixels covered by the open underpass trench (stencil mask)
-    const behind = c => new THREE.MeshLambertMaterial({ color: c, stencilWrite: true, stencilRef: 1, stencilFunc: THREE.NotEqualStencilFunc });
-    const grass = new THREE.Mesh(new THREE.PlaneGeometry(BX1 - BX0 + 6000, BZ1 - BZ0 + 6000), behind(0x7aa860));
+    const behind = (c, off = 0) => new THREE.MeshLambertMaterial({ color: c, stencilWrite: true, stencilRef: 1, stencilFunc: THREE.NotEqualStencilFunc, polygonOffset: off > 0, polygonOffsetFactor: off, polygonOffsetUnits: off * 2 });
+    // the ground is cut into ~100 m squares: one huge triangle loses depth precision on phones and covers the roads
+    const GW = BX1 - BX0 + 6000, GH = BZ1 - BZ0 + 6000;
+    const grass = new THREE.Mesh(new THREE.PlaneGeometry(GW, GH, Math.ceil(GW / 100), Math.ceil(GH / 100)), behind(0x7aa860, 4));
     grass.rotation.x = -Math.PI / 2; grass.position.set((BX0 + BX1) / 2, -0.06, (BZ0 + BZ1) / 2); scene.add(grass);
     for (let k = 0; k < 20; k++) {
       const a = k / 20 * Math.PI * 2, r = Math.hypot(BX1 - BX0, BZ1 - BZ0) / 2 + 500 + (k % 3) * 120;
@@ -1840,10 +1866,10 @@ const City = (() => {
     scene.add(new THREE.Mesh(ribbon(ugEdges, e => e.hw, (e, k) => ys(e, k) + 0.02), asphaltU));
     const disc = new THREE.CircleGeometry(1, 16); disc.rotateX(-Math.PI / 2);
     // pavement along the streets and around junctions; parks and hills between them stay green
-    const paveMat = behind(0x8e8b84);
-    scene.add(new THREE.Mesh(ribbon(edges.filter(e => !e.ug), e => e.hw + 5, () => 0.005), paveMat));
+    const paveMat = behind(0x8e8b84, 2);
+    scene.add(new THREE.Mesh(ribbon(edges.filter(e => !e.ug), e => e.hw + 10, () => 0.005), paveMat));
     { const im = new THREE.InstancedMesh(disc, paveMat, nodes.length), M0 = new THREE.Matrix4();
-      nodes.forEach((n, k) => im.setMatrixAt(k, M0.makeScale(n.r + 5, 1, n.r + 5).setPosition(n.x, 0.004, n.z))); scene.add(im); }
+      nodes.forEach((n, k) => im.setMatrixAt(k, M0.makeScale(n.r + 10, 1, n.r + 10).setPosition(n.x, 0.004, n.z))); scene.add(im); }
     for (const [under, mat] of [[false, asphalt], [true, asphaltU]]) {
       const ns = nodes.filter(n => n.under === under); if (!ns.length) continue;
       const im = new THREE.InstancedMesh(disc, mat, ns.length), M0 = new THREE.Matrix4();
@@ -2141,6 +2167,15 @@ const City = (() => {
     const hl = new THREE.MeshBasicMaterial({ color: 0xfff6dc });
     for (const sx of [-1, 1]) { const h = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.12, 0.05), hl); h.position.set(sx * W * 0.33, top - 0.08, L / 2 + 0.01); g.add(h); }
     const rp = rearPlane(key, color, W); rp.position.z = -L / 2 - 0.02; g.add(rp);
+    // amber turn signals on all four corners (local +x is the car's left side)
+    if (!blinkGeo) { blinkGeo = new THREE.BoxGeometry(0.22, 0.11, 0.06); blinkMat = new THREE.MeshBasicMaterial({ color: 0xffa21a }); }
+    const blink = { L: [], R: [] };
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      const b = new THREE.Mesh(blinkGeo, blinkMat); b.visible = false;
+      b.position.set(sx * W * 0.45, sz > 0 ? top - 0.1 : top - 0.22, sz * (L / 2 + 0.05)); g.add(b);
+      blink[sx > 0 ? "L" : "R"].push(b);
+    }
+    g.userData.blink = blink;
     g.add(blob(W * 1.5, L * 1.2));
     g.userData.roof = Hh;
     return g;
@@ -2238,6 +2273,11 @@ const City = (() => {
     return out;
   }
   function chooseNext(o) {
+    const op = pickNext(o);
+    if (op) op.m = o.bike ? "S" : moveOf(o.e, o.dir, op.e, op.dir);
+    return op;
+  }
+  function pickNext(o) {
     let opts = options(o);
     const lm = !o.bike && laneMoves(o.e, o.dir);
     if (lm) { const ok = lm[Math.min(o.k, o.e.lanes - 1)], f = opts.filter(op => ok.includes(moveOf(o.e, o.dir, op.e, op.dir))); if (f.length) opts = f; }
@@ -2289,7 +2329,7 @@ const City = (() => {
           const st = light(n, nodes[n].grp[e.i]);
           mustStop = st === "R" || (st === "Y" && left > 6 && o.hurryT <= 0);
         }
-        if (!o.next && left < 16) o.next = chooseNext(o);
+        if (!o.next && left < 40) o.next = chooseNext(o);
         if (!o.next && left < 1) { respawn(o, 120); continue; }
         if (!mustStop && o.next && left < 4) {
           const ne = o.next.e, nd = o.next.dir, ns = s0(ne, nd);
@@ -2324,6 +2364,13 @@ const City = (() => {
       o.mesh.visible = !far;
       if (!o.stalled && (Math.abs(o.x - player.x) > 520 || Math.abs(o.z - player.z) > 520)) respawn(o, 220);
       o.mesh.position.set(o.x, o.y || 0, o.z); o.mesh.rotation.y = o.h;
+      // traffic signals before it turns, until the turn is done
+      const bk = o.mesh.userData.blink;
+      if (bk && o.mesh.visible) {
+        const m = o.state === "turn" ? o.turn && o.turn.m : o.next && o.next.m, on = Math.floor(simT / 0.36) % 2 === 0;
+        for (const b of bk.L) b.visible = on && m === "L";
+        for (const b of bk.R) b.visible = on && m === "R";
+      }
     }
   }
 
@@ -2428,6 +2475,7 @@ const City = (() => {
     $("policeChip").hidden = true;
     spawn();
     updateTiles(true);
+    if (sig) setSignal(sig);
     camPos = new THREE.Vector3(sx - Math.sin(sh) * 11.5, 4.4, sz - Math.cos(sh) * 11.5);
     camLook = new THREE.Vector3(sx + Math.sin(sh) * 4, 1.2, sz + Math.cos(sh) * 4);
     pMesh.visible = true;
@@ -2577,6 +2625,31 @@ const City = (() => {
       }
     }
   }
+  // turn signals and hazard lights
+  function setSignal(s) {
+    sig = sig === s ? null : s; sigT = 0; sigTurn = 0; sigPhase = -1;
+    for (const [id, k] of [["sigL", "L"], ["sigR", "R"], ["sigH", "H"]]) $(id).classList.toggle("lit", sig === k);
+    if (!sig) showBlink(false, false);
+  }
+  Game.onSignal = s => { if (Game.mode === "city" && player && !player.over) setSignal(s); };
+  function showBlink(l, r) {
+    const bk = pMesh && pMesh.userData.blink;
+    if (bk) { for (const b of bk.L) b.visible = l; for (const b of bk.R) b.visible = r; }
+    const hb = $("hudBlink"); hb.children[0].classList.toggle("on", l); hb.children[1].classList.toggle("on", r);
+  }
+  function updateSignal(dt, dh) {
+    if (!sig) return;
+    sigT += dt;
+    const ph = Math.floor(sigT / 0.36) % 2;
+    if (ph !== sigPhase) { sigPhase = ph; GameAudio.blip(ph ? 1300 : 1700, 0.025, "square", 0.045); }
+    const on = ph === 0;
+    showBlink(on && sig !== "R", on && sig !== "L");
+    // a turn signal switches itself off once the turn is done and the wheel comes back
+    if (sig !== "H") {
+      if (player.v > 0.3) sigTurn += sig === "L" ? dh : -dh;
+      if (sigTurn > 0.75 && Math.abs(player.steer) < 0.12) setSignal(sig);
+    }
+  }
   function updatePlayer(dt) {
     const k = Game.keys, p = player;
     if (p.over) p.v *= Math.max(0, 1 - dt * 2);
@@ -2668,6 +2741,7 @@ const City = (() => {
     }
     if (p.gear === "R" && p.v < -0.3) { beepT -= dt; if (beepT <= 0) { GameAudio.blip(1200, 0.12, "sine", 0.06); beepT = 0.7; } } else beepT = 0;
     if (Game.horn) { hornCool -= dt; if (hornCool <= 0) { horn(); hornCool = 0.5; } } else hornCool = 0;
+    updateSignal(dt, p.h - oh);
     pMesh.position.set(p.x, p.y, p.z); pMesh.rotation.y = p.h;
     if (!p.over && p.gear === "D") Launch.tick(Math.max(0, p.v) * 3.6, k.gas, k.brake, dt);
     pMesh.visible = !(p.invuln > 0 && Math.floor(p.invuln * 12) % 2 === 0);
@@ -2801,7 +2875,7 @@ const City = (() => {
   }
   Game.onGear = () => { if (Game.mode === "city" && player && !player.over) { setGear(player.gear === "D" ? "R" : "D"); GameAudio.blip(500, 0.06, "square", 0.05); } };
   window.__city = { player: () => player, setTime: t => (simT = t), police: () => police && { x: police.x, z: police.z, state: police.state, v: police.v, stopT: police.stopT, path: police.path.length },
-    callPolice: () => callPolice(["測試", 0]), _v: () => vehicles, step: (n, dt) => { for (let i = 0; i < n; i++) { simT += dt; updateVehicles(dt); updatePlayer(dt); updatePolice(dt); updateJam(dt); } }, startJam: () => startJam(), topView: (x, z, hgt) => { Game.paused = true; running = false; camera.position.set(x, hgt, z + 0.01); camera.lookAt(x, 0, z); sky.position.copy(camera.position); renderer.render(scene, camera); }, jam: () => jam && { name: jam.e.name, x: jam.o.x, z: jam.o.z }, nodes, edges, vehicles: () => vehicles.length, scene: () => scene, info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, tiles: [...tiles.values()].filter(t => t.g.visible).length, geo: renderer.info.memory.geometries }) };
+    callPolice: () => callPolice(["測試", 0]), _v: () => vehicles, step: (n, dt) => { for (let i = 0; i < n; i++) { simT += dt; updateVehicles(dt); updatePlayer(dt); updatePolice(dt); updateJam(dt); } }, startJam: () => startJam(), topView: (x, z, hgt) => { Game.paused = true; running = false; camera.position.set(x, hgt, z + 0.01); camera.lookAt(x, 0, z); sky.position.copy(camera.position); renderer.render(scene, camera); }, jam: () => jam && { name: jam.e.name, x: jam.o.x, z: jam.o.z }, nodes, edges, vehicles: () => vehicles.length, sig: () => ({ sig, sigTurn, steer: player.steer, v: player.v }), scene: () => scene, info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, tiles: [...tiles.values()].filter(t => t.g.visible).length, geo: renderer.info.memory.geometries }) };
   return { start, stop };
 })();
 </script>
