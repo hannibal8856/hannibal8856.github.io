@@ -114,6 +114,28 @@ table.t th:first-child, table.t td:first-child { text-align: left; }
 .seg button.on { background: var(--gold); color: #2a1f08; }
 .chk { display: flex; gap: 8px; align-items: center; font-size: .9rem; }
 .chk input { width: 18px; height: 18px; accent-color: var(--gold); }
+
+.chatbtn { position: relative; }
+.chatbtn .badge { position: absolute; top: -5px; right: -5px; background: var(--evil); color: #fff; border-radius: 999px; font-size: .66rem; padding: 0 5px; min-width: 17px; line-height: 17px; }
+.chat { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: #141a2cfa; border-top: 1.5px solid var(--gold); box-shadow: 0 -10px 30px #000a;
+  padding: 12px max(12px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)); }
+.chat .cin { max-width: 620px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+.chat .chd { display: flex; justify-content: space-between; align-items: center; }
+.chat .msgs { overflow-y: auto; display: flex; flex-direction: column; gap: 4px; font-size: .9rem; min-height: 70px; max-height: 34vh; line-height: 1.45; }
+.chat .msgs b { color: var(--gold); }
+.chat .msgs .sys { color: var(--muted); font-size: .8rem; }
+.emos { display: flex; gap: 4px; flex-wrap: wrap; }
+.emos button { font-size: 1.35rem; background: var(--night3); border: 0; border-radius: 8px; padding: 3px 6px; line-height: 1.2; }
+.chat form { display: flex; gap: 6px; }
+.chat input, .netin { flex: 1; font: inherit; border: 1.5px solid #ffffff2a; border-radius: 8px; padding: 8px 10px; background: var(--night); color: var(--fg); min-width: 0; }
+.bubble { position: fixed; left: 50%; top: 76px; transform: translateX(-50%); z-index: 50; background: #1b2134f5; border: 1.5px solid var(--gold); border-radius: 14px; padding: 8px 16px; box-shadow: 0 8px 24px #000a; animation: pop .25s; pointer-events: none; text-align: center; max-width: 86vw; font-size: .9rem; }
+.bubble .e { font-size: 2.4rem; display: block; line-height: 1.15; }
+@keyframes pop { from { transform: translateX(-50%) scale(.6); opacity: 0; } }
+.code { font: 700 2.6rem var(--ui); letter-spacing: .3em; color: var(--gold); text-align: center; text-shadow: 0 0 18px #e2b85c55; }
+.plist { display: flex; flex-direction: column; gap: 6px; }
+.plist div { background: var(--night); border-radius: 8px; padding: 8px 10px; display: flex; justify-content: space-between; gap: 8px; }
+.err { background: #e2513f33; color: #ffb3a3; border-radius: 10px; padding: 9px 12px; font-size: .88rem; }
+.tag.done { background: #5bbf7a33; color: #9fe7b5; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 
@@ -145,7 +167,7 @@ const ROLE = {
   oberon: { n: '奧伯倫', side: 'evil', d: '邪惡方，但你不認識其他壞人，他們也不認識你（梅林看得到你）。' },
   minion: { n: '莫德雷德的爪牙', side: 'evil', d: '普通的壞人，和隊友相認後一起搞破壞。' },
 };
-const isEvil = (r) => ROLE[r].side === 'evil';
+const isEvil = (r) => !!r && ROLE[r].side === 'evil';
 const SHIELD = (good) => `<svg viewBox="0 0 40 40"><path d="M20 3l14 5v10c0 9-6 16-14 19C12 34 6 27 6 18V8z" fill="${good ? '#dbe8ff' : '#ffd9d3'}" stroke="#0004" stroke-width="1.5"/>${good ? '<path d="M20 9v22M13 16h14" stroke="#1f4a8e" stroke-width="3" stroke-linecap="round"/>' : '<path d="M14 13l12 14M26 13L14 27" stroke="#7a1f14" stroke-width="3" stroke-linecap="round"/>'}</svg>`;
 
 let S = null, resolver = null, UI = {}, setupCfg = null;
@@ -154,8 +176,15 @@ const nm = (i) => P(i).name;
 const humans = () => S.players.filter(p => p.human).length;
 function log(t) { S.say.unshift(t); if (S.say.length > 120) S.say.pop(); }
 async function nap(ms) { const g = S && S.gid; await sleep(ms); if (!S || S.gid !== g) throw 'stop'; }
-function ask(pr) { UI = {}; S.prompt = pr; render(); return new Promise(r => { resolver = r; }); }
-function answer(v) { const r = resolver; resolver = null; S.prompt = null; UI = {}; closeSheet(); if (r) r(v); }
+function ask(pr) {
+  if (S.online && pr.p != null && P(pr.p).remote) { pr.pid = ++NET.pid; S.rprompts[pr.p] = pr; render(); return new Promise(r => { NET.waits[pr.pid] = { r, seat: pr.p, pr }; }); }
+  if (S.online && pr.p == null && ['voteResult', 'missionResult', 'end'].includes(pr.type)) S.shared = { ...pr, key: pr.type + ':' + (++NET.pid) };
+  UI = {}; S.prompt = pr; render(); return new Promise(r => { resolver = r; });
+}
+function answer(v) {
+  if (NET.role === 'client') { closeSheet(); clientAnswer(v); return; }
+  const r = resolver; resolver = null; S.prompt = null; UI = {}; closeSheet(); if (r) r(v);
+}
 
 // ---------- setup ----------
 function buildRoles(n, opts) {
@@ -170,7 +199,7 @@ function buildRoles(n, opts) {
 function newGame(cfg) {
   const n = cfg.seats.length;
   const roles = shuffle(buildRoles(n, cfg.opts));
-  S = { n, players: cfg.seats.map((s, i) => ({ name: s.name, human: s.human, role: roles[i], seen: false, lady: {} })),
+  S = { n, players: cfg.seats.map((s, i) => ({ name: s.name, baseName: s.name, human: s.human, remote: !!s.remote, off: false, role: roles[i], seen: false, lady: {} })),
     roles, opts: cfg.opts, ladyOn: cfg.lady, quest: 0, results: [], hist: [[], [], [], [], []], leader: rint(n), rejects: 0,
     team: [], ladyHolder: null, ladyUsed: [], say: [], prompt: null, gid: Math.random(), over: false, winner: null, lastVotes: null };
   if (S.ladyOn) { S.ladyHolder = (S.leader - 1 + n) % n; S.ladyUsed = [S.ladyHolder]; }
@@ -179,6 +208,7 @@ function newGame(cfg) {
 
 // what player i saw at night: map j -> 'evil' | 'mm' (Merlin or Morgana)
 function nightInfo(i) {
+  if (S.client) return S.night || {};
   const me = P(i).role, out = {};
   S.players.forEach((q, j) => {
     if (j === i) return;
@@ -320,10 +350,11 @@ function botRemark(i, team) {
 
 // ---------- flow ----------
 async function run() { try { await runInner(); } catch (e) { if (e !== 'stop') throw e; } }
-async function privately(i) { if (humans() > 1) await ask({ type: 'handoff', p: i }); }
+async function privately(i) { if (!S.online && humans() > 1) await ask({ type: 'handoff', p: i }); }
 async function runInner() {
   // night
-  for (let i = 0; i < S.n; i++) if (P(i).human) { await privately(i); await ask({ type: 'role', p: i }); P(i).seen = true; }
+  if (S.online) await ask({ type: 'role', p: S.me });
+  else for (let i = 0; i < S.n; i++) if (P(i).human) { await privately(i); await ask({ type: 'role', p: i }); P(i).seen = true; }
   log('天亮了，所有人睜開眼睛。');
   while (true) {
     const k = QUEST[S.n][S.quest];
@@ -341,7 +372,11 @@ async function runInner() {
       const talk = shuffle(S.players.map((_, j) => j).filter(j => !P(j).human)).slice(0, 2);
       for (const j of talk) { const r = botRemark(j, team); if (r) { log(`${nm(j)}：「${r}」`); render(); await nap(500); } }
       const votes = [];
-      for (let j = 0; j < S.n; j++) {
+      if (S.online) {
+        S.done = [];
+        await Promise.all(S.players.map((p, j) => { if (!p.human) { votes[j] = botVote(j, team, L); return null; } return ask({ type: 'vote', p: j, team }).then(v => { votes[j] = !!v; S.done.push(j); render(); }); }));
+        S.done = [];
+      } else for (let j = 0; j < S.n; j++) {
         if (P(j).human) { await privately(j); votes[j] = await ask({ type: 'vote', p: j, team }); }
         else votes[j] = botVote(j, team, L);
       }
@@ -362,7 +397,11 @@ async function runInner() {
     // mission
     S.phase = 'mission';
     const cards = [];
-    for (const j of S.team) {
+    if (S.online) {
+      S.done = [];
+      await Promise.all(S.team.map(j => { if (!P(j).human) { cards.push(botMission(j, S.team)); return null; } return ask({ type: 'mission', p: j }).then(v => { cards.push(!!v); S.done.push(j); render(); }); }));
+      S.done = []; await nap(300);
+    } else for (const j of S.team) {
       if (P(j).human) { await privately(j); cards.push(await ask({ type: 'mission', p: j })); }
       else { cards.push(botMission(j, S.team)); await nap(300); }
     }
@@ -411,6 +450,7 @@ function finish() {
 
 // ---------- rendering ----------
 function viewer() {
+  if (S.online) return S.me;
   if (humans() === 1) return S.players.findIndex(p => p.human);
   const pr = S.prompt;
   if (pr && pr.p != null && P(pr.p).human && pr.type !== 'handoff') return pr.p;
@@ -425,12 +465,13 @@ function render() {
   const sel = UI.sel || [];
   const wins = S.results.filter(r => r.success).length, losses = S.results.length - wins;
   app.innerHTML = `
-  <div class="top"><h1>圓桌騎士<small>阿瓦隆規則</small></h1><div style="display:flex;gap:6px"><button class="pill" id="rulesBtn">規則</button><button class="pill" id="quitBtn">重新開始</button></div></div>
+  <div class="top"><h1>圓桌騎士<small>阿瓦隆規則</small></h1><div style="display:flex;gap:6px">${NET.role ? chatBtnHTML() : ''}<button class="pill" id="rulesBtn">規則</button><button class="pill" id="quitBtn">${S.online ? '離開' : '重新開始'}</button></div></div>
+  ${S.online ? `<div class="track"><span>房號 <b style="color:var(--gold)">${esc(NET.code)}</b></span></div>` : ''}
   <div class="quests">${QUEST[S.n].map((k, q) => { const r = S.results[q];
     return `<div class="q ${r ? (r.success ? 'win' : 'lose') : (q === S.quest && !S.over ? 'cur' : '')}"><b>${r ? (r.success ? '✓' : '✗') : k}</b><span>${r ? `${r.fails} 失敗` : `任務 ${q + 1}`}</span>${needFails(S.n, q) === 2 ? '<span class="two">需 2 敗</span>' : ''}</div>`; }).join('')}</div>
   <div class="track"><span>正義 <b style="color:var(--good)">${wins}</b> ／ 邪惡 <b style="color:var(--evil)">${losses}</b></span>
     <span class="rej">組隊否決 ${[0, 1, 2, 3, 4].map(x => `<i class="${x < S.rejects ? 'on' : ''}"></i>`).join('')}</span></div>
-  ${me >= 0 ? `<div class="mybar">${humans() > 1 ? esc(nm(me)) + '：' : '你是'}<span class="badge ${ROLE[P(me).role].side}">${ROLE[P(me).role].n}</span><button class="pill" id="roleBtn">身分與夜晚資訊</button></div>` : ''}
+  ${me >= 0 ? `<div class="mybar">${!S.online && humans() > 1 ? esc(nm(me)) + '：' : '你是'}<span class="badge ${ROLE[P(me).role].side}">${ROLE[P(me).role].n}</span><button class="pill" id="roleBtn">身分與夜晚資訊</button></div>` : ''}
   <div class="table">${S.players.map((p, j) => {
     const tags = [];
     if (S.leader === j && !S.over) tags.push('<span class="tag lead">隊長</span>');
@@ -442,6 +483,8 @@ function render() {
     if (me >= 0 && P(me).lady[j] && !S.over) tags.push(`<span class="tag k-${P(me).lady[j]}">湖：${P(me).lady[j] === 'good' ? '好人' : '壞人'}</span>`);
     if (S.lastVotes) tags.push(`<span class="tag ${S.lastVotes[j] ? 'v-yes' : 'v-no'}">${S.lastVotes[j] ? '贊成' : '反對'}</span>`);
     if (S.over && S.stabbed === j) tags.push('<span class="tag k-evil">被刺殺</span>');
+    if (S.online && !S.over && (S.phase === 'vote' || S.phase === 'mission') && p.human && (S.phase === 'vote' || S.team.includes(j))) tags.push(S.done && S.done.includes(j) ? `<span class="tag done">${S.phase === 'vote' ? '已投票' : '已交牌'}</span>` : '<span class="tag">思考中…</span>');
+    if (p.off) tags.push('<span class="tag">離線・電腦代打</span>');
     let cls = '';
     if (picking) cls = sel.includes(j) ? 'pick on' : 'pick';
     if (targeting) { const ok = targeting.type === 'lady' ? j !== targeting.p && !S.ladyUsed.includes(j) : !isEvil(P(j).role); cls = ok ? 'pick' : 'dis'; }
@@ -452,6 +495,7 @@ function render() {
   <div style="display:flex;flex-direction:column;gap:6px"><h3 style="font-size:1rem">圓桌上的對話</h3><div class="say">${S.say.map(l => `<div>${esc(l)}</div>`).join('')}</div></div>`;
   $('#rulesBtn').onclick = showRules;
   $('#quitBtn').onclick = confirmQuit;
+  bindChatBtn();
   const rb = $('#roleBtn'); if (rb) rb.onclick = () => showRole(me, false);
   app.querySelectorAll('.seat.pick').forEach(b => b.onclick = () => {
     const j = +b.dataset.seat;
@@ -459,13 +503,14 @@ function render() {
     else if (targeting) { UI.target = j; render(); }
   });
   renderBar(); renderSheet();
+  syncSoon();
 }
 function renderBar() {
   const bar = $('#bar'), inn = $('#barIn'), pr = S.prompt;
   bar.hidden = false;
-  if (S.over && (!pr || pr.type !== 'end')) { inn.innerHTML = `<div class="t"><b>${S.winner === 'good' ? '正義方' : '邪惡方'}獲勝</b>：${esc(S.why)}</div><div class="btns"><button class="btn" id="bAgain">再玩一次</button></div>`; $('#bAgain').onclick = () => { S = null; render(); }; return; }
+  if (S.over && (!pr || pr.type !== 'end')) { inn.innerHTML = `<div class="t"><b>${S.winner === 'good' ? '正義方' : '邪惡方'}獲勝</b>：${esc(S.why)}</div><div class="btns">${NET.role === 'client' ? '<span class="small muted">等房主開下一局…</span>' : `<button class="btn" id="bAgain">${S.online ? '回到房間' : '再玩一次'}</button>`}</div>`; const ba = $('#bAgain'); if (ba) ba.onclick = backToLobbyOrSetup; return; }
   let html = '';
-  const who = pr && pr.p != null && humans() > 1 ? `<b>${esc(nm(pr.p))}</b>，` : '';
+  const who = pr && pr.p != null && !S.online && humans() > 1 ? `<b>${esc(nm(pr.p))}</b>，` : '';
   if (pr && pr.type === 'team') {
     const n = (UI.sel || []).length, need = needFails(S.n, S.quest);
     html = `<div class="t">${who}你是隊長：選 <b>${pr.k}</b> 位騎士出任務（可以選自己）。已選 ${n}/${pr.k}</div>
@@ -487,6 +532,7 @@ function renderBar() {
     html += `<div class="btns"><button class="btn ${pr.type === 'assassin' ? 'evil' : ''}" id="bTgt" ${t != null ? '' : 'disabled'}>${pr.type === 'lady' ? '查看' : '刺殺'}</button></div>`;
   } else {
     const L = S.leader;
+    if (S.online && (S.phase === 'vote' || S.phase === 'mission') && S.done && S.done.includes(S.me)) { html = `<div class="t">已送出，等其他人${S.phase === 'vote' ? '投票' : '交牌'}…</div><div class="hint">${esc(S.say[0] || '')}</div>`; inn.innerHTML = html; return; }
     html = `<div class="t">${S.phase === 'mission' ? '任務隊伍正在交出任務牌…' : S.phase === 'assassin' ? '刺客正在思考要刺殺誰…' : `隊長 ${esc(nm(L))} 正在${S.phase === 'vote' ? '等大家投票' : '挑選隊伍'}…`}</div><div class="hint">${esc(S.say[0] || '')}</div>`;
   }
   inn.innerHTML = html;
@@ -510,7 +556,7 @@ function renderSheet() {
 }
 function showRole(i, isPrompt) {
   const p = P(i), good = ROLE[p.role].side === 'good';
-  const m = openSheet(`<h2>${humans() > 1 ? esc(p.name) + ' 的' : '你的'}身分</h2>
+  const m = openSheet(`<h2>${!S.online && humans() > 1 ? esc(p.name) + ' 的' : '你的'}身分</h2>
     <div class="rolecard ${good ? 'good' : 'evil'}">${SHIELD(good)}${ROLE[p.role].n}<small>${good ? '正義陣營' : '邪惡陣營'}</small></div>
     <p>${ROLE[p.role].d}</p><div class="info"><b>夜晚資訊</b><br>${nightText(i)}</div>
     <button class="btn" id="ok">${isPrompt ? '記住了，閉上眼睛' : '關閉'}</button>`, { keep: !isPrompt });
@@ -550,12 +596,18 @@ function sheetEnd() {
   const good = S.winner === 'good';
   const m = openSheet(`<h2 style="color:${good ? 'var(--good)' : 'var(--evil)'}">${good ? '正義方獲勝！' : '邪惡方獲勝！'}</h2><p>${esc(S.why)}</p>
     <div class="votegrid">${S.players.map(p => `<div><span>${esc(p.name)}</span><b style="color:${isEvil(p.role) ? 'var(--evil)' : 'var(--good)'}">${ROLE[p.role].n}</b></div>`).join('')}</div>
-    <div class="btns" style="justify-content:center"><button class="btn" id="again">再玩一次</button><button class="btn alt" id="close">看紀錄</button></div>`);
-  $('#again', m).onclick = () => { closeSheet(); S = null; render(); };
-  $('#close', m).onclick = () => { closeSheet(); S.prompt = null; render(); };
+    <div class="btns" style="justify-content:center">${NET.role === 'client' ? '' : `<button class="btn" id="again">${S.online ? '回到房間' : '再玩一次'}</button>`}<button class="btn alt" id="close">看紀錄</button></div>`);
+  const ag = $('#again', m); if (ag) ag.onclick = () => { closeSheet(); backToLobbyOrSetup(); };
+  $('#close', m).onclick = () => { closeSheet(); if (NET.role === 'client' && S.prompt && S.prompt.local) { answer(true); return; } S.prompt = null; render(); };
   return m;
 }
 function confirmQuit() {
+  if (S && S.online) {
+    const m = openSheet(`<h2>離開房間？</h2><p>${NET.role === 'host' ? '你是房主，離開後這一局會結束，所有人都會斷線。' : '離開後由電腦代打，用同一個名字重新加入可以接回座位。'}</p><div class="btns" style="justify-content:center"><button class="btn no" id="y">離開</button><button class="btn alt" id="n">繼續玩</button></div>`, { keep: true });
+    $('#y', m).onclick = () => { closeSheet(); netLeave(); };
+    $('#n', m).onclick = () => { closeSheet(); renderSheet(); };
+    return;
+  }
   const m = openSheet(`<h2>重新開始？</h2><p>這一局的進度會消失。</p><div class="btns" style="justify-content:center"><button class="btn" id="y">重新開始</button><button class="btn alt" id="n">繼續玩</button></div>`, { keep: true });
   $('#y', m).onclick = () => { closeSheet(); resolver = null; S = null; render(); };
   $('#n', m).onclick = () => { closeSheet(); renderSheet(); };
@@ -587,14 +639,17 @@ function showRules() { const m = openSheet(RULES + '<button class="btn" id="ok" 
 const BOTNAMES = ['電腦 艾倫', '電腦 貝拉', '電腦 卡爾', '電腦 黛安', '電腦 艾瑞克', '電腦 菲歐', '電腦 葛雷', '電腦 海倫', '電腦 伊凡'];
 function renderSetup() {
   $('#bar').hidden = true;
-  if (!setupCfg) setupCfg = { n: 7, opts: DEFAULTS[7].slice(), lady: true, seats: [{ name: '你', human: true }, ...BOTNAMES.map(n => ({ name: n, human: false }))] };
+  if (NET.role) return renderLobby();
+  if (!setupCfg) setupCfg = { n: 7, opts: DEFAULTS[7].slice(), lady: true, play: qs.get('room') ? 'join' : 'local', code: (qs.get('room') || '').toUpperCase().slice(0, 4), seats: [{ name: '你', human: true }, ...BOTNAMES.map(n => ({ name: n, human: false }))] };
   const c = setupCfg;
+  if (c.play !== 'local') return renderNetSetup();
   const roles = buildRoles(c.n, c.opts);
   const countOf = (r) => roles.filter(x => x === r).length;
   const evilSpecial = c.opts.filter(r => ['morgana', 'mordred', 'oberon'].includes(r)).length;
   $('#app').innerHTML = `
   <div class="top"><h1>圓桌騎士<small>阿瓦隆規則</small></h1><button class="pill" id="rulesBtn">規則</button></div>
   <p style="margin:0;color:var(--muted);line-height:1.6">亞瑟王的騎士裡藏著邪惡的爪牙。組隊、投票、出任務，找出誰在說謊。</p>
+  ${playSegHTML()}
   <div class="setup">
     <div><h3>人數</h3><div class="seg">${[5, 6, 7, 8, 9, 10].map(n => `<button data-n="${n}" class="${c.n === n ? 'on' : ''}">${n}</button>`).join('')}</div>
       <p class="small muted" style="margin:6px 0 0">正義 ${c.n - EVIL_N[c.n]} 人、邪惡 ${EVIL_N[c.n]} 人。換人數時會套用建議配置。</p></div>
@@ -612,6 +667,7 @@ function renderSetup() {
   <div class="setup">${RULES}</div>`;
   const save = () => c.seats.slice(0, c.n).forEach((s, i) => { s.name = $('#nm' + i).value.trim() || `騎士${i + 1}`; });
   $('#rulesBtn').onclick = showRules;
+  bindPlaySeg(save);
   document.querySelectorAll('[data-n]').forEach(b => b.onclick = () => { save(); c.n = +b.dataset.n; c.opts = DEFAULTS[c.n].slice(); c.lady = c.n >= 7; renderSetup(); });
   document.querySelectorAll('[data-opt]').forEach(b => b.onchange = () => { save(); const k = b.dataset.opt; c.opts = b.checked ? [...c.opts, k] : c.opts.filter(x => x !== k); renderSetup(); });
   $('#lady').onchange = (e) => { save(); c.lady = e.target.checked; };
@@ -624,7 +680,366 @@ function renderSetup() {
     render(); run();
   };
 }
+// ---------- online play (PeerJS: the host's browser runs the game, others get only what they may see) ----------
+const NET = { role: null, code: '', peer: null, conns: [], host: null, waits: {}, pid: 0, chat: [], unread: 0, chatOpen: false, lobby: null, myName: '', status: '', err: '', dismissed: {}, answered: 0, lastView: null, roleKey: '' };
+const PEER_PREFIX = 'hannibal-avalon-';
+const CODE_CH = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const EMOS = ['😂', '😡', '🤔', '😱', '👍', '🙏', '😏', '🤫', '⚔️', '🛡️', '🗡️', '👑'];
+const qs = new URLSearchParams(location.search);
+const store = { get(k) { try { return localStorage.getItem(k) || ''; } catch { return ''; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+function peerOpts() { const h = qs.get('peerhost'); if (!h) return { debug: 0 }; const [host, port] = h.split(':'); return { host, port: +port, path: '/', secure: false, debug: 0 }; }
+let peerLib = null;
+function loadPeer() {
+  if (window.Peer) return Promise.resolve(window.Peer);
+  if (peerLib) return peerLib;
+  const srcs = ['https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js', 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js'];
+  peerLib = new Promise((res, rej) => {
+    let i = 0;
+    const next = () => {
+      if (i >= srcs.length) { peerLib = null; rej(new Error('load')); return; }
+      const s = document.createElement('script'); s.src = srcs[i++];
+      s.onload = () => window.Peer ? res(window.Peer) : next();
+      s.onerror = () => { s.remove(); next(); };
+      document.head.appendChild(s);
+    };
+    next();
+  });
+  return peerLib;
+}
+function send(c, o) { try { if (c && c.open) c.send(o); } catch {} }
+function bcast(o) { NET.conns.forEach(r => send(r.c, o)); }
+const newCode = () => Array.from({ length: 4 }, () => CODE_CH[rint(CODE_CH.length)]).join('');
+
+function netReset() {
+  if (NET.peer) { try { NET.peer.destroy(); } catch {} }
+  Object.assign(NET, { role: null, code: '', peer: null, conns: [], host: null, waits: {}, chat: [], unread: 0, chatOpen: false, lobby: null, status: '', dismissed: {}, answered: 0, lastView: null, roleKey: '' });
+  renderChat();
+}
+function netFail(msg) {
+  const wasClient = NET.role === 'client';
+  netReset(); NET.err = msg;
+  if (wasClient || !S || S.online) { S = null; resolver = null; }
+  closeSheet(); render();
+}
+function netLeave() {
+  if (NET.role === 'host') bcast({ t: 'bye', reason: '房主關閉了房間。' });
+  const p = NET.peer; NET.peer = null;
+  setTimeout(() => { try { p && p.destroy(); } catch {} }, 300);
+  netReset(); NET.err = ''; S = null; resolver = null; closeSheet(); render();
+}
+function backToLobbyOrSetup() {
+  if (S) S.gid = Math.random();
+  resolver = null; S = null;
+  if (NET.role === 'host') { NET.waits = {}; NET.conns.forEach(r => r.seat = -1); }
+  render();
+}
+
+// ----- host -----
+async function hostRoom(name) {
+  NET.role = 'host'; NET.myName = name; NET.err = ''; NET.status = '正在建立房間…'; NET.lobby = { n: 7, opts: DEFAULTS[7].slice(), lady: true };
+  render();
+  let Peer; try { Peer = await loadPeer(); } catch { return netFail('連線元件載入失敗，請確認網路後再試一次。'); }
+  if (NET.role !== 'host') return;
+  for (let tries = 0; tries < 6 && !NET.peer; tries++) {
+    const code = newCode();
+    const r = await new Promise(res => {
+      const p = new Peer(PEER_PREFIX + code, peerOpts());
+      let done = false;
+      p.on('open', () => { done = true; res({ p, code }); });
+      p.on('error', e => { if (!done) { done = true; try { p.destroy(); } catch {} res({ err: e }); } else hostPeerError(e); });
+      setTimeout(() => { if (!done) { done = true; try { p.destroy(); } catch {} res({ err: { type: 'timeout' } }); } }, 15000);
+    });
+    if (NET.role !== 'host') { if (r.p) r.p.destroy(); return; }
+    if (r.p) { NET.peer = r.p; NET.code = r.code; break; }
+    if (r.err && r.err.type !== 'unavailable-id') return netFail('無法建立房間（' + (r.err.type || '網路錯誤') + '），請確認網路後再試一次。');
+  }
+  if (!NET.peer) return netFail('無法建立房間，請再試一次。');
+  NET.peer.on('connection', hostConn);
+  NET.peer.on('disconnected', () => { try { NET.peer && NET.peer.reconnect(); } catch {} });
+  NET.status = ''; sysChat(`房間 ${NET.code} 建好了`); render();
+}
+function hostPeerError(e) { if (e && e.type === 'network') sysChat('連線伺服器暫時斷線，已經在房間裡的人不受影響。'); }
+function hostConn(c) {
+  const rec = { c, name: '', seat: -1, last: Date.now() };
+  c.on('data', d => { rec.last = Date.now(); hostRecv(rec, d); });
+  c.on('close', () => hostDrop(rec));
+  c.on('error', () => hostDrop(rec));
+}
+function hostRecv(rec, d) {
+  if (!d || typeof d !== 'object') return;
+  if (d.t === 'hello' && !rec.name) {
+    const name = String(d.name || '').trim().slice(0, 8) || '玩家';
+    if (S) {
+      const j = S.players.findIndex((p, k) => k !== S.me && (p.off || p.remote) && p.baseName === name);
+      const old = NET.conns.find(r => r.seat === j && j >= 0);
+      if (old) { NET.conns.splice(NET.conns.indexOf(old), 1); try { old.c.close(); } catch {} }
+      if (j < 0) { send(rec.c, { t: 'bye', reason: '這局已經開始了，等下一局再加入吧。（斷線的人用原本的名字可以接回座位）' }); return; }
+      const p = P(j); p.off = false; p.remote = true; p.human = true; p.name = p.baseName;
+      rec.name = name; rec.seat = j; NET.conns.push(rec);
+      sysChat(`${name} 重新連線，接回座位`); render(); return;
+    }
+    const max = 10;
+    if (1 + NET.conns.length >= max) { send(rec.c, { t: 'bye', reason: '房間已滿。' }); return; }
+    let nm2 = name, k = 2; const taken = () => [NET.myName, ...NET.conns.map(r => r.name)];
+    while (taken().includes(nm2)) nm2 = name.slice(0, 6) + k++;
+    rec.name = nm2; NET.conns.push(rec);
+    sysChat(`${nm2} 加入了房間`); render(); return;
+  }
+  if (!rec.name) return;
+  if (d.t === 'pong') return;
+  if (d.t === 'chat') { const text = String(d.text || '').trim().slice(0, 120); if (text) addChat(rec.name, text); return; }
+  if (d.t === 'emo') { if (EMOS.includes(d.e)) addEmo(rec.name, d.e); return; }
+  if (d.t === 'ans' && S && rec.seat >= 0) {
+    const w = NET.waits[d.pid]; if (!w || w.seat !== rec.seat) return;
+    if (!validAns(w.pr, d.v)) { console.warn('invalid answer', JSON.stringify(d.v)); delete NET.waits[d.pid]; const pr = { ...w.pr, pid: ++NET.pid }; NET.waits[pr.pid] = { ...w, pr }; S.rprompts[rec.seat] = pr; syncSoon(); return; }
+    delete NET.waits[d.pid]; S.rprompts[rec.seat] = null; w.r(d.v);
+  }
+}
+function hostDrop(rec) {
+  const i = NET.conns.indexOf(rec); if (i < 0) return;
+  NET.conns.splice(i, 1);
+  if (!rec.name) return;
+  const inGame = S && rec.seat >= 0 && !S.over;
+  sysChat(`${rec.name} 離線了${inGame ? '，先由電腦代打' : ''}`);
+  if (S && rec.seat >= 0) {
+    const p = P(rec.seat); p.off = true; p.remote = false; p.human = false; p.name = p.baseName + '（離線）';
+    for (const [pid, w] of Object.entries(NET.waits)) if (w.seat === rec.seat) { delete NET.waits[pid]; S.rprompts[rec.seat] = null; w.r(botAnswer(w.pr)); }
+  }
+  render();
+}
+// heartbeat: WebRTC can take a long time to notice a closed phone, so ping everyone
+setInterval(() => {
+  if (NET.role === 'host') {
+    const now = Date.now();
+    NET.conns.slice().forEach(r => { if (now - r.last > 12000) { try { r.c.close(); } catch {} hostDrop(r); } });
+    bcast({ t: 'ping' });
+  } else if (NET.role === 'client' && NET.host && NET.host.open) {
+    if (Date.now() - (NET.hostLast || Date.now()) > 15000) netFail('和房主的連線中斷了。用同一個名字重新加入可以接回座位。');
+  }
+}, 3000);
+function botAnswer(pr) {
+  const i = pr.p;
+  switch (pr.type) {
+    case 'team': return botTeam(i);
+    case 'vote': return botVote(i, pr.team, S.leader);
+    case 'mission': return botMission(i, S.team);
+    case 'lady': return botLady(i);
+    case 'assassin': return botAssassin(i);
+    default: return true;
+  }
+}
+function validAns(pr, v) {
+  const okI = (x) => Number.isInteger(x) && x >= 0 && x < S.n;
+  switch (pr.type) {
+    case 'team': return Array.isArray(v) && v.length === pr.k && new Set(v).size === v.length && v.every(okI);
+    case 'vote': return typeof v === 'boolean';
+    case 'mission': return v === true || (v === false && isEvil(P(pr.p).role));
+    case 'lady': return okI(v) && v !== pr.p && !S.ladyUsed.includes(v);
+    case 'assassin': return okI(v) && !isEvil(P(v).role);
+    default: return true;
+  }
+}
+let syncT = null;
+function syncSoon() { if (NET.role !== 'host' || syncT) return; syncT = setTimeout(() => { syncT = null; doSync(); }, 40); }
+function doSync() {
+  if (NET.role !== 'host') return;
+  if (!S) { const L = NET.lobby; bcast({ t: 'lobby', code: NET.code, players: [NET.myName, ...NET.conns.map(r => r.name)], n: lobbyN(), opts: L.opts, lady: L.lady }); return; }
+  NET.conns.forEach(r => { if (r.seat >= 0) send(r.c, { t: 'view', v: viewFor(r.seat) }); });
+}
+function viewFor(j) {
+  const evilShown = S.phase === 'assassin';
+  return {
+    me: j, gk: S.gid, n: S.n, roles: S.roles.slice().sort(), opts: S.opts, ladyOn: S.ladyOn, quest: S.quest, results: S.results, hist: S.hist, leader: S.leader, rejects: S.rejects,
+    team: S.team, ladyHolder: S.ladyHolder, ladyUsed: S.ladyUsed, say: S.say.slice(0, 60), over: S.over, winner: S.winner || null, why: S.why || '', stabbed: S.stabbed ?? null,
+    phase: S.phase || '', lastVotes: S.lastVotes, done: S.done || [], night: nightInfo(j),
+    players: S.players.map((p, i) => ({ name: p.name, human: p.human, remote: p.remote, off: p.off, role: i === j || S.over || (evilShown && isEvil(p.role)) ? p.role : null, lady: i === j ? p.lady : {} })),
+    prompt: S.rprompts[j] || null, shared: S.shared || null,
+  };
+}
+function lobbyN() { const h = 1 + NET.conns.length; return Math.min(10, Math.max(5, NET.lobby.n, h)); }
+function startOnline() {
+  const L = NET.lobby, n = lobbyN();
+  if (1 + NET.conns.length > n) return;
+  const seats = [{ name: NET.myName, human: true }, ...NET.conns.map(r => ({ name: r.name, human: true, remote: true }))];
+  NET.conns.forEach((r, i) => r.seat = i + 1);
+  let b = 0; while (seats.length < n) seats.push({ name: BOTNAMES[b++], human: false });
+  NET.waits = {};
+  newGame({ seats, opts: L.opts.slice(), lady: L.lady });
+  S.online = true; S.me = 0; S.rprompts = {}; S.done = [];
+  sysChat(`開始遊戲！${n} 位騎士`);
+  render(); run();
+}
+
+// ----- client -----
+async function joinRoom(code, name) {
+  NET.role = 'client'; NET.myName = name; NET.code = code; NET.err = ''; NET.status = '正在連線到房間 ' + code + '…';
+  render();
+  let Peer; try { Peer = await loadPeer(); } catch { return netFail('連線元件載入失敗，請確認網路後再試一次。'); }
+  if (NET.role !== 'client') return;
+  const p = new Peer(undefined, peerOpts()); NET.peer = p;
+  p.on('error', e => {
+    if (NET.role !== 'client') return;
+    if (e.type === 'peer-unavailable') netFail(`找不到房間 ${code}，請確認房號，或請房主重新開房。`);
+    else if (!NET.host || !NET.host.open) netFail('連線失敗（' + (e.type || '網路錯誤') + '），請再試一次。');
+  });
+  p.on('open', () => {
+    const c = p.connect(PEER_PREFIX + code, { reliable: true, serialization: 'json' }); NET.host = c;
+    c.on('open', () => { NET.hostLast = Date.now(); send(c, { t: 'hello', name }); NET.status = '已連線，等待房主…'; render(); });
+    c.on('data', clientRecv);
+    c.on('close', () => { if (NET.role === 'client') netFail(S && !S.over ? '和房主的連線中斷了。用同一個名字重新加入可以接回座位。' : '房間已經關閉了。'); });
+  });
+  setTimeout(() => { if (NET.role === 'client' && NET.code === code && !NET.lobby && !S) netFail('連線逾時。請確認房號，或請房主重新開房。'); }, 20000);
+}
+function clientRecv(d) {
+  if (!d || typeof d !== 'object') return;
+  NET.hostLast = Date.now();
+  if (d.t === 'ping') { send(NET.host, { t: 'pong' }); return; }
+  if (d.t === 'lobby') { NET.lobby = d; NET.status = ''; if (S) { S = null; NET.dismissed = {}; NET.answered = 0; NET.roleKey = ''; closeSheet(); } render(); }
+  else if (d.t === 'view') applyView(d.v);
+  else if (d.t === 'chat') addChat(d.from, d.text, d.sys);
+  else if (d.t === 'emo') addEmo(d.from, d.e);
+  else if (d.t === 'bye') { const r = d.reason; netFail(r); }
+}
+function applyView(v) {
+  NET.lastView = v;
+  const prevPid = S && S.prompt && S.prompt.pid;
+  S = { online: true, client: true, me: v.me, gid: v.gk, n: v.n, roles: v.roles, opts: v.opts, ladyOn: v.ladyOn, quest: v.quest, results: v.results, hist: v.hist, leader: v.leader, rejects: v.rejects,
+    team: v.team, ladyHolder: v.ladyHolder, ladyUsed: v.ladyUsed, say: v.say, over: v.over, winner: v.winner, why: v.why, stabbed: v.stabbed, phase: v.phase, lastVotes: v.lastVotes,
+    done: v.done, night: v.night, players: v.players, prompt: null, rprompts: {} };
+  const rk = 'role:' + v.gk;
+  if (NET.roleKey !== rk && !v.over) S.prompt = { type: 'role', p: v.me, local: true, key: rk };
+  else if (v.prompt && v.prompt.pid !== NET.answered) S.prompt = v.prompt;
+  else if (v.shared && !NET.dismissed[v.shared.key]) S.prompt = { ...v.shared, local: true };
+  if (!(S.prompt && S.prompt.pid && S.prompt.pid === prevPid)) UI = {};
+  render();
+}
+function clientAnswer(v) {
+  const pr = S && S.prompt; if (!pr) return;
+  S.prompt = null; UI = {};
+  if (pr.local) { if (pr.type === 'role') NET.roleKey = pr.key; else if (pr.key) NET.dismissed[pr.key] = true; if (NET.lastView) applyView(NET.lastView); else render(); return; }
+  NET.answered = pr.pid; send(NET.host, { t: 'ans', pid: pr.pid, v }); render();
+}
+
+// ----- chat & emotes -----
+function chatBtnHTML() { return `<button class="pill chatbtn" id="chatBtn" aria-label="聊天">💬 聊天${NET.unread ? `<span class="badge">${NET.unread}</span>` : ''}</button>`; }
+function bindChatBtn() { const b = $('#chatBtn'); if (b) b.onclick = () => { NET.chatOpen = !NET.chatOpen; NET.unread = 0; updateBadge(); renderChat(); }; }
+function updateBadge() { const b = $('#chatBtn'); if (b) b.innerHTML = `💬 聊天${NET.unread ? `<span class="badge">${NET.unread}</span>` : ''}`; }
+function addChat(from, text, sys) {
+  NET.chat.push({ from, text, sys: !!sys }); if (NET.chat.length > 120) NET.chat.shift();
+  if (NET.role === 'host') bcast({ t: 'chat', from, text, sys: !!sys });
+  if (!NET.chatOpen && !sys) { NET.unread++; updateBadge(); }
+  renderChat();
+}
+function sysChat(text) { addChat('', text, true); }
+function addEmo(from, e) {
+  if (NET.role === 'host') bcast({ t: 'emo', from, e });
+  NET.chat.push({ from, text: e, emo: true }); if (NET.chat.length > 120) NET.chat.shift();
+  renderChat();
+  const old = $('#bubble'); if (old) old.remove();
+  const b = document.createElement('div'); b.className = 'bubble'; b.id = 'bubble';
+  b.innerHTML = `<span class="e">${e}</span>${esc(from)}`;
+  document.body.appendChild(b); setTimeout(() => { if (b.isConnected) b.remove(); }, 2300);
+}
+function sendChat(text) {
+  text = text.trim().slice(0, 120); if (!text) return;
+  if (NET.role === 'host') addChat(NET.myName, text); else send(NET.host, { t: 'chat', text });
+}
+function sendEmo(e) { if (NET.role === 'host') addEmo(NET.myName, e); else send(NET.host, { t: 'emo', e }); }
+function renderChat() {
+  let el = $('#chat');
+  if (!NET.chatOpen || !NET.role) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement('div'); el.className = 'chat'; el.id = 'chat';
+    el.innerHTML = `<div class="cin"><div class="chd"><h3 style="font-size:1.05rem">💬 聊天</h3><button class="pill" id="chatX">關閉</button></div>
+      <div class="msgs" id="msgs" aria-live="polite"></div>
+      <div class="emos">${EMOS.map(e => `<button data-emo="${e}" aria-label="送出 ${e}">${e}</button>`).join('')}</div>
+      <form id="chatF"><input id="chatI" maxlength="120" placeholder="說點什麼…（例如：我真的是好人！）" autocomplete="off"><button class="btn" type="submit">送出</button></form></div>`;
+    document.body.appendChild(el);
+    $('#chatX', el).onclick = () => { NET.chatOpen = false; renderChat(); };
+    el.querySelectorAll('[data-emo]').forEach(b => b.onclick = () => sendEmo(b.dataset.emo));
+    $('#chatF', el).onsubmit = (ev) => { ev.preventDefault(); const i = $('#chatI', el); sendChat(i.value); i.value = ''; i.focus(); };
+  }
+  const box = $('#msgs', el);
+  box.innerHTML = NET.chat.map(m => m.sys ? `<div class="sys">— ${esc(m.text)} —</div>` : `<div><b>${esc(m.from)}</b>：${m.emo ? `<span style="font-size:1.3rem">${m.text}</span>` : esc(m.text)}</div>`).join('') || '<div class="sys">還沒有訊息</div>';
+  box.scrollTop = box.scrollHeight;
+}
+
+// ----- setup & lobby screens -----
+function playSegHTML() {
+  const p = setupCfg.play;
+  return `<div class="setup" style="gap:8px"><h3>怎麼玩</h3><div class="seg"><button data-play="local" class="${p === 'local' ? 'on' : ''}">這支手機</button><button data-play="host" class="${p === 'host' ? 'on' : ''}">線上開房</button><button data-play="join" class="${p === 'join' ? 'on' : ''}">加入房間</button></div>
+    <span class="small muted">${p === 'local' ? '和電腦玩，或幾個人輪流用同一支手機。' : p === 'host' ? '你開一個房間，朋友用自己的手機輸入房號加入，空位由電腦騎士補。' : '輸入朋友給你的 4 碼房號。'}</span>
+    ${NET.err ? `<div class="err">${esc(NET.err)}</div>` : ''}</div>`;
+}
+function bindPlaySeg(save) { document.querySelectorAll('[data-play]').forEach(b => b.onclick = () => { if (save) save(); setupCfg.play = b.dataset.play; NET.err = ''; renderSetup(); }); }
+function renderNetSetup() {
+  const c = setupCfg, host = c.play === 'host';
+  const name = c.netName ?? store.get('avalon-name');
+  $('#app').innerHTML = `
+  <div class="top"><h1>圓桌騎士<small>阿瓦隆規則</small></h1><button class="pill" id="rulesBtn">規則</button></div>
+  <p style="margin:0;color:var(--muted);line-height:1.6">亞瑟王的騎士裡藏著邪惡的爪牙。組隊、投票、出任務，找出誰在說謊。</p>
+  ${playSegHTML()}
+  <div class="setup">
+    <div style="display:flex;flex-direction:column;gap:6px"><h3>你的名字</h3><input class="netin" id="nmI" maxlength="8" value="${esc(name)}" placeholder="最多 8 個字"></div>
+    ${host ? '<p class="small muted" style="margin:0">人數、特殊角色和湖中女神，進房後再設定。</p>'
+      : `<div style="display:flex;flex-direction:column;gap:6px"><h3>房號</h3><input class="netin" id="codeI" maxlength="4" value="${esc(c.code || '')}" placeholder="例如 K7QF" style="text-transform:uppercase;letter-spacing:.3em;font-size:1.3rem;max-width:200px" autocapitalize="characters"></div>`}
+    <button class="btn" id="go" style="align-self:flex-start;font-size:1.05rem">${host ? '建立房間' : '加入房間'}</button>
+    <span class="small muted">需要網路。房主的手機負責分配身分和計算，遊戲中請房主不要關掉這個網頁。</span>
+  </div>`;
+  $('#rulesBtn').onclick = showRules;
+  const keep = () => { c.netName = $('#nmI').value; const ci = $('#codeI'); if (ci) c.code = ci.value; };
+  bindPlaySeg(keep);
+  $('#go').onclick = () => {
+    const nm2 = $('#nmI').value.trim().slice(0, 8);
+    if (!nm2) { $('#nmI').focus(); return; }
+    store.set('avalon-name', nm2); c.netName = nm2;
+    if (host) hostRoom(nm2);
+    else { const code = ($('#codeI').value || '').trim().toUpperCase(); if (code.length !== 4) { $('#codeI').focus(); return; } c.code = code; joinRoom(code, nm2); }
+  };
+}
+function renderLobby() {
+  const host = NET.role === 'host', L = NET.lobby;
+  let body;
+  if (NET.status || !L || (host && !NET.code)) body = `<p>${esc(NET.status || '連線中…')}</p>`;
+  else {
+    const players = host ? [NET.myName, ...NET.conns.map(r => r.name)] : L.players;
+    const n = host ? lobbyN() : L.n;
+    const roles = buildRoles(n, L.opts), countOf = (r) => roles.filter(x => x === r).length;
+    const ns = []; for (let k = Math.max(5, players.length); k <= 10; k++) ns.push(k);
+    body = `<div style="text-align:center"><span class="small muted">房號</span><div class="code">${esc(NET.code)}</div>
+      ${host ? `<div class="btns" style="justify-content:center"><button class="btn alt" id="share">分享邀請連結</button></div><p class="small muted" style="margin:6px 0 0">朋友打開遊戲 → 加入房間 → 輸入房號。</p>` : ''}</div>
+    <div style="display:flex;flex-direction:column;gap:6px"><h3>玩家（${players.length} 位真人）</h3>
+      <div class="plist">${players.map((p, i) => `<div><span>${esc(p)}${p === NET.myName ? '（你）' : ''}</span><span class="small muted">${i === 0 ? '房主' : '已加入'}</span></div>`).join('')}
+      ${n > players.length ? `<div><span class="muted">電腦騎士 × ${n - players.length}</span><span class="small muted">補空位</span></div>` : ''}</div></div>
+    ${host ? `<div><h3>總人數</h3>${players.length > 10 ? '<p class="err">最多 10 人。</p>' : `<div class="seg">${ns.map(k => `<button data-ln="${k}" class="${n === k ? 'on' : ''}">${k}</button>`).join('')}</div>`}
+        <p class="small muted" style="margin:6px 0 0">正義 ${n - EVIL_N[n]} 人、邪惡 ${EVIL_N[n]} 人。換人數時會套用建議配置。</p></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><h3>特殊角色</h3>
+        ${[['percival', '派西維爾（正義）'], ['morgana', '莫甘娜（邪惡）'], ['mordred', '莫德雷德（邪惡）'], ['oberon', '奧伯倫（邪惡）']].map(([k, l]) => `<label class="chk"><input type="checkbox" data-lopt="${k}" ${L.opts.includes(k) ? 'checked' : ''}> ${l}</label>`).join('')}
+        <label class="chk"><input type="checkbox" id="llady" ${L.lady ? 'checked' : ''}> 湖中女神（建議 7 人以上）</label></div>` : ''}
+    <p class="small muted" style="margin:0">本局角色：${Object.keys(ROLE).filter(countOf).map(r => `<span style="color:${isEvil(r) ? 'var(--evil)' : 'var(--good)'}">${ROLE[r].n}${countOf(r) > 1 ? '×' + countOf(r) : ''}</span>`).join('、')}${L.lady ? '・湖中女神' : ''}</p>
+    ${host ? `<button class="btn" id="startOn" style="align-self:flex-start;font-size:1.05rem" ${players.length > 10 ? 'disabled' : ''}>入座圓桌</button>` : `<p class="small muted" style="margin:0">共 ${n} 位騎士。等房主開始…</p>`}`;
+  }
+  $('#app').innerHTML = `
+  <div class="top"><h1>圓桌騎士<small>線上房間</small></h1><div style="display:flex;gap:6px">${chatBtnHTML()}<button class="pill" id="rulesBtn">規則</button><button class="pill" id="leave">離開</button></div></div>
+  <div class="setup">${body}</div>`;
+  $('#rulesBtn').onclick = showRules;
+  bindChatBtn();
+  $('#leave').onclick = netLeave;
+  document.querySelectorAll('[data-ln]').forEach(b => b.onclick = () => { NET.lobby.n = +b.dataset.ln; NET.lobby.opts = DEFAULTS[NET.lobby.n].slice(); NET.lobby.lady = NET.lobby.n >= 7; render(); });
+  document.querySelectorAll('[data-lopt]').forEach(b => b.onchange = () => { const k = b.dataset.lopt; NET.lobby.opts = b.checked ? [...NET.lobby.opts, k] : NET.lobby.opts.filter(x => x !== k); render(); });
+  const ll = $('#llady'); if (ll) ll.onchange = (e) => { NET.lobby.lady = e.target.checked; render(); };
+  const so = $('#startOn'); if (so) so.onclick = startOnline;
+  const sh = $('#share'); if (sh) sh.onclick = async () => {
+    const link = location.href.split('?')[0].split('#')[0] + '?room=' + NET.code;
+    const text = `來圓桌騎士！房號 ${NET.code}`;
+    try { if (navigator.share) { await navigator.share({ title: '圓桌騎士', text, url: link }); return; } } catch { return; }
+    try { await navigator.clipboard.writeText(text + ' ' + link); sh.textContent = '已複製連結'; } catch { sh.textContent = '房號：' + NET.code; }
+  };
+  syncSoon();
+}
+
 window.__av = () => S;
+window.__avNet = () => NET;
 render();
 })();
 </script>
