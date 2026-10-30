@@ -382,12 +382,41 @@ for w in ways:
     h = num(t.get('height'))
     if h is None and num(t.get('building:levels')):
         h = num(t.get('building:levels')) * 3.4
-    if h is None:
-        h = 9 + random.random() * (14 if A < 400 else 26)
     flat = []
     for x, z in pts:
         flat += [round(x, 1), round(z, 1)]
-    blds.append([round(h, 1), nid(t.get('name', '')), flat])
+    blds.append([None if h is None else round(h, 1), nid(t.get('name', '')), flat, cx, cz, A, t.get('building', 'yes')])
+
+# buildings without a height or floor count: estimate from their type, footprint and the known heights nearby
+known = collections.defaultdict(list)
+for b in blds:
+    if b[0] is not None:
+        known[(int(b[3] // 150), int(b[4] // 150))].append(b[0])
+TYPE_H = {'roof': 4.5, 'garage': 3.5, 'garages': 3.5, 'shed': 3.5, 'kiosk': 3.5, 'hut': 3.5, 'carport': 3.5, 'toilets': 4,
+          'house': 8, 'detached': 8, 'temple': 11, 'church': 14, 'school': 14, 'kindergarten': 10}
+def area_h(A):
+    return 12 if A < 120 else 15 if A < 300 else 20 if A < 800 else 30 if A < 2000 else 40
+filled = 0
+for b in blds:
+    if b[0] is not None:
+        continue
+    cx, cz, A, kind = b[3], b[4], b[5], b[6]
+    if kind in TYPE_H:
+        h = TYPE_H[kind]
+    else:
+        near = []
+        gx, gz = int(cx // 150), int(cz // 150)
+        for i in (-1, 0, 1):
+            for j in (-1, 0, 1):
+                near += known.get((gx + i, gz + j), [])
+        h = area_h(A)
+        if len(near) >= 3:
+            near.sort(); med = near[len(near) // 2]
+            h = 0.5 * h + 0.5 * min(med, h * 2.5)
+    b[0] = round(max(3.5, min(80, h * (0.9 + random.random() * 0.2))), 1)
+    filled += 1
+blds = [b[:3] for b in blds]
+print('estimated heights for', filled, 'buildings')
 
 # start: westmost point of an eastbound 信義路五段 edge
 best = None
@@ -407,7 +436,7 @@ rx, rz = -(z2 - z1) / L, (x2 - x1) / L
 start = [round(sx + rx * off * 0 + rx * (best['hw'] - 2.2) * 0.5, 1), round(sz + rz * (best['hw'] - 2.2) * 0.5, 1), round(h, 4)]
 
 xs = [n[0] for n in out_nodes]; zs = [n[1] for n in out_nodes]
-out = dict(names=names, nodes=out_nodes, edges=out_edges, blds=blds, start=start,
+out = dict(names=names, nodes=out_nodes, edges=out_edges, blds=blds, start=start, origin=[lat0, lon0],
            bounds=[round(min(xs), 1), round(min(zs), 1), round(max(xs), 1), round(max(zs), 1)])
 json.dump(out, open(dst, 'w'), ensure_ascii=False, separators=(',', ':'))
 print('nodes', len(out_nodes), 'signals', sum(n[3] for n in out_nodes), 'edges', len(out_edges), 'blds', len(blds),
