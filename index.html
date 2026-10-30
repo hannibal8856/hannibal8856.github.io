@@ -1,14 +1,14 @@
 <!doctype html>
-<html lang="zh-Hans">
+<html lang="zh-Hant">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Hannibal 游戏厅</title>
+<title>Hannibal 遊戲廳</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&display=swap">
 <style>
 :root {
   --bg: #12202c; --fg: #eef3f6; --muted: #93a8b6; --card: #1b2d3c; --line: #ffffff1a; --glow: #ffd23f;
   --num: "Bungee", "Arial Black", system-ui, sans-serif;
-  --ui: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --ui: system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
   color-scheme: dark;
 }
 body {
@@ -32,6 +32,14 @@ a.game:hover, a.game:focus-visible { transform: translateY(-2px); box-shadow: in
 .icon { flex: 0 0 56px; height: 56px; border-radius: 12px; display: grid; place-items: center; font: 400 1.1rem var(--num); color: #fff; }
 .g2048 { background: #2a6e5d; color: #f3e7c9; }
 .guno { background: #e0303f; }
+.gciv { background: #8a4b14; font-size: 1.6rem; }
+.gcof { background: #6b3e26; font-size: 1.6rem; }
+.griv { background: #3f7fb0; font-size: 1.6rem; }
+.gmine { background: #5a4630; font-size: 1.6rem; }
+.gcity { background: #2f8a6a; font-size: 1.6rem; }
+.gav { background: #3a3f8f; font-size: 1.6rem; }
+.gnm { background: #10261d; font-size: 1.6rem; box-shadow: inset 0 0 0 2px #6ef0b1; }
+.sec { margin: 8px 0 0; font-size: .85rem; color: var(--glow); letter-spacing: .1em; }
 .gflip { background: linear-gradient(135deg, #2370d6 50%, #7d43c8 50%); }
 .game h2 { margin: 0 0 4px; font-size: 1.1rem; }
 .game p { margin: 0; color: var(--muted); font-size: .9rem; line-height: 1.4; }
@@ -39,21 +47,53 @@ a.game:hover, a.game:focus-visible { transform: translateY(-2px); box-shadow: in
 </style>
 <main>
   <div>
-    <h1>游戏<span>厅</span></h1>
-    <p class="lead">点一个开始玩，手机和电脑都可以。</p>
+    <h1>遊戲<span>廳</span></h1>
+    <p class="lead">點一個開始玩，手機和電腦都可以。全部是非官方練習版。</p>
   </div>
+  <p class="sec">桌遊</p>
+  <div class="list">
+    <a class="game" href="civ.html">
+      <div class="icon gciv">🗺️</div>
+      <div><h2>文明崛起</h2><p>文明帝國桌遊（2010）規則。建城、研究科技、發展文化，和電腦文明比賽四種勝利。</p></div>
+    </a>
+    <a class="game" href="nemesis.html">
+      <div class="icon gnm">👾</div>
+      <div><h2>異形巢穴</h2><p>復仇女神號：反擊規則。合作遊戲，操控 1～4 名隊員在被異形入侵的基地完成任務、撤離。</p></div>
+    </a>
+    <a class="game" href="avalon.html">
+      <div class="icon gav">⚔️</div>
+      <div><h2>圓桌騎士</h2><p>阿瓦隆規則。5～10 人，正義與邪惡陣營互相猜疑，電腦騎士會推理和說謊。</p></div>
+    </a>
+    <a class="game" href="mine.html">
+      <div class="icon gmine">⛏️</div>
+      <div><h2>礦坑淘金</h2><p>矮人礦坑規則，可選一代或一＋二代合併。挖通往金礦的通道，小心隊伍裡的破壞者。</p></div>
+    </a>
+    <a class="game" href="city.html">
+      <div class="icon gcity">🏙️</div>
+      <div><h2>市長大建設</h2><p>城市規劃師 CITY CONNECT 規則（卡牌內容為自製）。收集資源、蓋建築，打造最繁榮的城市。</p></div>
+    </a>
+    <a class="game" href="river.html">
+      <div class="icon griv">🐄</div>
+      <div><h2>河畔牧場</h2><p>月之河畔 Moon River 規則。放置地塊、養牛、應付乾旱，含西部傳奇劇本。</p></div>
+    </a>
+    <a class="game" href="coffee.html">
+      <div class="icon gcof">☕</div>
+      <div><h2>從種子到杯子</h2><p>台灣咖啡供應鏈桌遊。種植、處理、參加博覽會，最後在咖啡廳出杯得分。</p></div>
+    </a>
+  </div>
+  <p class="sec">卡牌與小遊戲</p>
   <div class="list">
     <a class="game" href="flip.html">
       <div class="icon gflip">⇅</div>
-      <div><h2>最后一张 翻转版</h2><p>UNO Flip 规则。双面牌，打出翻面牌整桌翻转，和 3 个电脑对手比谁先出完。</p></div>
+      <div><h2>最後一張 翻轉版</h2><p>UNO Flip 規則。雙面牌，打出翻面牌整桌翻轉，和 3 個電腦對手比誰先出完。</p></div>
     </a>
     <a class="game" href="uno.html">
       <div class="icon guno">+2</div>
-      <div><h2>最后一张</h2><p>经典 UNO 规则。跳过、反转、+2、变色牌，记得喊“最后一张”。</p></div>
+      <div><h2>最後一張</h2><p>經典 UNO 規則。跳過、反轉、+2、變色牌，記得喊「最後一張」。</p></div>
     </a>
     <a class="game" href="2048.html">
       <div class="icon g2048">2048</div>
-      <div><h2>青瓷 2048</h2><p>滑动合并相同的数字，拼出 2048。可以撤销，会记住最高分。</p></div>
+      <div><h2>青瓷 2048</h2><p>滑動合併相同的數字，拼出 2048。可以撤銷，會記住最高分。</p></div>
     </a>
   </div>
 </main>

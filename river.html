@@ -1,0 +1,953 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>河畔牧場</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rye&family=LXGW+WenKai+TC:wght@400;700&display=swap">
+<style>
+/* Layout: one scrolling column on a saloon-wood table — header, plot market + saloon, player chips, the viewed ranch (5-wide grid above its reservation board), log; fixed action bar at the bottom. Single deliberate theme. */
+:root {
+  color-scheme: dark;
+  --wood: #3a2316; --wood2: #4c2f1e; --wood3: #2a180f;
+  --paper: #f1dfb4; --paper2: #e4cb95; --paper3: #c9a868;
+  --ink: #2e1c10; --muted: #6e5136; --soft: #f5e8cc; --soft2: #cdb38c;
+  --river: #3d9ad1; --river2: #2a6f9e; --gold: #f2c230; --red: #b8402a; --sun: #ffcf5a;
+  --tD: #e6dcc2; --tC: #dd7038; --tM: #86c04c; --tF: #285431; --tK: #efc12d; --tA: #8a5532;
+  --line: #2e1c1029;
+  --west: "Rye", "LXGW WenKai TC", serif;
+  --hand: "LXGW WenKai TC", "Kaiti TC", serif;
+  --ui: system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--wood); color: var(--soft); font-family: var(--ui); font-size: 15px;
+  background-image: repeating-linear-gradient(90deg, #ffffff06 0 3px, transparent 3px 46px), repeating-linear-gradient(0deg, #00000018 0 1px, transparent 1px 7px);
+  -webkit-tap-highlight-color: transparent;
+}
+.wrap {
+  max-width: 620px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 14px 170px;
+}
+h1, h2, h3 { margin: 0; font-family: var(--hand); font-weight: 700; text-wrap: balance; }
+button { font: inherit; cursor: pointer; }
+button:focus-visible, [role="button"]:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.top h1 { font-family: var(--west); font-weight: 400; font-size: 1.7rem; letter-spacing: .02em; color: var(--sun); text-shadow: 0 2px 0 #0008; }
+.top h1 small { font-family: var(--hand); font-size: .9rem; color: var(--soft2); text-shadow: none; margin-left: 6px; }
+.pill { border: 1.5px solid #ffffff33; background: transparent; color: var(--soft); border-radius: 999px; padding: 5px 12px; font-size: .85rem; }
+.stats { display: flex; gap: 6px; flex-wrap: wrap; font-size: .82rem; }
+.stat { background: var(--wood3); border-radius: 8px; padding: 4px 9px; color: var(--soft2); }
+.stat b { color: var(--soft); font-variant-numeric: tabular-nums; }
+.panel { background: var(--paper); color: var(--ink); border-radius: 12px; padding: 12px; box-shadow: 0 3px 0 var(--paper3), 0 10px 22px #0007; }
+.panel h3 { font-size: 1rem; }
+.muted { color: var(--muted); } .small { font-size: .8rem; }
+
+/* plots */
+.plot { position: relative; width: 100%; height: 100%; border-radius: 6px; overflow: hidden; box-shadow: inset 0 0 0 1px #0002; }
+.t-D { background: var(--tD); background-image: linear-gradient(35deg, transparent 46%, #b9a98288 47%, transparent 49%), linear-gradient(-50deg, transparent 60%, #b9a98288 61%, transparent 63%); }
+.t-C { background: var(--tC); background-image: radial-gradient(ellipse at 50% 85%, #b3532088 0 30%, transparent 32%), radial-gradient(ellipse at 30% 70%, #f3925a66 0 18%, transparent 20%); }
+.t-M { background: var(--tM); background-image: radial-gradient(circle at 25% 30%, #a3d86a 0 8%, transparent 9%), radial-gradient(circle at 70% 65%, #6fae3c 0 10%, transparent 11%); }
+.t-F { background: var(--tF); background-image: linear-gradient(135deg, transparent 40%, #1c3f24 41% 59%, transparent 60%), linear-gradient(45deg, transparent 40%, #3b7340 41% 50%, transparent 51%); background-size: 14px 14px; }
+.t-K { background: var(--tK); background-image: repeating-linear-gradient(90deg, #d9a51b 0 2px, transparent 2px 7px); }
+.t-A { background: var(--tA); background-image: linear-gradient(0deg, #6c3f22 0 28%, transparent 28%), linear-gradient(90deg, transparent 30%, #b8452e 30% 70%, transparent 70%); background-size: 100% 100%, 100% 46%; background-position: 0 0, 0 52%; background-repeat: no-repeat; }
+.plot .syms { position: absolute; top: 2px; left: 2px; display: flex; gap: 1px; }
+.plot .res { position: absolute; bottom: 2px; left: 2px; display: flex; gap: 1px; align-items: center; font: 700 .62rem var(--ui); color: #fff; text-shadow: 0 1px 1px #000; }
+.ic { width: 16px; height: 16px; display: block; }
+.ic.sym { filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000); }
+.ring { position: absolute; left: 50%; top: 50%; width: 52%; aspect-ratio: 1; transform: translate(-50%, -50%); border: 2px solid #fff; border-radius: 50%; opacity: .9; }
+.cows { position: absolute; right: 2px; bottom: 2px; display: flex; align-items: center; gap: 1px; font: 800 .7rem var(--ui); color: #fff; text-shadow: 0 1px 1px #000; }
+.cows .ic { width: 24px; height: 24px; filter: drop-shadow(0 1px 0 #fff) drop-shadow(0 0 1px #000); }
+.num { position: absolute; top: 1px; right: 3px; font: 400 .7rem var(--west); color: #fff; text-shadow: 0 1px 1px #000, 0 0 3px #000; }
+.used { opacity: .35; }
+.tok { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 60%; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center; font: 700 .64rem var(--hand); color: #fff; text-shadow: 0 1px 1px #000a; border: 2px solid #fff; box-shadow: 0 2px 4px #0007; }
+.tk-cowboy { background: radial-gradient(circle at 50% 70%, #3a2416 0 22%, transparent 23%), linear-gradient(#f7a33a, #d9531f); }
+.tk-gold, .tk-trapper, .tk-farmer { background: linear-gradient(#5aa6e0, #2c6fb0); }
+.tk-thief, .tk-desp { background: linear-gradient(#e2685a, #b33227); }
+.tokbig { position: relative; width: 52px; height: 52px; flex: 0 0 auto; }
+.tokbig .tok { width: 100%; font-size: .8rem; }
+
+/* market */
+.market { display: grid; grid-template-columns: auto auto 1fr; gap: 12px; align-items: start; }
+.mcol { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+.mcol h3, .saloon h3 { font-size: .85rem; white-space: nowrap; }
+.mslot { position: relative; width: 58px; height: 58px; border-radius: 7px; background: #0000000f; }
+.mslot.can { cursor: pointer; box-shadow: 0 0 0 3px var(--red); animation: pulse 1.3s ease-in-out infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 3px #b8402a55; } }
+.pawn { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -40%); width: 22px; height: 28px; z-index: 2; filter: drop-shadow(0 2px 2px #000a); }
+.saloon { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.saloon .toks { display: flex; flex-wrap: wrap; gap: 6px; }
+.saloon .tokbig { width: 46px; height: 46px; }
+.mnote { font-size: .76rem; color: var(--muted); line-height: 1.4; }
+
+.players { display: flex; gap: 8px; flex-wrap: wrap; }
+.pchip { display: flex; align-items: center; gap: 7px; background: var(--wood3); color: var(--soft); border: 0; border-radius: 10px; padding: 6px 10px; font-size: .85rem; }
+.pchip.viewing { box-shadow: inset 0 0 0 2px var(--soft2); }
+.pchip.active { background: #6a3f22; }
+.dot { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid #0006; flex: 0 0 auto; }
+.pchip b { font-variant-numeric: tabular-nums; }
+
+/* ranch */
+.ranch { display: flex; flex-direction: column; align-items: center; gap: 0; }
+.rhead { display: flex; justify-content: space-between; align-items: baseline; width: 100%; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.rhead h2 { font-size: 1.15rem; display: flex; gap: 8px; align-items: center; }
+.grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; width: 100%; max-width: 340px; padding: 3px; background: #c9a86844; border-radius: 8px 8px 0 0; }
+.cell { aspect-ratio: 1; border-radius: 6px; position: relative; min-width: 0; }
+.cell.empty { background: #fff3; box-shadow: inset 0 0 0 1px #8a6a3a44; }
+.cell.bridge::after { content: ""; position: absolute; left: 22%; right: 22%; bottom: -3px; height: 7px; background: repeating-linear-gradient(90deg, #6b4122 0 4px, #8b5a30 4px 7px); border-radius: 2px; z-index: 2; }
+.cell.bridge.empty { box-shadow: inset 0 0 0 1.5px #3d9ad1aa; }
+.cell.bump { background: linear-gradient(90deg, transparent 32%, var(--river) 32% 68%, transparent 68%), #d9bd85; border-radius: 6px 6px 0 0; }
+.cell.bump::before { content: ""; position: absolute; left: 50%; top: 50%; width: 46%; height: 34%; transform: translate(-50%, -50%); background: #fbf3e0; border-radius: 40% 40% 6px 6px; box-shadow: 0 0 0 2px #6b4122; }
+.cell.cand { cursor: pointer; box-shadow: inset 0 0 0 3px var(--red); background: #fff8; animation: pulse 1.3s ease-in-out infinite; }
+.cell.sel1 .plot, .cell.ghost .plot { opacity: .75; outline: 3px dashed var(--ink); outline-offset: -3px; }
+.cell.src { cursor: pointer; }
+.cell.src .plot { box-shadow: 0 0 0 3px var(--sun); }
+.cell.from .plot { box-shadow: 0 0 0 3px var(--red); }
+.cell.dst { cursor: pointer; }
+.cell.dst .plot { box-shadow: 0 0 0 3px var(--river); }
+.board { width: 100%; max-width: 340px; background: #d9bd85; border-radius: 0 0 10px 10px; padding: 10px 8px 8px; position: relative; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.board::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 6px; background: linear-gradient(var(--river), var(--river2)); }
+.storage { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.sslot { width: 56px; height: 56px; border-radius: 7px; background: #b8995e; box-shadow: inset 0 0 0 2px #8a6a3a; position: relative; border: 0; padding: 0; }
+.sslot.over { box-shadow: inset 0 0 0 2px var(--red); background: #e8b9a0; }
+.sslot.pick { cursor: pointer; }
+.sslot.on .plot { box-shadow: 0 0 0 3px var(--red); transform: translateY(-4px); }
+.sslot .badge { position: absolute; top: -8px; left: -6px; background: var(--red); color: #fff; border-radius: 50%; width: 18px; height: 18px; font: 700 .7rem/18px var(--ui); text-align: center; z-index: 3; }
+.board .bname { font-size: .78rem; color: var(--muted); }
+.scorebox { width: 100%; font-size: .82rem; line-height: 1.5; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+.scorebox b { font-variant-numeric: tabular-nums; }
+
+.log { display: flex; flex-direction: column; gap: 4px; font-size: .82rem; color: var(--soft2); max-height: 220px; overflow-y: auto; }
+.log div:first-child { color: var(--soft); }
+
+.bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: #1e110aee; backdrop-filter: blur(6px); border-top: 1.5px solid #ffffff1a;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-top: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+.bar .in { max-width: 620px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+.bar .t { font-size: .95rem; line-height: 1.4; }
+.bar .t b { color: var(--sun); }
+.bar .hint { font-size: .8rem; color: var(--soft2); line-height: 1.4; }
+.bar .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border: 0; border-radius: 10px; padding: 10px 16px; font-weight: 700; background: var(--sun); color: var(--ink); }
+.btn.alt { background: transparent; color: var(--soft); box-shadow: inset 0 0 0 1.5px #ffffff44; }
+.btn.dark { background: var(--ink); color: var(--paper); }
+.btn.ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
+.btn:disabled { opacity: .35; cursor: default; }
+
+.modal { position: fixed; inset: 0; z-index: 30; background: #120804d9; display: flex; align-items: flex-end; justify-content: center; animation: fade .2s; }
+.sheet { background: var(--paper); color: var(--ink); width: 100%; max-width: 620px; max-height: 90vh; overflow-y: auto; border-radius: 16px 16px 0 0; display: flex; flex-direction: column; gap: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-top: 18px; padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)); }
+.sheet h2 { font-size: 1.35rem; }
+.sheet p { margin: 0; line-height: 1.5; }
+.sheet .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+@keyframes fade { from { opacity: 0; } }
+.opt { display: flex; gap: 10px; align-items: center; background: #fbf1da; border-radius: 10px; padding: 8px; box-shadow: inset 0 0 0 1.5px var(--line); }
+.opt .txt { min-width: 0; flex: 1; font-size: .85rem; line-height: 1.4; }
+.opt .txt b { font-size: .95rem; }
+.opt .btns { display: flex; flex-direction: column; gap: 6px; }
+.opt .btns .btn { padding: 7px 10px; font-size: .82rem; }
+.target { display: flex; gap: 8px; align-items: center; background: #fbf1da; border: 0; border-radius: 10px; padding: 6px 10px; text-align: left; color: var(--ink); width: 100%; }
+.target .mini { width: 40px; height: 40px; flex: 0 0 auto; }
+.rules h3 { font-size: 1.05rem; margin-top: 6px; }
+.rules ol, .rules ul { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 4px; line-height: 1.55; font-size: .9rem; }
+.rules p { font-size: .9rem; }
+.legend { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; font-size: .82rem; }
+.legend div { display: flex; gap: 6px; align-items: center; }
+.legend .sw { width: 30px; height: 30px; flex: 0 0 auto; }
+.tablewrap { overflow-x: auto; }
+table.res { width: 100%; border-collapse: collapse; font-size: .85rem; font-variant-numeric: tabular-nums; }
+table.res th, table.res td { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+table.res th:first-child, table.res td:first-child { text-align: left; }
+table.res tr.win td { font-weight: 800; }
+.setup { display: flex; flex-direction: column; gap: 14px; }
+.seatrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.seatrow input { font: inherit; border: 1.5px solid var(--paper3); border-radius: 8px; padding: 6px 8px; background: #fbf1da; color: var(--ink); width: 120px; min-width: 0; }
+.seg { display: inline-flex; border-radius: 9px; overflow: hidden; box-shadow: inset 0 0 0 1.5px var(--ink); flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; color: var(--ink); padding: 6px 12px; font-size: .88rem; }
+.seg button.on { background: var(--ink); color: var(--paper); }
+.toast { position: fixed; left: 50%; top: calc(16px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); z-index: 40; background: var(--sun); color: var(--ink); border-radius: 10px; padding: 8px 14px; font-weight: 700; font-size: .9rem; max-width: 90vw; text-align: center; animation: toast 2.6s ease-out forwards; pointer-events: none; }
+@keyframes toast { 0% { opacity: 0; } 10%, 85% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap" id="app"></div>
+<div class="bar" id="bar" hidden><div class="in" id="barIn"></div></div>
+
+<script>
+(() => {
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const rint = (n) => Math.floor(Math.random() * n);
+const W = 5;
+const DIRS = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+
+const TYPES = { D: '沙漠', C: '峽谷', M: '草原', F: '森林', K: '玉米田', A: '農場' };
+const ROLE = {
+  cowboy: { n: '牛仔', s: '牛仔', d: '放下時：在你的牧場移動牛最多 3 步（每步走到相鄰地塊，不能進玉米田）。' },
+  gold: { n: '淘金客', s: '淘金', d: '結束時：你牧場每個金塊再 +1 分。' },
+  trapper: { n: '捕獸人', s: '捕獸', d: '結束時：你牧場每個河狸再 +1 分。' },
+  farmer: { n: '農夫', s: '農夫', d: '結束時：你牧場每根玉米再 +1 分。' },
+  thief: { n: '偷牛賊', s: '偷牛', d: '放下時：從別人牧場偷 1 頭沒被保護的牛，放到這塊地上。' },
+  desp: { n: '亡命徒', s: '亡命', d: '放下時：用你儲存區 1 塊地，換別人儲存區 1 塊地。' },
+};
+const BOARDS = {
+  camp: { n: '營地', cap: 3, br: ['up', 'left', 'right'] },
+  mary: { n: '瑪麗', cap: 4, br: ['up'] },
+  wesley: { n: '衛斯理', cap: 3, br: ['up', 'left'] },
+  calamity: { n: '卡拉米蒂', cap: 3, br: ['up', 'right'] },
+  bigjo: { n: '大喬', cap: 2, br: ['up', 'left', 'right'] },
+};
+const SEATS = [
+  { color: '#7b4fa8', cn: '紫', ch: 'mary' },
+  { color: '#e0782f', cn: '橘', ch: 'calamity' },
+  { color: '#2f8a4e', cn: '綠', ch: 'bigjo' },
+  { color: '#efe9dc', cn: '白', ch: 'wesley' },
+];
+const SCEN = {
+  1: { n: '木材漂流', d: '至少 3 塊相連的森林、且其中至少 1 塊碰到河：10 分，每多 1 塊森林 +10。' },
+  2: { n: '淘金熱', d: '至少 3 塊相連、都有金塊的地（金脈）：10 分，每多 1 個金塊 +10。' },
+  3: { n: '亡命之徒', d: '至少 3 個相連的夥伴、其中至少 1 個是亡命徒或偷牛賊（幫派）：10 分，每多 1 個夥伴 +10。' },
+  4: { n: '月河鎮', d: '至少 3 塊相連的農場（城鎮）：10 分，每多 1 塊農場 +10。' },
+};
+
+const IC = {
+  cow: (c = '#fff') => `<svg class="ic" viewBox="0 0 24 18"><path fill="${c}" d="M2 6.5 4.5 4h12l2-2.5h2.5l1 2-1 2.2-1.6.6V11l-1 1v4h-2.3v-3.5H8V16H5.7v-4L4.5 11 3.8 8.4 2 9z"/></svg>`,
+  skull: () => `<svg class="ic sym" viewBox="0 0 20 20"><path fill="#fff" stroke="#2e1c10" stroke-width="1.3" fill-rule="evenodd" d="M1 3c2 1 3 2 4 2h10c1 0 2-1 4-2-1 2-1.5 3.5-3.5 4.5L14 15c-.5 2-2 3-4 3s-3.5-1-4-3L4.5 7.5C2.5 6.5 2 5 1 3zm6 5.5a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8zm6 0a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8z"/></svg>`,
+  nug: () => `<svg class="ic" viewBox="0 0 20 20"><path fill="#f6c935" stroke="#7a5a10" stroke-width="1.2" d="M3 13.5 6 6l5.5-2.5L17 8l-1 6.5L9.5 17z"/><path fill="#fff6" d="M7 8l3-2 1 2-3 2z"/></svg>`,
+  bea: () => `<svg class="ic" viewBox="0 0 22 18"><ellipse cx="17" cy="12.5" rx="4" ry="2.4" fill="#4a2c16"/><ellipse cx="9" cy="10" rx="7" ry="5" fill="#8a5428" stroke="#3a210f" stroke-width="1"/><circle cx="4" cy="7" r="2.6" fill="#8a5428" stroke="#3a210f" stroke-width="1"/></svg>`,
+  corn: () => `<svg class="ic" viewBox="0 0 16 20"><ellipse cx="8" cy="8" rx="3.6" ry="6.5" fill="#ffd84a" stroke="#9a7410" stroke-width="1"/><path d="M8 19C4 16 2.5 12 3 8c2 3 4.5 6 5 11zM8 19c4-3 5.5-7 5-11-2 3-4.5 6-5 11z" fill="#4c9a32"/></svg>`,
+  pawn: (c) => `<svg class="pawn" viewBox="0 0 22 28"><path fill="${c}" stroke="#000" stroke-width="1.2" d="M11 1.5a4 4 0 0 1 4 4 4 4 0 0 1-1.6 3.2L19 12v3l-3.5-1.2L18 26H4l2.5-12.2L3 15v-3l5.6-3.3A4 4 0 0 1 7 5.5a4 4 0 0 1 4-4z"/><path d="M5 5.5h12" stroke="#000" stroke-width="2.2"/></svg>`,
+};
+
+// ---------------- plots ----------------
+let uid = 1;
+function makePlots() {
+  const L = [];
+  const add = (t, k, o = {}) => { for (let i = 0; i < k; i++) L.push({ id: uid++, t, cow: 0, skull: false, circle: false, nug: 0, bea: 0, corn: 0, cowsOn: 0, skullUsed: false, partner: null, ...o }); };
+  add('D', 7, { skull: true }); add('D', 6); add('D', 4, { nug: 1 }); add('D', 2, { cow: 1 }); add('D', 2, { cow: 1, nug: 1 });
+  add('C', 6, { skull: true }); add('C', 5); add('C', 4, { nug: 1 }); add('C', 2, { cow: 1 }); add('C', 1, { cow: 1, nug: 1 }); add('C', 1, { circle: true });
+  add('M', 3, { skull: true }); add('M', 4); add('M', 4, { nug: 1 }); add('M', 2, { cow: 1 }); add('M', 2, { circle: true }); add('M', 2, { cow: 2 });
+  add('F', 1); add('F', 4, { bea: 1 }); add('F', 4, { circle: true }); add('F', 6, { cow: 1, bea: 2 });
+  add('A', 4, { cow: 1 }); add('A', 9, { cow: 1, circle: true });
+  add('K', 6, { corn: 3 }); add('K', 5, { corn: 5 });
+  // numbered side: weaker plots get lower numbers (go first next round), stronger ones higher
+  const v = (p) => 1 + p.cow * 2.5 + (p.circle ? 3 : 0) + p.nug * 1.2 + p.bea * 1 + p.corn * 0.7 - (p.skull ? 1.5 : 0) + Math.random() * 0.8;
+  L.map(p => [v(p), p]).sort((a, b) => a[0] - b[0]).forEach(([, p], k) => p.num = Math.floor(k / 2) + 1);
+  return L;
+}
+function makeTokens() {
+  const t = []; let id = 1;
+  [['trapper', 5], ['gold', 5], ['farmer', 3], ['thief', 5], ['desp', 2]].forEach(([s, k]) => { for (let i = 0; i < k; i++) t.push({ id: id++, spec: s }); });
+  return shuffle(t);
+}
+
+let S = null, resolver = null, setupCfg = null, UI = {};
+const P = (i) => S.players[i];
+const nm = (i) => P(i).name;
+function log(t) { S.log.unshift(t); if (S.log.length > 80) S.log.pop(); }
+function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2700); }
+async function nap(ms) { const g = S && S.gid; await sleep(ms); if (!S || S.gid !== g) throw 'stop'; }
+function ask(pr) { UI = {}; S.prompt = pr; if (pr.p != null && P(pr.p).human) S.view = pr.p; render(); return new Promise(r => { resolver = r; }); }
+function answer(v) { const r = resolver; resolver = null; S.prompt = null; UI = {}; if (r) r(v); }
+
+// ---------------- geometry ----------------
+const inside = (r, c) => r >= 0 && r < S.R && c >= 0 && c < W;
+const isBump = (r, c) => r === S.R - 1 && c === 2;
+const isBridge = (pl, r, c) => pl.bridges.some(([a, b]) => a === r && b === c);
+const isRiver = (r, c) => (r === S.R - 1 && c !== 2) || (r === S.R - 2 && c === 2);
+const role = (pl) => pl.partner ? (pl.partner.side === 'cowboy' ? 'cowboy' : pl.partner.spec) : null;
+
+function groups(grid, keyf) {
+  const R = grid.length, seen = grid.map(r => r.map(() => false)), out = [];
+  for (let r = 0; r < R; r++) for (let c = 0; c < W; c++) {
+    const pl = grid[r][c];
+    if (!pl || seen[r][c]) continue;
+    const k = keyf(pl); if (k == null) continue;
+    const cells = [], st = [[r, c]]; seen[r][c] = true;
+    while (st.length) {
+      const [a, b] = st.pop(); cells.push([a, b]);
+      for (const [dr, dc] of DIRS) {
+        const x = a + dr, y = b + dc;
+        if (x < 0 || x >= R || y < 0 || y >= W || seen[x][y]) continue;
+        const q = grid[x][y]; if (!q || keyf(q) !== k) continue;
+        seen[x][y] = true; st.push([x, y]);
+      }
+    }
+    out.push({ k, cells });
+  }
+  return out;
+}
+function groupAt(grid, r, c) { return groups(grid, p => p.t).find(g => g.cells.some(([a, b]) => a === r && b === c)); }
+
+function scenarioScore(grid) {
+  if (S.variant !== 'legends') return 0;
+  const tenPlus = (n) => 10 + 10 * (n - 3);
+  if (S.scenario === 1) return groups(grid, p => p.t === 'F' ? 'F' : null).filter(g => g.cells.length >= 3 && g.cells.some(([r, c]) => isRiver(r, c))).reduce((a, g) => a + tenPlus(g.cells.length), 0);
+  if (S.scenario === 2) return groups(grid, p => p.nug ? 'g' : null).filter(g => g.cells.length >= 3).reduce((a, g) => a + tenPlus(g.cells.reduce((s, [r, c]) => s + grid[r][c].nug, 0)), 0);
+  if (S.scenario === 3) return groups(grid, p => p.partner ? 'p' : null).filter(g => g.cells.length >= 3 && g.cells.some(([r, c]) => ['thief', 'desp'].includes(role(grid[r][c])))).reduce((a, g) => a + tenPlus(g.cells.length), 0);
+  if (S.scenario === 4) return groups(grid, p => p.t === 'A' ? 'A' : null).filter(g => g.cells.length >= 3).reduce((a, g) => a + tenPlus(g.cells.length), 0);
+  return 0;
+}
+// overpopulation is applied in every estimate: only 1 cow per plot counts
+function score(grid) {
+  let terr = 0, largest = 0, cows = 0; const terrList = [];
+  for (const g of groups(grid, p => p.t)) {
+    const size = g.cells.length, cw = g.cells.reduce((a, [r, c]) => a + Math.min(1, grid[r][c].cowsOn), 0);
+    largest = Math.max(largest, size); cows += cw;
+    if (g.k !== 'K' && cw) { terr += size * cw; terrList.push(`${TYPES[g.k]} ${size} 塊 × ${cw} 牛 = ${size * cw}`); }
+  }
+  let nug = 0, bea = 0, corn = 0, gd = 0, tr = 0, fa = 0;
+  grid.forEach(row => row.forEach(p => { if (!p) return; nug += p.nug; bea += p.bea; corn += p.corn; const r = role(p); if (r === 'gold') gd++; if (r === 'trapper') tr++; if (r === 'farmer') fa++; }));
+  const partner = gd * nug + tr * bea + fa * corn;
+  const scen = scenarioScore(grid);
+  return { terr, nug, bea, corn, res: nug + bea + corn, partner, gd, tr, fa, scen, total: terr + nug + bea + corn + partner + scen, largest, cows, terrList };
+}
+
+// ---------------- placement ----------------
+const free = (pl, r, c) => inside(r, c) && !isBump(r, c) && !pl.grid[r][c];
+function matchN(pl, plot, r, c, ex) {
+  return DIRS.some(([dr, dc]) => { const x = r + dr, y = c + dc; if (ex && x === ex[0] && y === ex[1]) return false; if (!inside(x, y)) return false; const q = pl.grid[x][y]; return q && q.t === plot.t; });
+}
+function validDom(pl, a, b, r1, c1, r2, c2) {
+  if (!free(pl, r1, c1) || !free(pl, r2, c2) || Math.abs(r1 - r2) + Math.abs(c1 - c2) !== 1) return false;
+  return isBridge(pl, r1, c1) || isBridge(pl, r2, c2) || matchN(pl, a, r1, c1, [r2, c2]) || matchN(pl, b, r2, c2, [r1, c1]);
+}
+const validSingle = (pl, plot, r, c) => free(pl, r, c) && (isBridge(pl, r, c) || matchN(pl, plot, r, c, null));
+function movesFor(pl, a, b) {
+  const out = [];
+  for (let r = 0; r < S.R; r++) for (let c = 0; c < W; c++) for (const [dr, dc] of DIRS) if (validDom(pl, a, b, r, c, r + dr, c + dc)) out.push({ a, b, r1: r, c1: c, r2: r + dr, c2: c + dc });
+  return out;
+}
+function allMoves(pl) {
+  const st = pl.storage, out = [];
+  for (let x = 0; x < st.length; x++) for (let y = 0; y < st.length; y++) if (x !== y) out.push(...movesFor(pl, st[x], st[y]));
+  return out;
+}
+
+async function placeDomino(i, mv) {
+  const pl = P(i), { a, b, r1, c1, r2, c2 } = mv;
+  pl.storage = pl.storage.filter(p => p !== a && p !== b);
+  pl.grid[r1][c1] = a; pl.grid[r2][c2] = b;
+  const msgs = [`${pl.name} 放了骨牌：${TYPES[a.t]} + ${TYPES[b.t]}`];
+  // A. cows
+  for (const p of [a, b]) if (p.cow) { const k = Math.min(p.cow, S.cows); p.cowsOn += k; S.cows -= k; if (k) msgs.push(`放 ${k} 頭牛到${TYPES[p.t]}`); }
+  // B. skulls (drought)
+  for (const [p, r, c] of [[a, r1, c1], [b, r2, c2]]) {
+    if (!p.skull || p.skullUsed) continue;
+    p.skullUsed = true;
+    const g = groupAt(pl.grid, r, c);
+    const withCows = g.cells.filter(([x, y]) => pl.grid[x][y].cowsOn > 0).sort((u, v) => pl.grid[v[0]][v[1]].cowsOn - pl.grid[u[0]][u[1]].cowsOn);
+    if (withCows.length) { const [x, y] = withCows[0]; pl.grid[x][y].cowsOn--; S.cows++; msgs.push(`乾旱！${TYPES[p.t]}領地失去 1 頭牛`); }
+    else msgs.push(`乾旱，但${TYPES[p.t]}領地沒有牛，沒事`);
+  }
+  log(msgs.join('，'));
+  render();
+  // C. circles (recruit)
+  for (const [p, r, c] of [[a, r1, c1], [b, r2, c2]]) if (p.circle && !p.partner) await recruit(i, p, r, c);
+  await checkBonus(i);
+}
+
+// ---------------- partners ----------------
+function refillSaloon() { while (S.saloon.length < 5 && S.stack.length) S.saloon.push(S.stack.pop()); }
+function protectedAt(pl, r, c) { const g = groupAt(pl.grid, r, c); return g.cells.some(([x, y]) => pl.grid[x][y].partner); }
+function thiefTargets(i) {
+  const out = [];
+  S.players.forEach((q, j) => { if (j === i) return; for (let r = 0; r < S.R; r++) for (let c = 0; c < W; c++) { const p = q.grid[r][c]; if (p && p.cowsOn > 0 && !protectedAt(q, r, c)) out.push({ j, r, c, p }); } });
+  return out;
+}
+function cowMoves(pl) {
+  const out = [];
+  for (let r = 0; r < S.R; r++) for (let c = 0; c < W; c++) {
+    const p = pl.grid[r][c]; if (!p || !p.cowsOn || p.t === 'K') continue;
+    for (const [dr, dc] of DIRS) { const x = r + dr, y = c + dc; if (!inside(x, y)) continue; const q = pl.grid[x][y]; if (q && q.t !== 'K') out.push([r, c, x, y]); }
+  }
+  return out;
+}
+function bestCowMove(pl) {
+  const base = score(pl.grid).total; let best = null;
+  for (const m of cowMoves(pl)) {
+    pl.grid[m[0]][m[1]].cowsOn--; pl.grid[m[2]][m[3]].cowsOn++;
+    const g = score(pl.grid).total - base;
+    pl.grid[m[0]][m[1]].cowsOn++; pl.grid[m[2]][m[3]].cowsOn--;
+    if (g > 0 && (!best || g > best.g)) best = { m, g };
+  }
+  return best;
+}
+function stealValue(i, t, thiefCell) {
+  const q = P(t.j), before = score(q.grid).total;
+  t.p.cowsOn--; const after = score(q.grid).total; t.p.cowsOn++;
+  let own = 0;
+  if (thiefCell) { const me = P(i), b0 = score(me.grid).total; thiefCell.cowsOn++; own = score(me.grid).total - b0; thiefCell.cowsOn--; }
+  return (before - after) + own;
+}
+
+async function recruit(i, plot, r, c) {
+  if (!S.saloon.length) { log(`${nm(i)} 想招募夥伴，但酒館沒有人了`); return; }
+  const pl = P(i);
+  let choice;
+  if (pl.human) choice = await ask({ type: 'recruit', p: i, plot: { r, c } });
+  else { await nap(400); choice = botRecruit(i, plot); }
+  const k = S.saloon.findIndex(t => t.id === choice.id);
+  const tok = S.saloon.splice(k, 1)[0];
+  plot.partner = { spec: tok.spec, side: choice.side };
+  const rl = role(plot);
+  log(`${pl.name} 在${TYPES[plot.t]}招募了「${ROLE[rl].n}」`);
+  render();
+  if (rl === 'cowboy') {
+    for (let m = 0; m < 3; m++) {
+      let mv;
+      if (pl.human) { if (!cowMoves(pl).length) break; mv = await ask({ type: 'cowboy', p: i, left: 3 - m }); if (!mv) break; }
+      else { const b = bestCowMove(pl); if (!b) break; mv = b.m; await nap(250); }
+      pl.grid[mv[0]][mv[1]].cowsOn--; pl.grid[mv[2]][mv[3]].cowsOn++;
+      log(`${pl.name} 的牛仔把牛從${TYPES[pl.grid[mv[0]][mv[1]].t]}趕到${TYPES[pl.grid[mv[2]][mv[3]].t]}`);
+      render();
+    }
+  } else if (rl === 'thief') {
+    const ts = thiefTargets(i);
+    if (!ts.length) { log('沒有可以偷的牛（都被保護了）'); return; }
+    let t;
+    if (pl.human) { const k2 = await ask({ type: 'thief', p: i, ts, plot }); t = k2 == null ? null : ts[k2]; }
+    else { t = ts.map(x => [stealValue(i, x, plot), x]).sort((u, v) => v[0] - u[0])[0][1]; }
+    if (!t) { log(`${pl.name} 決定不偷`); return; }
+    t.p.cowsOn--; plot.cowsOn++;
+    log(`${pl.name} 的偷牛賊從 ${nm(t.j)} 的${TYPES[t.p.t]}偷走 1 頭牛！`);
+  } else if (rl === 'desp') {
+    const others = S.players.map((q, j) => j).filter(j => j !== i && P(j).storage.length);
+    if (!pl.storage.length || !others.length) { log('亡命徒找不到可以交換的地塊'); return; }
+    let sw = null;
+    if (pl.human) sw = await ask({ type: 'desp', p: i });
+    if (!sw) { log(`${pl.name} 的亡命徒這次不交換`); return; }
+    const q = P(sw.j), mine = pl.storage[sw.mine], theirs = q.storage[sw.theirs];
+    pl.storage[sw.mine] = theirs; q.storage[sw.theirs] = mine;
+    log(`${pl.name} 的亡命徒用${TYPES[mine.t]}換走了 ${q.name} 的${TYPES[theirs.t]}`);
+  }
+  render();
+}
+
+function botRecruit(i, plot) {
+  const pl = P(i), s = score(pl.grid);
+  const opts = [];
+  for (const t of S.saloon) {
+    const val = {
+      gold: s.nug + 2.5, trapper: s.bea + 2, farmer: s.corn + 2.5,
+      thief: (() => { const ts = thiefTargets(i); return ts.length ? Math.max(...ts.map(x => stealValue(i, x, plot))) + 0.5 : 0; })(),
+      desp: 0.2,
+    }[t.spec];
+    opts.push({ id: t.id, side: 'spec', v: val });
+    const b = bestCowMove(pl); opts.push({ id: t.id, side: 'cowboy', v: (b ? b.g * 1.5 : 0) + 0.8 });
+  }
+  return opts.sort((a, b) => b.v - a.v)[0];
+}
+
+// ---------------- 2-player landscape bonus ----------------
+async function checkBonus(i) {
+  const pl = P(i);
+  if (S.n !== 2 || pl.bonusDone || !S.bonus.length) return;
+  if (!pl.grid[0].some(Boolean)) return;
+  pl.bonusDone = true;
+  let pick;
+  if (pl.human) pick = await ask({ type: 'bonus', p: i });
+  else pick = botBonus(i);
+  const tile = S.bonus.splice(pick.k, 1)[0];
+  const plot = { id: uid++, t: tile[pick.side], cow: 0, skull: false, circle: true, nug: 0, bea: 0, corn: 0, cowsOn: 0, skullUsed: false, partner: null, bonus: true };
+  const cells = [];
+  for (let r = 0; r < S.R; r++) for (let c = 0; c < W; c++) if (validSingle(pl, plot, r, c)) cells.push([r, c]);
+  if (!cells.length) { log(`${pl.name} 拿到地形獎勵板塊，但放不下，只好移除`); return; }
+  let cell;
+  if (pl.human) cell = await ask({ type: 'bonusCell', p: i, plot, cells });
+  else cell = cells.map(([r, c]) => { pl.grid[r][c] = plot; const v = score(pl.grid).total + (matchN(pl, plot, r, c) ? 1 : 0); pl.grid[r][c] = null; return [v, [r, c]]; }).sort((a, b) => b[0] - a[0])[0][1];
+  if (!cell) { log(`${pl.name} 放棄了地形獎勵板塊`); return; }
+  pl.grid[cell[0]][cell[1]] = plot;
+  log(`${pl.name} 第一個蓋到第 10 排！放上地形獎勵板塊（${TYPES[plot.t]}）`);
+  render();
+  await recruit(i, plot, cell[0], cell[1]);
+}
+function botBonus(i) { return { k: 0, side: rint(2) }; }
+
+// ---------------- bots ----------------
+function simulate(pl, mv) {
+  const grid = pl.grid.map(row => row.map(p => p ? { ...p } : null));
+  const a = { ...mv.a }, b = { ...mv.b };
+  grid[mv.r1][mv.c1] = a; grid[mv.r2][mv.c2] = b;
+  let sup = S.cows;
+  for (const p of [a, b]) { const k = Math.min(p.cow, sup); p.cowsOn += k; sup -= k; }
+  for (const [p, r, c] of [[a, mv.r1, mv.c1], [b, mv.r2, mv.c2]]) {
+    if (!p.skull || p.skullUsed) continue;
+    const g = groupAt(grid, r, c); const w = g.cells.filter(([x, y]) => grid[x][y].cowsOn > 0);
+    if (w.length) grid[w[0][0]][w[0][1]].cowsOn--;
+  }
+  let v = score(grid).total;
+  v += Math.min([a, b].filter(p => p.circle).length, S.saloon.length) * 3.5;
+  // like-next-to-like keeps territories growing
+  for (const [p, r, c] of [[a, mv.r1, mv.c1], [b, mv.r2, mv.c2]]) for (const [dr, dc] of DIRS) { const x = r + dr, y = c + dc; if (inside(x, y) && grid[x][y] && grid[x][y] !== a && grid[x][y] !== b && grid[x][y].t === p.t) v += 0.6; }
+  if (a.t === b.t) v += 0.4;
+  return v;
+}
+function bestMove(pl, moves) {
+  const base = score(pl.grid).total; let best = null;
+  for (const m of moves) { const g = simulate(pl, m) - base; if (!best || g > best.g) best = { ...m, g }; }
+  return best;
+}
+function plotValue(p) { return 1 + p.cow * 2.5 + (p.circle ? 3 : 0) + p.nug + p.bea + p.corn * 0.5 - (p.skull ? 1.5 : 0); }
+function botPickSlot(i, col) {
+  const pl = P(i); let best = null;
+  col.forEach((s, k) => {
+    if (!s.plot || s.r != null) return;
+    let v = plotValue(s.plot);
+    if (pl.storage.length) {
+      let g = -Infinity;
+      for (const o of pl.storage) { const mv = movesFor(pl, s.plot, o).concat(movesFor(pl, o, s.plot)); if (mv.length) g = Math.max(g, bestMove(pl, mv).g); }
+      if (g > -Infinity) v += g * 0.6; else v -= 1.5;
+    }
+    v -= k * 0.05;
+    if (!best || v > best.v) best = { k, v };
+  });
+  return best.k;
+}
+async function botExpand(i, final) {
+  const pl = P(i);
+  while (pl.storage.length >= 2) {
+    const over = pl.storage.length > pl.cap;
+    const mv = allMoves(pl);
+    if (!mv.length) {
+      if (over && !final) { const d = pl.storage.slice().sort((a, b) => plotValue(a) - plotValue(b)).slice(0, 2); pl.storage = pl.storage.filter(p => !d.includes(p)); pl.discarded += 2; log(`${pl.name} 放不下骨牌，丟掉 2 塊地`); }
+      break;
+    }
+    const b = bestMove(pl, mv);
+    if (!(over || final || b.g >= 2)) break;
+    await placeDomino(i, b);
+    render(); await nap(350);
+  }
+  if (final && pl.storage.length) { pl.discarded += pl.storage.length; log(`${pl.name} 剩下 ${pl.storage.length} 塊地放不進去，丟棄`); pl.storage = []; }
+}
+
+// ---------------- human turn helpers ----------------
+async function humanExpand(i, final) {
+  const pl = P(i);
+  while (true) {
+    const over = pl.storage.length > pl.cap;
+    if (pl.storage.length < 2 && !over) break;
+    const mv = allMoves(pl);
+    if (!mv.length) {
+      if (final) break;
+      if (over) { const ids = await ask({ type: 'discard', p: i }); pl.storage = pl.storage.filter(p => !ids.includes(p.id)); pl.discarded += 2; log(`${pl.name} 放不下骨牌，丟掉 2 塊地`); continue; }
+      break;
+    }
+    const cmd = await ask({ type: 'expand', p: i, final, over });
+    if (cmd === 'done') break;
+    await placeDomino(i, cmd);
+  }
+  if (final && pl.storage.length) { pl.discarded += pl.storage.length; log(`${pl.name} 剩下 ${pl.storage.length} 塊地放不進去，丟棄`); pl.storage = []; }
+}
+
+// ---------------- game flow ----------------
+function drawColumn() {
+  const c = S.pile.splice(-4);
+  return c.map((p, k) => [p, k]).sort((a, b) => a[0].num - b[0].num || a[1] - b[1]).map(([p]) => ({ plot: p, r: null }));
+}
+function newGame(cfg) {
+  const n = cfg.seats.length, R = n === 2 ? 10 : 5;
+  const br = { up: [R - 2, 2], left: [R - 1, 0], right: [R - 1, 4] };
+  S = {
+    n, R, variant: cfg.variant, scenario: cfg.scenario,
+    players: cfg.seats.map((s, i) => { const bk = cfg.variant === 'legends' ? SEATS[i].ch : 'camp', B = BOARDS[bk];
+      return { name: s.name, human: s.human, color: SEATS[i].color, cn: SEATS[i].cn, bk, bname: B.n, cap: B.cap, bridges: B.br.map(k => br[k]),
+        grid: Array.from({ length: R }, () => Array(W).fill(null)), storage: [], bonusDone: false, discarded: 0 }; }),
+    pile: shuffle(makePlots()), colA: null, colB: null, saloon: [], stack: makeTokens(), cows: 32,
+    bonus: n === 2 ? [{ 0: 'M', 1: 'F' }, { 0: 'C', 1: 'D' }] : [], log: [], prompt: null, view: Math.max(0, cfg.seats.findIndex(s => s.human)),
+    round: 0, final: false, active: null, gid: Math.random(), over: false,
+  };
+  refillSaloon();
+  log(`新遊戲：${n} 位玩家，${cfg.variant === 'legends' ? `西部傳奇（劇本：${SCEN[cfg.scenario].n}）` : '基本遊戲'}。`);
+}
+
+async function run() { try { await runInner(); } catch (e) { if (e !== 'stop') throw e; } }
+async function runInner() {
+  const g = S.gid;
+  const askG = async (pr) => { const v = await ask(pr); if (!S || S.gid !== g) throw 'stop'; return v; };
+  S.colA = drawColumn();
+  const seq = S.n === 2 ? (() => { const f = rint(2); return [f, 1 - f, 1 - f, f]; })() : shuffle(S.players.map((_, i) => i));
+  log('抽牧場主：照順序在第一排地塊上選位置。數字越小，下一輪越早行動。');
+  for (const p of seq) {
+    S.active = p;
+    let k;
+    if (P(p).human) k = await askG({ type: 'pick', p, col: 'A' });
+    else { render(); await nap(500); k = botPickSlot(p, S.colA); }
+    S.colA[k].r = p; log(`${nm(p)} 選了 ${S.colA[k].plot.num} 號（${TYPES[S.colA[k].plot.t]}）`);
+  }
+  S.colB = drawColumn();
+  while (true) {
+    S.round++; S.final = !S.colB;
+    log(S.final ? '— 最後一輪！拿地、擴建，不再選新地 —' : `— 第 ${S.round} 輪 —`);
+    for (let k = 0; k < 4; k++) {
+      const slot = S.colA[k];
+      if (slot.r == null) continue;
+      const p = slot.r, pl = P(p);
+      S.active = p;
+      const plot = slot.plot; slot.plot = null; slot.r = null; pl.storage.push(plot);
+      log(`${pl.name} 收下 ${plot.num} 號${TYPES[plot.t]}`);
+      if (pl.human) await humanExpand(p, false);
+      else { render(); await nap(450); await botExpand(p, false); }
+      if (S.colB) {
+        let k2;
+        if (pl.human) k2 = await askG({ type: 'pick', p, col: 'B' });
+        else { render(); await nap(400); k2 = botPickSlot(p, S.colB); }
+        S.colB[k2].r = p; log(`${pl.name} 選了下一輪的 ${S.colB[k2].plot.num} 號（${TYPES[S.colB[k2].plot.t]}）`);
+      }
+      render();
+    }
+    if (S.final) break;
+    refillSaloon();
+    S.colA = S.colB;
+    S.colB = S.pile.length >= 4 ? drawColumn() : null;
+    if (!S.colB) { refillSaloon(); log('牌堆用完了，下一輪是最後一輪。'); }
+  }
+  log('最後擴建：每個人必須把儲存區的地盡量放進牧場。');
+  for (let i = 0; i < S.n; i++) {
+    S.active = i;
+    if (P(i).human) await humanExpand(i, true);
+    else { render(); await nap(300); await botExpand(i, true); }
+  }
+  // overpopulation
+  S.players.forEach(pl => { let k = 0; pl.grid.forEach(row => row.forEach(p => { if (p && p.cowsOn > 1) { k += p.cowsOn - 1; S.cows += p.cowsOn - 1; p.cowsOn = 1; } })); if (k) log(`${pl.name} 牛太擠，移除 ${k} 頭（每塊地最多 1 頭）`); });
+  S.active = null; S.over = true;
+  const rows = S.players.map((pl, i) => ({ i, s: score(pl.grid) })).sort((a, b) => b.s.total - a.s.total || b.s.largest - a.s.largest || b.s.cows - a.s.cows);
+  S.result = rows;
+  log(`遊戲結束！${nm(rows[0].i)} 獲勝，${rows[0].s.total} 分`);
+  ask({ type: 'end', rows });
+}
+
+// ---------------- rendering ----------------
+function plotHTML(p, o = {}) {
+  if (!p) return '';
+  const syms = [];
+  for (let k = 0; k < p.cow; k++) syms.push(IC.cow('#fff').replace('class="ic"', 'class="ic sym"'));
+  if (p.skull) syms.push(p.skullUsed ? IC.skull().replace('class="ic sym"', 'class="ic sym used"') : IC.skull());
+  const res = [];
+  if (p.nug) res.push(IC.nug());
+  for (let k = 0; k < p.bea; k++) res.push(IC.bea());
+  if (p.corn) res.push(IC.corn() + `×${p.corn}`);
+  const center = p.partner ? `<div class="tok tk-${role(p)}">${ROLE[role(p)].s}</div>` : (p.circle ? '<div class="ring"></div>' : '');
+  const cows = p.cowsOn ? `<div class="cows">${IC.cow('#4a2410')}${p.cowsOn > 1 ? '×' + p.cowsOn : ''}</div>` : '';
+  return `<div class="plot t-${p.t}" title="${TYPES[p.t]}">${syms.length ? `<div class="syms">${syms.join('')}</div>` : ''}${center}${res.length ? `<div class="res">${res.join('')}</div>` : ''}${cows}${o.num ? `<span class="num">${p.num}</span>` : ''}</div>`;
+}
+const tokHTML = (spec, side = 'spec') => { const r = side === 'cowboy' ? 'cowboy' : spec; return `<div class="tokbig"><div class="tok tk-${r}">${ROLE[r].s}</div></div>`; };
+
+function render() {
+  if (!S) return renderSetup();
+  const app = $('#app');
+  const pr = S.prompt;
+  const colHTML = (col, key) => col ? col.map((s, k) => {
+    const can = pr && pr.type === 'pick' && pr.col === key && s.plot && s.r == null;
+    return `<div class="mslot ${can ? 'can' : ''}" ${can ? `data-pick="${k}" role="button" tabindex="0"` : ''}>${plotHTML(s.plot, { num: true })}${s.r != null ? IC.pawn(P(s.r).color) : ''}</div>`;
+  }).join('') : '<div class="mnote">牌堆用完</div>';
+  app.innerHTML = `
+  <div class="top"><h1>河畔牧場<small>月之河畔規則</small></h1>
+    <div style="display:flex;gap:6px"><button class="pill" id="rulesBtn">規則</button><button class="pill" id="quitBtn">重新開始</button></div></div>
+  <div class="stats"><span class="stat">${S.final ? '最後一輪' : `第 <b>${S.round || 0}</b> 輪`}</span><span class="stat">牌堆 <b>${S.pile.length}</b> 塊</span><span class="stat">牛 <b>${S.cows}</b> 頭</span>
+    ${S.variant === 'legends' ? `<span class="stat">劇本 <b>${SCEN[S.scenario].n}</b></span>` : ''}</div>
+  <div class="panel market">
+    <div class="mcol"><h3>這一輪</h3>${colHTML(S.colA, 'A')}</div>
+    <div class="mcol"><h3>下一輪</h3>${colHTML(S.colB, 'B')}</div>
+    <div class="saloon"><h3>酒館（夥伴）</h3><div class="toks">${S.saloon.map(t => tokHTML(t.spec)).join('') || '<span class="mnote">空了</span>'}</div>
+      <div class="mnote">還有 ${S.stack.length} 個在門口。<br>行動順序 = 這一輪地塊由上到下（數字小的先）。</div></div>
+  </div>
+  <div class="players">${S.players.map((pl, i) => `<button class="pchip ${S.view === i ? 'viewing' : ''} ${S.active === i ? 'active' : ''}" data-view="${i}">
+    <span class="dot" style="background:${pl.color}"></span>${esc(pl.name)}${S.variant === 'legends' ? `（${pl.bname}）` : ''} <b>${score(pl.grid).total}</b> 分 · 存 ${pl.storage.length}</button>`).join('')}</div>
+  ${ranchHTML(S.view)}
+  <div style="display:flex;flex-direction:column;gap:6px"><h3 style="color:var(--soft)">紀錄</h3><div class="log">${S.log.map(l => `<div>${esc(l)}</div>`).join('')}</div></div>`;
+  $('#rulesBtn').onclick = showRules;
+  $('#quitBtn').onclick = confirmQuit;
+  app.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { S.view = +b.dataset.view; UI = pr && pr.p === S.view ? UI : UI; render(); });
+  app.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => answer(+b.dataset.pick));
+  app.querySelectorAll('[data-st]').forEach(b => b.onclick = () => clickStorage(+b.dataset.st));
+  app.querySelectorAll('[data-cell]').forEach(b => b.onclick = () => { const [r, c] = b.dataset.cell.split(',').map(Number); clickCell(r, c); });
+  renderBar(); renderSheet();
+}
+
+function candidates(pl) {
+  const pr = S.prompt; const out = { cand: new Set(), ghost: {} };
+  if (!pr || pr.p !== S.view) return out;
+  if (pr.type === 'expand' && UI.sel && UI.sel.length === 2) {
+    const a = pl.storage[UI.sel[0]], b = pl.storage[UI.sel[1]];
+    if (UI.c1 == null) { for (let r = 0; r < S.R; r++) for (let c = 0; c < W; c++) if (DIRS.some(([dr, dc]) => validDom(pl, a, b, r, c, r + dr, c + dc))) out.cand.add(r + ',' + c); }
+    else if (UI.c2 == null) { const [r, c] = UI.c1; out.ghost[r + ',' + c] = a; for (const [dr, dc] of DIRS) if (validDom(pl, a, b, r, c, r + dr, c + dc)) out.cand.add((r + dr) + ',' + (c + dc)); }
+    else { out.ghost[UI.c1.join(',')] = a; out.ghost[UI.c2.join(',')] = b; }
+  }
+  if (pr.type === 'bonusCell') pr.cells.forEach(([r, c]) => out.cand.add(r + ',' + c));
+  return out;
+}
+
+function ranchHTML(i) {
+  const pl = P(i), pr = S.prompt, mine = pr && pr.p === i;
+  const cd = candidates(pl);
+  const cowboy = mine && pr.type === 'cowboy';
+  const srcs = new Set(), dsts = new Set();
+  if (cowboy) {
+    cowMoves(pl).forEach(([r, c, x, y]) => { srcs.add(r + ',' + c); if (UI.from && UI.from[0] === r && UI.from[1] === c) dsts.add(x + ',' + y); });
+  }
+  let cells = '';
+  for (let r = 0; r < S.R; r++) for (let c = 0; c < W; c++) {
+    const key = r + ',' + c;
+    if (isBump(r, c)) { cells += '<div class="cell bump" title="河上的篷車"></div>'; continue; }
+    const p = pl.grid[r][c], br = isBridge(pl, r, c) ? ' bridge' : '';
+    if (p) {
+      let cls = '';
+      if (cowboy && UI.from && UI.from[0] === r && UI.from[1] === c) cls = ' from';
+      else if (cowboy && dsts.has(key)) cls = ' dst';
+      else if (cowboy && srcs.has(key) && !UI.from) cls = ' src';
+      const click = cls && cls !== ' from' ? `data-cell="${key}" role="button"` : (cls === ' from' ? `data-cell="${key}"` : '');
+      cells += `<div class="cell${br}${cls}" ${click}>${plotHTML(p)}</div>`;
+    } else if (cd.ghost[key]) cells += `<div class="cell ghost${br}" data-cell="${key}">${plotHTML(cd.ghost[key])}</div>`;
+    else if (cd.cand.has(key)) cells += `<div class="cell empty cand${br}" data-cell="${key}" role="button" tabindex="0"></div>`;
+    else cells += `<div class="cell empty${br}"></div>`;
+  }
+  const canSel = mine && ['expand', 'discard'].includes(pr.type);
+  const slots = [];
+  for (let k = 0; k < Math.max(pl.cap, pl.storage.length); k++) {
+    const p = pl.storage[k];
+    const on = UI.sel && UI.sel.includes(k);
+    const badge = on && pr.type === 'expand' ? `<span class="badge">${UI.sel.indexOf(k) + 1}</span>` : (on ? '<span class="badge">×</span>' : '');
+    slots.push(`<button class="sslot ${k >= pl.cap ? 'over' : ''} ${p && canSel ? 'pick' : ''} ${on ? 'on' : ''}" ${p && canSel ? `data-st="${k}"` : 'disabled'} aria-label="儲存區">${badge}${plotHTML(p)}</button>`);
+  }
+  const s = score(pl.grid);
+  return `<div class="panel ranch">
+    <div class="rhead"><h2><span class="dot" style="background:${pl.color}"></span>${esc(pl.name)} 的牧場</h2><span class="small muted">${S.variant === 'legends' ? `角色：${pl.bname} · ` : ''}藍框格子＝橋（可以直接接）</span></div>
+    <div class="grid">${cells}</div>
+    <div class="board"><div class="storage">${slots.join('')}</div><span class="bname">儲存區（最多 ${pl.cap} 塊）</span></div>
+    <div class="scorebox"><span>領地 <b>${s.terr}</b></span><span>資源 <b>${s.res}</b></span><span>夥伴 <b>${s.partner}</b></span>${S.variant === 'legends' ? `<span>劇本 <b>${s.scen}</b></span>` : ''}<span>目前 <b>${s.total}</b> 分</span></div>
+  </div>`;
+}
+
+function clickStorage(k) {
+  const pr = S.prompt; if (!pr) return;
+  UI.sel = UI.sel || [];
+  if (UI.sel.includes(k)) UI.sel = UI.sel.filter(x => x !== k);
+  else if (UI.sel.length < 2) UI.sel.push(k);
+  else UI.sel = [UI.sel[1], k];
+  UI.c1 = UI.c2 = null;
+  render();
+}
+function clickCell(r, c) {
+  const pr = S.prompt; if (!pr) return;
+  if (pr.type === 'expand') {
+    if (UI.c1 && UI.c1[0] === r && UI.c1[1] === c) { UI.c1 = UI.c2 = null; }
+    else if (UI.c1 == null) UI.c1 = [r, c];
+    else if (UI.c2 == null) UI.c2 = [r, c];
+    render();
+  } else if (pr.type === 'cowboy') {
+    if (UI.from && UI.from[0] === r && UI.from[1] === c) { UI.from = null; render(); return; }
+    if (!UI.from) { UI.from = [r, c]; render(); return; }
+    answer([UI.from[0], UI.from[1], r, c]);
+  } else if (pr.type === 'bonusCell') answer([r, c]);
+}
+
+function renderBar() {
+  const bar = $('#bar'), inn = $('#barIn'), pr = S.prompt;
+  bar.hidden = false;
+  if (S.over && (!pr || pr.type !== 'end')) {
+    inn.innerHTML = `<div class="t">遊戲結束</div><div class="btns"><button class="btn" id="bShow">看結果</button><button class="btn alt" id="bAgain">再玩一次</button></div>`;
+    $('#bShow').onclick = () => { S.prompt = { type: 'end', rows: S.result }; renderSheet(); };
+    $('#bAgain').onclick = () => { S = null; render(); };
+    return;
+  }
+  const who = pr && pr.p != null ? `<b>${esc(nm(pr.p))}</b>` : '';
+  let html = '';
+  if (pr && pr.type === 'pick') {
+    html = `<div class="t">${who}：${pr.col === 'A' ? '把牧場主放到第一排的一塊地上' : '選一塊下一輪要拿的地'}（點發光的地塊）</div>
+      <div class="hint">數字越小，下一輪越早行動；數字大的地通常比較好。${S.n === 3 ? '3 人時沒人選的那塊會被移除。' : ''}</div>`;
+  } else if (pr && pr.type === 'expand') {
+    const pl = P(pr.p), sel = UI.sel || [];
+    const canDone = !pr.over && !(pr.final && allMoves(pl).length);
+    if (sel.length < 2) {
+      html = `<div class="t">${who}：${pr.final ? '最後擴建，能放的骨牌都要放' : '要擴建牧場嗎？'}點儲存區的 <b>兩塊地</b> 組成骨牌</div>
+        <div class="hint">${pr.over ? '儲存區滿了，這回合一定要放一張骨牌。' : '骨牌要接在橋上（藍框格子），或至少有一塊和旁邊同地形相連。'}</div>
+        <div class="btns"><button class="btn" id="bDone" ${canDone ? '' : 'disabled'}>${pr.final ? '完成' : '不擴建，選下一塊地'}</button></div>`;
+    } else {
+      const a = pl.storage[sel[0]], b = pl.storage[sel[1]];
+      const any = movesFor(pl, a, b).length;
+      if (!any) html = `<div class="t">這兩塊（${TYPES[a.t]}＋${TYPES[b.t]}）沒地方可以放，換別的組合試試。</div><div class="btns"><button class="btn alt" id="bReset">重選</button><button class="btn alt" id="bSwap">對調</button></div>`;
+      else if (!UI.c1) html = `<div class="t">點牧場上發光的格子，放第 1 塊（${TYPES[a.t]}）</div><div class="btns"><button class="btn alt" id="bSwap">對調兩塊</button><button class="btn alt" id="bReset">重選</button></div>`;
+      else if (!UI.c2) html = `<div class="t">再點旁邊發光的格子，放第 2 塊（${TYPES[b.t]}）</div><div class="btns"><button class="btn alt" id="bReset">重選</button></div>`;
+      else html = `<div class="t">放在這裡嗎？（${TYPES[a.t]}＋${TYPES[b.t]}）</div><div class="btns"><button class="btn" id="bPlace">確定放置</button><button class="btn alt" id="bReset">重選位置</button></div>`;
+    }
+  } else if (pr && pr.type === 'discard') {
+    const sel = UI.sel || [];
+    html = `<div class="t">${who}：儲存區滿了又放不下骨牌，必須丟掉 <b>2 塊</b>（點選兩塊）</div><div class="btns"><button class="btn" id="bDiscard" ${sel.length === 2 ? '' : 'disabled'}>丟掉這兩塊</button></div>`;
+  } else if (pr && pr.type === 'cowboy') {
+    html = `<div class="t">${who} 的牛仔：還能移動 <b>${pr.left}</b> 步。先點一頭牛（黃框），再點旁邊的地塊（藍框）。</div>
+      <div class="hint">不能進玉米田。結束時每塊地只算 1 頭牛，多的牛可以趕到沒牛的地。</div><div class="btns"><button class="btn alt" id="bCbDone">不移了</button></div>`;
+  } else if (pr && pr.type === 'bonusCell') {
+    html = `<div class="t">${who}：點發光的格子放上地形獎勵板塊（${TYPES[pr.plot.t]}，有圓圈）</div><div class="btns"><button class="btn alt" id="bSkip">放棄</button></div>`;
+  } else {
+    html = `<div class="t">${S.active != null ? esc(nm(S.active)) + ' 行動中…' : '…'}</div><div class="hint">${esc(S.log[0] || '')}</div>`;
+  }
+  inn.innerHTML = html;
+  const on = (id, f) => { const b = $('#' + id); if (b) b.onclick = f; };
+  on('bDone', () => answer('done'));
+  on('bReset', () => { UI.c1 = UI.c2 = null; if (!UI.c1 && !UI.c2 && UI.sel && UI.sel.length === 2 && !movesFor(P(pr.p), P(pr.p).storage[UI.sel[0]], P(pr.p).storage[UI.sel[1]]).length) UI.sel = []; render(); });
+  on('bSwap', () => { UI.sel = [UI.sel[1], UI.sel[0]]; UI.c1 = UI.c2 = null; render(); });
+  on('bPlace', () => { const pl = P(pr.p); answer({ a: pl.storage[UI.sel[0]], b: pl.storage[UI.sel[1]], r1: UI.c1[0], c1: UI.c1[1], r2: UI.c2[0], c2: UI.c2[1] }); });
+  on('bDiscard', () => { const pl = P(pr.p); answer(UI.sel.map(k => pl.storage[k].id)); });
+  on('bCbDone', () => answer(null));
+  on('bSkip', () => answer(null));
+}
+
+// ---------------- sheets ----------------
+function closeSheet() { const m = $('#modal'); if (m) m.remove(); }
+function openSheet(html, keep) { closeSheet(); const m = document.createElement('div'); m.className = 'modal'; m.id = 'modal'; if (keep) m.dataset.keep = '1'; m.innerHTML = `<div class="sheet">${html}</div>`; document.body.appendChild(m); return m; }
+function renderSheet() {
+  const pr = S && S.prompt, open = $('#modal');
+  const sheetTypes = { recruit: sheetRecruit, thief: sheetThief, desp: sheetDesp, bonus: sheetBonus, end: sheetEnd };
+  if (!pr || !sheetTypes[pr.type]) { if (open && !open.dataset.keep) closeSheet(); return; }
+  if (open && open.dataset.for === pr.type) return;
+  const m = sheetTypes[pr.type](pr); if (m) m.dataset.for = pr.type;
+}
+function sheetRecruit(pr) {
+  const m = openSheet(`<h2>到酒館招募夥伴</h2>
+    <p class="small muted">選一位夥伴放到圓圈地塊上。可以用「專家面」，或翻成「牛仔」。每位夥伴都會保護所在領地的牛，偷牛賊偷不走。</p>
+    ${S.saloon.map(t => `<div class="opt">${tokHTML(t.spec)}<div class="txt"><b>${ROLE[t.spec].n}</b><br>${ROLE[t.spec].d}</div>
+      <div class="btns"><button class="btn dark" data-id="${t.id}" data-side="spec">選${ROLE[t.spec].s}</button><button class="btn ghost" data-id="${t.id}" data-side="cowboy">翻成牛仔</button></div></div>`).join('')}
+    <p class="small muted">牛仔：${ROLE.cowboy.d}</p>`);
+  m.querySelectorAll('[data-id]').forEach(b => b.onclick = () => { closeSheet(); answer({ id: +b.dataset.id, side: b.dataset.side }); });
+  return m;
+}
+function sheetThief(pr) {
+  const i = pr.p;
+  const m = openSheet(`<h2>偷牛賊：偷誰的牛？</h2><p class="small muted">只能偷沒有夥伴保護的領地。偷來的牛放在偷牛賊這塊地上。</p>
+    ${pr.ts.map((t, k) => `<button class="target" data-k="${k}"><span class="mini">${plotHTML(t.p)}</span><span><b>${esc(nm(t.j))}</b> 的${TYPES[t.p.t]}（這塊有 ${t.p.cowsOn} 頭）<br><span class="small muted">對方大約少 ${Math.round(stealValue(i, t, null))} 分</span></span></button>`).join('')}
+    <button class="btn ghost" id="no">不偷</button>`);
+  m.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { closeSheet(); answer(+b.dataset.k); });
+  $('#no', m).onclick = () => { closeSheet(); answer(null); };
+  return m;
+}
+function sheetDesp(pr) {
+  const pl = P(pr.p); let mine = null, theirs = null;
+  const others = S.players.map((q, j) => j).filter(j => j !== pr.p && P(j).storage.length);
+  const m = openSheet(`<h2>亡命徒：交換地塊</h2><p class="small muted">先選你儲存區的一塊，再選別人儲存區的一塊。</p>
+    <b class="small">你的儲存區</b><div class="storage" id="mine">${pl.storage.map((p, k) => `<button class="sslot pick" data-m="${k}">${plotHTML(p)}</button>`).join('')}</div>
+    ${others.map(j => `<b class="small">${esc(nm(j))} 的儲存區</b><div class="storage">${P(j).storage.map((p, k) => `<button class="sslot pick" data-j="${j}" data-t="${k}">${plotHTML(p)}</button>`).join('')}</div>`).join('')}
+    <div class="row"><button class="btn dark" id="ok" disabled>交換</button><button class="btn ghost" id="no">不交換</button></div>`);
+  const upd = () => { m.querySelectorAll('[data-m]').forEach(b => b.classList.toggle('on', +b.dataset.m === mine)); m.querySelectorAll('[data-t]').forEach(b => b.classList.toggle('on', theirs && +b.dataset.j === theirs.j && +b.dataset.t === theirs.k)); $('#ok', m).disabled = mine == null || !theirs; };
+  m.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { mine = +b.dataset.m; upd(); });
+  m.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { theirs = { j: +b.dataset.j, k: +b.dataset.t }; upd(); });
+  $('#ok', m).onclick = () => { closeSheet(); answer({ mine, j: theirs.j, theirs: theirs.k }); };
+  $('#no', m).onclick = () => { closeSheet(); answer(null); };
+  return m;
+}
+function sheetBonus(pr) {
+  const fake = (t) => ({ t, cow: 0, skull: false, circle: true, nug: 0, bea: 0, corn: 0, cowsOn: 0, partner: null });
+  const m = openSheet(`<h2>西部征服者！</h2><p>你最先蓋到第 10 排，拿一塊地形獎勵板塊，選一面放進牧場（有圓圈，可以招募夥伴）。</p>
+    ${S.bonus.map((t, k) => `<div class="row">${[0, 1].map(s => `<button class="sslot pick" data-k="${k}" data-s="${s}" style="width:64px;height:64px">${plotHTML(fake(t[s]))}</button><span class="small">${TYPES[t[s]]}</span>`).join('')}</div>`).join('')}`);
+  m.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { closeSheet(); answer({ k: +b.dataset.k, side: +b.dataset.s }); });
+  return m;
+}
+function sheetEnd(pr) {
+  const rows = pr.rows;
+  const m = openSheet(`<h2>${esc(nm(rows[0].i))} 獲勝！</h2>
+    <div class="tablewrap"><table class="res"><tr><th>玩家</th><th>領地</th><th>資源</th><th>夥伴</th>${S.variant === 'legends' ? '<th>劇本</th>' : ''}<th>總分</th></tr>
+    ${rows.map((r, k) => `<tr class="${k === 0 ? 'win' : ''}"><td>${esc(nm(r.i))}</td><td>${r.s.terr}</td><td>${r.s.res}</td><td>${r.s.partner}</td>${S.variant === 'legends' ? `<td>${r.s.scen}</td>` : ''}<td>${r.s.total}</td></tr>`).join('')}</table></div>
+    ${rows.map(r => `<details><summary><b>${esc(nm(r.i))}</b> 的計分細節</summary><p class="small">${r.s.terrList.join('<br>') || '沒有有牛的領地'}<br>金塊 ${r.s.nug}、河狸 ${r.s.bea}、玉米 ${r.s.corn}<br>
+      夥伴：淘金客 ×${r.s.gd}、捕獸人 ×${r.s.tr}、農夫 ×${r.s.fa} → +${r.s.partner}<br>最大領地 ${r.s.largest} 塊、牛 ${r.s.cows} 頭（平手時比這兩項）</p></details>`).join('')}
+    <div class="row"><button class="btn dark" id="again">再玩一次</button><button class="btn ghost" id="close">看牧場</button></div>`);
+  $('#again', m).onclick = () => { closeSheet(); S = null; render(); };
+  $('#close', m).onclick = () => { closeSheet(); S.prompt = null; render(); };
+  return m;
+}
+function confirmQuit() {
+  const m = openSheet(`<h2>重新開始？</h2><p>這一局的進度會消失。</p><div class="row"><button class="btn dark" id="y">重新開始</button><button class="btn ghost" id="n">繼續玩</button></div>`, true);
+  $('#y', m).onclick = () => { closeSheet(); resolver = null; S = null; render(); };
+  $('#n', m).onclick = () => { closeSheet(); renderSheet(); };
+}
+
+const fakePlot = (o) => ({ t: 'M', cow: 0, skull: false, circle: false, nug: 0, bea: 0, corn: 0, cowsOn: 0, partner: null, ...o });
+const RULES = () => `<div class="rules" style="display:flex;flex-direction:column;gap:8px">
+  <h2>怎麼玩</h2>
+  <p>每個人經營一座河邊的牧場。把拿到的<b>地塊</b>兩兩組成<b>骨牌</b>，拼進自己的牧場，讓牛群住進大片領地。最後分數最高的人贏。</p>
+  <h3>地形和符號</h3>
+  <div class="legend">
+    ${['D', 'C', 'M', 'F', 'K', 'A'].map(t => `<div><span class="sw">${plotHTML(fakePlot({ t }))}</span>${TYPES[t]}</div>`).join('')}
+    <div><span class="sw">${plotHTML(fakePlot({ cow: 1 }))}</span>牛符號：放下時放 1 頭牛</div>
+    <div><span class="sw">${plotHTML(fakePlot({ t: 'D', skull: true }))}</span>牛頭骨：乾旱，該領地少 1 頭牛</div>
+    <div><span class="sw">${plotHTML(fakePlot({ t: 'A', circle: true }))}</span>圓圈：到酒館招募夥伴</div>
+    <div><span class="sw">${plotHTML(fakePlot({ t: 'C', nug: 1 }))}</span>金塊、河狸、玉米：每個 1 分</div>
+  </div>
+  <h3>每回合（照「這一輪」地塊上牧場主由上到下的順序）</h3>
+  <ol>
+    <li><b>拿地（必做）</b>：把你牧場主站的那塊地收進儲存區。儲存區滿了的話，這回合一定要擴建。</li>
+    <li><b>擴建（可選）</b>：從儲存區拿 2 塊組成骨牌放進牧場。儲存區有 4 塊時可以放 2 張。
+      <ul><li>骨牌要放在 5×5 的範圍裡（2 人時是 5×10）。</li>
+      <li>要接在<b>橋</b>上（藍框格子，什麼地形都可以），或至少有 1 塊和旁邊<b>同地形</b>相連。</li>
+      <li>不能只放 1 塊，放下後不能移動。一定要擴建卻放不下時，要丟掉 2 塊。</li></ul></li>
+    <li><b>選地（必做）</b>：把牧場主放到「下一輪」那排沒人的地塊上。數字小的下一輪先行動，數字大的地通常比較好。</li>
+  </ol>
+  <h3>放下骨牌後，依序結算</h3>
+  <ol><li><b>牛</b>：每個牛符號放 1 頭牛在那塊地上。</li>
+    <li><b>牛頭骨（乾旱）</b>：這塊地所在的領地要拿走 1 頭牛（沒牛就沒事）。之後這個符號就沒作用了。</li>
+    <li><b>圓圈</b>：從酒館 5 位夥伴中選 1 位放在這塊地上（可以翻成牛仔）。酒館到回合結束才補滿。</li></ol>
+  <h3>夥伴</h3>
+  <ul>${['cowboy', 'thief', 'desp', 'gold', 'trapper', 'farmer'].map(k => `<li><b>${ROLE[k].n}</b>：${ROLE[k].d}</li>`).join('')}
+    <li>每位夥伴都會<b>保護</b>它所在領地的牛，偷牛賊不能偷。</li></ul>
+  <h3>遊戲結束</h3>
+  <p>牌堆用完後再進行最後一輪（只拿地、擴建）。然後每個人要把儲存區能放的骨牌都放進去，放不下的丟掉。接著<b>牛太擠</b>：每塊地最多留 1 頭牛。</p>
+  <h3>計分</h3>
+  <ol><li><b>領地</b>：相連的同地形是一塊領地，分數＝塊數 × 領地裡的牛數。沒有牛的領地 0 分，玉米田不能放牛。</li>
+    <li><b>資源</b>：每個金塊、河狸、玉米 1 分。</li>
+    <li><b>夥伴</b>：淘金客／捕獸人／農夫，每個對應符號再 +1。</li>
+    <li>平手時比最大領地，再平手比牛多。</li></ol>
+  <h3>西部傳奇（進階）</h3>
+  <p>每人用不同角色的圖板（橋和儲存格數量不同：瑪麗 1 橋 4 格、衛斯理 2 橋 3 格、卡拉米蒂 2 橋 3 格、大喬 3 橋 2 格），並多一個大家共用的劇本加分：</p>
+  <ul>${[1, 2, 3, 4].map(k => `<li><b>${SCEN[k].n}</b>：${SCEN[k].d}</li>`).join('')}</ul>
+  <h3>2 人規則</h3>
+  <p>每人 2 個牧場主，每排輪流拿 2 塊，牧場範圍 5×10。最先蓋到第 10 排的人拿一塊地形獎勵板塊（有圓圈）。</p>
+  <h3>這個電腦版的說明</h3>
+  <ul><li>非官方的練習版，依《月之河畔 Moon River》英文規則書製作。</li>
+    <li>乾旱要移除牛時，會自動從牛最多的那塊地移除。</li>
+    <li>地塊背面的數字是依地塊好壞自動編的，實體遊戲的數字可能不同。角色圖板上橋的位置是推測的。</li>
+    <li>畫面上顯示的「目前分數」已經算上「每塊地最多 1 頭牛」。</li></ul>
+</div>`;
+function showRules() { const m = openSheet(RULES() + '<button class="btn dark" id="ok">知道了</button>', true); $('#ok', m).onclick = () => { closeSheet(); if (S) renderSheet(); }; }
+
+// ---------------- setup ----------------
+function renderSetup() {
+  $('#bar').hidden = true;
+  if (!setupCfg) setupCfg = { n: 3, variant: 'base', scenario: 0, seats: [{ name: '你', human: true }, { name: '電腦 傑克', human: false }, { name: '電腦 安妮', human: false }, { name: '電腦 老比爾', human: false }] };
+  const c = setupCfg;
+  $('#app').innerHTML = `
+  <div class="top"><h1>河畔牧場<small>月之河畔規則</small></h1><button class="pill" id="rulesBtn">規則</button></div>
+  <p style="margin:0;color:var(--soft2);line-height:1.5">拼地塊、養牛群、招募西部夥伴，蓋出最賺錢的河畔牧場。</p>
+  <div class="panel setup">
+    <div><h3>玩家人數</h3><div class="seg">${[2, 3, 4].map(n => `<button data-n="${n}" class="${c.n === n ? 'on' : ''}">${n} 人</button>`).join('')}</div></div>
+    <div style="display:flex;flex-direction:column;gap:8px"><h3>座位</h3>
+      ${c.seats.slice(0, c.n).map((s, i) => `<div class="seatrow"><span class="dot" style="background:${SEATS[i].color}"></span>
+        <input id="nm${i}" value="${esc(s.name)}" maxlength="8" aria-label="名字">
+        <div class="seg"><button data-h="${i}" class="${s.human ? 'on' : ''}">真人</button><button data-c="${i}" class="${s.human ? '' : 'on'}">電腦</button></div>
+        ${c.variant === 'legends' ? `<span class="small muted">${BOARDS[SEATS[i].ch].n}</span>` : ''}</div>`).join('')}
+      <span class="small muted">好幾個真人可以輪流用同一支手機玩。</span></div>
+    <div><h3>玩法</h3><div class="seg"><button data-v="base" class="${c.variant === 'base' ? 'on' : ''}">基本遊戲</button><button data-v="legends" class="${c.variant === 'legends' ? 'on' : ''}">西部傳奇（進階）</button></div></div>
+    ${c.variant === 'legends' ? `<div><h3>劇本</h3><div class="seg"><button data-s="0" class="${c.scenario === 0 ? 'on' : ''}">隨機</button>${[1, 2, 3, 4].map(k => `<button data-s="${k}" class="${c.scenario === k ? 'on' : ''}">${SCEN[k].n}</button>`).join('')}</div>
+      <p class="small muted" style="margin:6px 0 0">${c.scenario ? SCEN[c.scenario].d : '開始時隨機抽一個劇本。'}</p></div>` : ''}
+    <button class="btn dark" id="start" style="align-self:flex-start;font-size:1.05rem">開始遊戲</button>
+  </div>
+  <div class="panel">${RULES()}</div>`;
+  const save = () => c.seats.slice(0, c.n).forEach((s, i) => { s.name = $('#nm' + i).value.trim() || `玩家${i + 1}`; });
+  $('#rulesBtn').onclick = showRules;
+  document.querySelectorAll('[data-n]').forEach(b => b.onclick = () => { save(); c.n = +b.dataset.n; renderSetup(); });
+  document.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { save(); c.variant = b.dataset.v; renderSetup(); });
+  document.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { save(); c.scenario = +b.dataset.s; renderSetup(); });
+  document.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { save(); const s = c.seats[+b.dataset.h]; s.human = true; if (s.name.startsWith('電腦')) s.name = `玩家${+b.dataset.h + 1}`; renderSetup(); });
+  document.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { save(); const s = c.seats[+b.dataset.c]; s.human = false; if (!s.name.startsWith('電腦')) s.name = '電腦 ' + ['阿福', '傑克', '安妮', '老比爾'][+b.dataset.c]; renderSetup(); });
+  $('#start').onclick = () => {
+    save();
+    newGame({ seats: c.seats.slice(0, c.n).map(s => ({ ...s })), variant: c.variant, scenario: c.variant === 'legends' ? (c.scenario || rint(4) + 1) : 0 });
+    render(); run();
+  };
+}
+
+window.__mr = () => S;
+render();
+})();
+</script>
+</html>

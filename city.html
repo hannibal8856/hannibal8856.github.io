@@ -1,0 +1,663 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>市長大建設</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&display=swap">
+<style>
+/* Layout: a planner's desk — header, players, landmark row, market row, the viewed city, your hand; a fixed action bar at the bottom. Single deliberate light theme (city map paper). */
+:root {
+  color-scheme: light;
+  --paper: #eef0e8; --paper2: #e2e6da; --grid: #d4dacb;
+  --ink: #1f2a33; --muted: #5d6b73; --card: #ffffff; --line: #1f2a3322;
+  --red: #d2493a; --green: #3c9a5a; --blue: #3a78c2; --purple: #8a54b8; --home: #b08a58;
+  --sW: #6f8f3a; --sS: #7d8691; --sF: #d6a12a; --sK: #3f86c9; --sG: #e8b923;
+  --accent: #e8572e;
+  --font: "Noto Sans TC", system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; color: var(--ink); font-family: var(--font); font-size: 15px; background: var(--paper);
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 28px 28px; -webkit-tap-highlight-color: transparent; }
+.wrap { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 14px 190px; }
+h1, h2, h3 { margin: 0; font-weight: 900; text-wrap: balance; }
+button { font: inherit; cursor: pointer; color: inherit; }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.top h1 { font-size: 1.6rem; letter-spacing: .02em; }
+.top h1 span { color: var(--accent); }
+.top small { display: block; font-size: .72rem; color: var(--muted); font-weight: 500; letter-spacing: .04em; }
+.pill { border: 1.5px solid var(--ink); background: var(--card); border-radius: 999px; padding: 5px 12px; font-size: .85rem; font-weight: 700; }
+.stats { display: flex; gap: 6px; flex-wrap: wrap; font-size: .82rem; }
+.stat { background: var(--card); border-radius: 8px; padding: 4px 9px; box-shadow: inset 0 0 0 1px var(--line); color: var(--muted); }
+.stat b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.stat.warn { background: #fde4dc; color: var(--accent); font-weight: 700; }
+.players { display: flex; gap: 6px; flex-wrap: wrap; }
+.pchip { display: flex; align-items: center; gap: 6px; background: var(--card); border: 0; border-radius: 10px; padding: 6px 10px; font-size: .82rem; box-shadow: inset 0 0 0 1px var(--line); }
+.pchip.viewing { box-shadow: inset 0 0 0 2px var(--ink); }
+.pchip.active { background: #fff3d6; }
+.pchip b { font-variant-numeric: tabular-nums; }
+.sec { display: flex; flex-direction: column; gap: 6px; }
+.sec h3 { font-size: .95rem; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.sec h3 small { font-weight: 500; color: var(--muted); font-size: .76rem; }
+.row { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 8px; }
+.panel { background: #fffffff0; border-radius: 14px; padding: 12px; box-shadow: 0 1px 0 var(--line), 0 6px 16px #1f2a3314; }
+
+/* cards */
+.card { flex: 0 0 auto; width: 104px; min-height: 146px; background: var(--card); border-radius: 10px; border: 0; padding: 0; text-align: left; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 0 0 1.5px var(--line), 0 2px 6px #1f2a3318; position: relative; }
+.card .hd { padding: 4px 6px; color: #fff; font-weight: 900; font-size: .8rem; display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+.card .hd .vp { background: #fff; color: var(--ink); border-radius: 6px; padding: 0 5px; font-size: .74rem; font-variant-numeric: tabular-nums; }
+.c-r .hd { background: var(--red); } .c-g .hd { background: var(--green); } .c-b .hd { background: var(--blue); } .c-p .hd { background: var(--purple); } .c-h .hd { background: var(--home); }
+.card .tp { display: flex; gap: 2px; padding: 5px 6px 2px; min-height: 26px; }
+.card .fx { padding: 2px 6px; font-size: .66rem; line-height: 1.3; color: var(--muted); flex: 1; }
+.card .ct { display: flex; gap: 2px; padding: 4px 6px 6px; flex-wrap: wrap; border-top: 1px dashed var(--line); align-items: center; }
+.card .ct em { font-style: normal; font-size: .6rem; color: var(--muted); margin-right: 2px; }
+.card.sel { box-shadow: 0 0 0 3px var(--accent), 0 6px 14px #1f2a3330; transform: translateY(-3px); }
+.card.can { box-shadow: 0 0 0 2.5px var(--green), 0 2px 6px #1f2a3318; }
+.card.take { box-shadow: 0 0 0 2.5px var(--accent); animation: pulse 1.3s ease-in-out infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 2.5px #e8572e55; } }
+.card.mini { width: 78px; min-height: 0; }
+.card.mini .fx { display: none; }
+.card.mini .ct { display: none; }
+.card .usebtn { margin: 0 6px 6px; border: 0; background: var(--green); color: #fff; border-radius: 6px; padding: 3px 0; font-size: .7rem; font-weight: 700; }
+.card .usebtn:disabled { background: #c8cfc6; }
+.deckcard { flex: 0 0 auto; width: 74px; min-height: 146px; border-radius: 10px; border: 0; background: repeating-linear-gradient(45deg, #2f3e4a 0 6px, #34495a 6px 12px); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-weight: 900; font-size: .8rem; }
+.deckcard.take { box-shadow: 0 0 0 3px var(--accent); }
+.sym { width: 19px; height: 19px; border-radius: 50%; display: inline-grid; place-items: center; font-size: .66rem; font-weight: 900; color: #fff; flex: 0 0 auto; }
+.sym.big { width: 26px; height: 26px; font-size: .82rem; }
+.s-W { background: var(--sW); } .s-S { background: var(--sS); } .s-F { background: var(--sF); } .s-K { background: var(--sK); } .s-G { background: var(--sG); color: #5a4300; box-shadow: inset 0 0 0 1.5px #a07d0c; }
+.prod { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: .82rem; }
+.prod span { display: inline-flex; gap: 3px; align-items: center; font-variant-numeric: tabular-nums; }
+.city { display: flex; gap: 6px; flex-wrap: wrap; }
+.coin { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; }
+
+.log { display: flex; flex-direction: column; gap: 3px; font-size: .8rem; color: var(--muted); max-height: 180px; overflow-y: auto; }
+.log div:first-child { color: var(--ink); }
+
+.bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: #1f2a33f2; color: #fff; backdrop-filter: blur(6px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-top: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+.bar .in { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+.bar .t { font-size: .92rem; line-height: 1.4; }
+.bar .t b { color: #ffc861; }
+.bar .hint { font-size: .78rem; color: #c3ccd2; line-height: 1.4; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border: 0; border-radius: 10px; padding: 10px 15px; font-weight: 900; background: #ffc861; color: var(--ink); }
+.btn.alt { background: transparent; color: #fff; box-shadow: inset 0 0 0 1.5px #ffffff66; }
+.btn.dark { background: var(--ink); color: #fff; }
+.btn.ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
+.btn.go { background: var(--accent); color: #fff; }
+.btn:disabled { opacity: .35; cursor: default; }
+
+.modal { position: fixed; inset: 0; z-index: 30; background: #1f2a33b3; display: flex; align-items: flex-end; justify-content: center; animation: fade .2s; }
+.modal.center { align-items: center; padding: 16px; }
+.sheet { background: var(--paper); width: 100%; max-width: 640px; max-height: 90vh; overflow-y: auto; border-radius: 16px 16px 0 0; display: flex; flex-direction: column; gap: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-top: 18px; padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)); }
+.modal.center .sheet { border-radius: 16px; max-width: 440px; }
+.sheet h2 { font-size: 1.3rem; }
+.sheet p { margin: 0; line-height: 1.55; }
+.sheet .rowb { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+@keyframes fade { from { opacity: 0; } }
+.costline { display: flex; flex-direction: column; gap: 6px; background: var(--card); border-radius: 10px; padding: 10px; font-size: .86rem; box-shadow: inset 0 0 0 1px var(--line); }
+.costline .l { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.ok { color: var(--green); font-weight: 900; } .bad { color: var(--red); font-weight: 900; }
+.payhand { display: flex; gap: 6px; flex-wrap: wrap; }
+.payhand .card { width: 92px; min-height: 0; }
+.payhand .card .fx, .payhand .card .ct { display: none; }
+.payhand .card.on { box-shadow: 0 0 0 3px var(--red); opacity: .85; }
+.payhand .card.on::after { content: "付掉"; position: absolute; right: 4px; bottom: 4px; background: var(--red); color: #fff; font-size: .62rem; font-weight: 900; border-radius: 4px; padding: 1px 4px; }
+.rules h3 { font-size: 1.05rem; margin-top: 6px; color: var(--accent); }
+.rules ul, .rules ol { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 4px; line-height: 1.55; font-size: .9rem; }
+.rules p { font-size: .9rem; }
+.tablewrap { overflow-x: auto; }
+table.res { width: 100%; border-collapse: collapse; font-size: .84rem; font-variant-numeric: tabular-nums; }
+table.res th, table.res td { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+table.res th:first-child, table.res td:first-child { text-align: left; }
+table.res tr.win td { font-weight: 900; color: var(--accent); }
+.setup { display: flex; flex-direction: column; gap: 14px; }
+.seatrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.seatrow input { font: inherit; border: 1.5px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--card); width: 120px; min-width: 0; }
+.seg { display: inline-flex; border-radius: 9px; overflow: hidden; box-shadow: inset 0 0 0 1.5px var(--ink); }
+.seg button { border: 0; background: transparent; padding: 6px 12px; font-size: .88rem; }
+.seg button.on { background: var(--ink); color: #fff; }
+.muted { color: var(--muted); } .small { font-size: .8rem; }
+.note { background: #fff3d6; border-radius: 10px; padding: 10px; font-size: .82rem; line-height: 1.5; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap" id="app"></div>
+<div class="bar" id="bar" hidden><div class="in" id="barIn"></div></div>
+
+<script>
+(() => {
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const rint = (n) => Math.floor(Math.random() * n);
+const SYMN = { W: '木', S: '石', F: '糧', K: '科', G: '金' };
+const SYMS = ['W', 'S', 'F', 'K'];
+const COLN = { r: '紅色・即時', g: '綠色・常駐', b: '藍色・計分', p: '地標', h: '起始' };
+
+// name, colour, resource symbols, cost, points, effect key, effect text  (all self-designed, see rulebook)
+const BUILDINGS = [
+  ['伐木場', 'r', 'W', 'FS', 1, 'coin1', '蓋好時拿 1 枚金幣'],
+  ['採石場', 'r', 'S', 'WF', 1, 'coin1', '蓋好時拿 1 枚金幣'],
+  ['麥田', 'r', 'F', 'WS', 1, 'coin1', '蓋好時拿 1 枚金幣'],
+  ['學校', 'r', 'K', 'WFS', 1, 'draw2', '蓋好時抽 2 張牌'],
+  ['市集', 'r', 'G', 'FSS', 1, 'coin2', '蓋好時拿 2 枚金幣'],
+  ['港口', 'r', 'WF', 'WSFF', 2, 'row2', '蓋好時從牌列拿 2 張牌'],
+  ['銀行', 'r', 'G', 'SSKK', 2, 'coin3', '蓋好時拿 3 枚金幣'],
+  ['建設公司', 'r', 'SW', 'SSWF', 2, 'extra', '這回合可以再蓋 1 棟'],
+  ['消防局', 'r', 'S', 'WFKS', 3, 'coin1draw1', '蓋好時拿 1 枚金幣並抽 1 張'],
+  ['雜貨店', 'g', 'F', 'WS', 1, 'startCoin', '回合開始時拿 1 枚金幣'],
+  ['物流中心', 'g', 'W', 'SFF', 1, 'collect1', '收集資源時多拿 1 張'],
+  ['加油站', 'g', 'G', 'SFK', 1, 'gas', '每回合一次：棄 1 張手牌，拿 1 枚金幣'],
+  ['圖書館', 'g', 'K', 'WSK', 2, 'library', '每回合一次：棄 1 張手牌，抽 2 張'],
+  ['便利商店', 'g', 'G', 'FKW', 1, 'hand2', '手牌上限 +2'],
+  ['公車站', 'g', 'WS', 'WFKS', 2, 'disc1', '建設時費用少 1 個任意符號'],
+  ['工廠', 'g', 'SS', 'WWSF', 2, 'startDraw', '回合開始時抽 1 張牌'],
+  ['研發中心', 'g', 'K', 'WSFK', 2, 'disc1', '建設時費用少 1 個任意符號'],
+  ['網路公司', 'g', 'KK', 'SKKF', 3, 'collect1', '收集資源時多拿 1 張'],
+  ['公園', 'b', 'W', 'FS', 1, 'endGreen', '結束時：每棟綠色建築 +1'],
+  ['住宅區', 'b', 'F', 'WS', 1, 'endBlue', '結束時：每棟藍色建築 +1'],
+  ['博物館', 'b', 'K', 'SKF', 2, 'endRed', '結束時：每棟紅色建築 +1'],
+  ['體育館', 'b', 'S', 'WSFF', 2, 'endCoin2', '結束時：剩下的金幣每 2 枚 +1'],
+  ['大學', 'b', 'KK', 'SFKK', 2, 'endK', '結束時：你建築上每個「科」+1'],
+  ['森林公園', 'b', 'WW', 'WFFS', 2, 'endW', '結束時：你建築上每個「木」+1'],
+  ['美食街', 'b', 'FF', 'WSSK', 2, 'endF', '結束時：你建築上每個「糧」+1'],
+  ['摩天大樓', 'b', 'SG', 'SSKKW', 3, 'endRGB', '結束時：紅綠藍建築各至少 1 棟 +4'],
+  ['市政廳', 'b', 'G', 'WSFKK', 3, 'endLm', '結束時：每座地標 +3'],
+];
+const LANDMARKS = [
+  ['鐵塔', 'SSSWWF', 7, null, '沒有效果，分數很高'],
+  ['中央車站', 'WWSFKS', 5, 'disc1', '建設時費用少 1 個任意符號'],
+  ['購物中心', 'FFSSKW', 5, 'coin3', '蓋好時拿 3 枚金幣'],
+  ['國際機場', 'WSFKKF', 6, 'collect1', '收集資源時多拿 1 張'],
+  ['太空中心', 'KKKSSW', 8, null, '沒有效果，分數很高'],
+  ['摩天輪', 'WWFFKS', 5, 'endBlue', '結束時：每棟藍色建築 +1'],
+  ['會議中心', 'SSFKKW', 6, 'endGreen', '結束時：每棟綠色建築 +1'],
+  ['城市之門', 'WWSSFK', 6, 'draw3', '蓋好時抽 3 張牌'],
+];
+let uid = 1;
+const mkB = (b) => ({ id: uid++, name: b[0], col: b[1], top: b[2].split(''), cost: b[3].split(''), vp: b[4], fx: b[5], text: b[6] });
+const mkL = (l) => ({ id: uid++, name: l[0], col: 'p', top: [], cost: l[1].split(''), vp: l[2], fx: l[3], text: l[4] });
+const mkHome = () => ({ id: uid++, name: '民家', col: 'h', top: ['G'], cost: [], vp: 0, fx: null, text: '起始建築，不算在 10 棟裡' });
+
+let S = null, resolver = null, UI = {}, setupCfg = null;
+const P = (i) => S.players[i];
+const nm = (i) => P(i).name;
+const humans = () => S.players.filter(p => p.human).length;
+function log(t) { S.log.unshift(t); if (S.log.length > 100) S.log.pop(); }
+async function nap(ms) { const g = S && S.gid; await sleep(ms); if (!S || S.gid !== g) throw 'stop'; }
+function ask(pr) { S.prompt = pr; render(); return new Promise(r => { resolver = r; }); }
+function answer(v) { const r = resolver; resolver = null; S.prompt = null; UI = {}; closeSheet(); if (r) r(v); }
+function toast(t) { const d = document.createElement('div'); d.style.cssText = 'position:fixed;left:50%;top:calc(16px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:50;background:#1f2a33;color:#fff;border-radius:10px;padding:8px 14px;font-weight:700;font-size:.88rem;max-width:90vw;text-align:center'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2200); }
+
+// ---------- city maths ----------
+const built = (p) => p.city.filter(c => c.col !== 'h').length;
+const countFx = (p, fx) => p.city.filter(c => c.fx === fx).length;
+const handLimit = (p) => 6 + 2 * countFx(p, 'hand2');
+const collectN = (p) => 2 + countFx(p, 'collect1');
+function production(p) { const o = { W: 0, S: 0, F: 0, K: 0, G: 0 }; p.city.forEach(c => c.top.forEach(s => o[s]++)); return o; }
+function needOf(p, card) {
+  const prod = production(p), need = { W: 0, S: 0, F: 0, K: 0 };
+  card.cost.forEach(s => need[s]++);
+  SYMS.forEach(s => need[s] = Math.max(0, need[s] - prod[s]));
+  return { need, wild: prod.G + countFx(p, 'disc1') };
+}
+// coins still needed if these hand cards are discarded
+function coinsNeeded(p, card, idxs) {
+  const { need, wild } = needOf(p, card);
+  const sym = { W: 0, S: 0, F: 0, K: 0, G: 0 };
+  idxs.forEach(k => p.hand[k].top.forEach(s => sym[s]++));
+  let def = 0; SYMS.forEach(s => def += Math.max(0, need[s] - sym[s]));
+  return Math.max(0, def - wild - sym.G);
+}
+function bestPay(p, card, exclude, valf) {
+  const ids = p.hand.map((_, k) => k).filter(k => k !== exclude);
+  let best = null;
+  for (let mask = 0; mask < (1 << ids.length); mask++) {
+    const idxs = ids.filter((_, b) => mask & (1 << b));
+    const cn = coinsNeeded(p, card, idxs);
+    if (cn > p.coins) continue;
+    const cost = idxs.reduce((a, k) => a + (valf ? valf(p.hand[k]) : 1), 0) + cn * 0.8 + idxs.length * 0.01;
+    if (!best || cost < best.cost) best = { idxs, coins: cn, cost };
+  }
+  return best;
+}
+function scoreOf(p, opt = {}) {
+  const city = p.city;
+  const cnt = (col) => city.filter(c => c.col === col).length;
+  const prod = production(p);
+  let vp = city.reduce((a, c) => a + c.vp, 0), end = 0;
+  for (const c of city) {
+    switch (c.fx) {
+      case 'endGreen': end += cnt('g'); break;
+      case 'endBlue': end += cnt('b'); break;
+      case 'endRed': end += cnt('r'); break;
+      case 'endCoin2': end += Math.floor(p.coins / 2); break;
+      case 'endK': end += prod.K; break;
+      case 'endW': end += prod.W; break;
+      case 'endF': end += prod.F; break;
+      case 'endRGB': if (cnt('r') && cnt('g') && cnt('b')) end += 4; break;
+      case 'endLm': end += cnt('p') * 3; break;
+    }
+  }
+  let maj = 0;
+  if (!opt.noMaj) for (const col of ['r', 'g', 'b']) {
+    const mine = cnt(col);
+    if (S.n === 1) { if (mine >= 3) maj += 3; continue; }
+    if (!mine) continue;
+    const counts = S.players.map(q => q.city.filter(c => c.col === col).length), mx = Math.max(...counts);
+    if (mine === mx) maj += counts.filter(x => x === mx).length === 1 ? 3 : 1;
+  }
+  const pio = p.pioneer ? 3 : 0, coin = Math.floor(p.coins / 3);
+  return { vp, end, maj, pio, coin, total: vp + end + maj + pio + coin };
+}
+
+// ---------- deck ----------
+function draw() { if (!S.deck.length) { triggerEnd('牌堆抽完了'); return null; } return S.deck.pop(); }
+function refillRow(k) { S.row[k] = draw(); }
+function triggerEnd(why, i) {
+  if (S.endTrig) return;
+  S.endTrig = true;
+  if (i != null) { P(i).pioneer = true; log(`${nm(i)} 蓋滿 10 棟，拿到開拓者獎勵 +3 分！`); }
+  log(`${why}，這一輪結束後遊戲結束。`);
+}
+
+// ---------- actions ----------
+function canBuildNow(p) { return !p.main || p.extra > 0; }
+function startCollect(i) { const p = P(i); p.main = true; p.take = collectN(p); p.rowOnly = false; log(`${nm(i)} 收集資源（拿 ${p.take} 張）`); }
+function takeRow(i, k) {
+  const p = P(i), c = S.row[k]; if (!c || p.take <= 0) return;
+  p.hand.push(c); refillRow(k); p.take--;
+  log(`${nm(i)} 從牌列拿了「${c.name}」`);
+}
+function takeDeck(i) { const p = P(i); if (p.take <= 0 || p.rowOnly) return; const c = draw(); if (c) p.hand.push(c); p.take--; log(`${nm(i)} 從牌堆抽了一張`); }
+function doBuild(i, src, idx, payIdxs, coins) {
+  const p = P(i);
+  let card;
+  if (src === 'hand') card = p.hand[idx];
+  else if (src === 'row') card = S.row[idx];
+  else card = S.lms[idx];
+  // pay
+  const paid = payIdxs.map(k => p.hand[k]);
+  const removeHand = new Set(paid); if (src === 'hand') removeHand.add(card);
+  p.hand = p.hand.filter(c => !removeHand.has(c));
+  S.discard.push(...paid);
+  p.coins -= coins;
+  if (src === 'row') refillRow(idx);
+  if (src === 'lm') S.lms[idx] = S.lmDeck.pop() || null;
+  if (p.main) p.extra--; else p.main = true;
+  p.city.push(card);
+  log(`${nm(i)} 蓋了「${card.name}」${paid.length ? `（棄 ${paid.length} 張付費）` : ''}${coins ? `（用 ${coins} 金幣）` : ''}`);
+  // red / immediate effects
+  switch (card.fx) {
+    case 'draw1': drawN(p, 1); break;
+    case 'draw2': drawN(p, 2); break;
+    case 'draw3': drawN(p, 3); break;
+    case 'coin1': p.coins += 1; break;
+    case 'coin2': p.coins += 2; break;
+    case 'coin3': p.coins += 3; break;
+    case 'coin1draw1': p.coins += 1; drawN(p, 1); break;
+    case 'extra': p.extra++; break;
+    case 'row2': p.take += 2; p.rowOnly = true; break;
+  }
+  if (built(p) >= 10) triggerEnd(`${nm(i)} 蓋滿 10 棟`, i);
+}
+function drawN(p, n) { for (let k = 0; k < n; k++) { const c = draw(); if (c) p.hand.push(c); } }
+function useActive(i, cardId, handIdx) {
+  const p = P(i), c = p.city.find(x => x.id === cardId);
+  if (!c || p.used[cardId] || handIdx == null || !p.hand[handIdx]) return;
+  p.used[cardId] = true;
+  const d = p.hand.splice(handIdx, 1)[0]; S.discard.push(d);
+  if (c.fx === 'gas') { p.coins++; log(`${nm(i)} 用加油站：棄 1 張換 1 枚金幣`); }
+  if (c.fx === 'library') { drawN(p, 2); log(`${nm(i)} 用圖書館：棄 1 張抽 2 張`); }
+}
+
+// ---------- computer players ----------
+function prodWeight(p) { return Math.max(0.3, 1.5 - built(p) * 0.13) * (S.endTrig ? 0.2 : 1); }
+function fxVal(p, c) {
+  const late = S.endTrig ? 0.2 : Math.max(0.3, 1 - built(p) * 0.08);
+  return ({ coin1: .7, draw1: .8, draw2: 1.6, draw3: 2.4, coin2: 1.4, coin3: 2, coin1draw1: 1.5, extra: 1.2, row2: 1.6,
+    startCoin: 2.5 * late, startDraw: 3 * late, collect1: 2.5 * late, gas: 1.5 * late, library: 2 * late, hand2: .8 * late, disc1: 3 * late }[c.fx]) || 0;
+}
+function cardVal(p, c) {
+  const before = scoreOf(p, { noMaj: true }).total;
+  p.city.push(c); const after = scoreOf(p, { noMaj: true }).total; p.city.pop();
+  return (after - before) + c.top.length * prodWeight(p) + fxVal(p, c);
+}
+const handVal = (p) => (c) => 0.4 + c.top.length * 0.5 + (c.top.includes('G') ? 0.3 : 0);
+async function botTurn(i) {
+  const p = P(i);
+  // green actives
+  for (const c of p.city) {
+    if (p.used[c.id] || !p.hand.length) continue;
+    if ((c.fx === 'gas' && p.hand.length >= 4) || (c.fx === 'library' && p.hand.length <= handLimit(p) - 2)) {
+      let w = 0; p.hand.forEach((h, k) => { if (cardVal(p, h) < cardVal(p, p.hand[w])) w = k; });
+      useActive(i, c.id, w); render(); await nap(300);
+    }
+  }
+  // build as long as it is worth it
+  while (canBuildNow(p)) {
+    let best = null;
+    const consider = (src, idx, c) => {
+      if (!c) return;
+      const pay = bestPay(p, c, src === 'hand' ? idx : -1, handVal(p)); if (!pay) return;
+      const v = cardVal(p, c) - pay.cost * 0.55 + (src === 'row' ? 0.1 : 0);
+      if (!best || v > best.v) best = { src, idx, pay, v };
+    };
+    p.hand.forEach((c, k) => consider('hand', k, c));
+    S.lms.forEach((c, k) => consider('lm', k, c));
+    const threshold = S.endTrig ? 0 : (p.main ? 0 : 0.8);
+    if (!best || best.v < threshold) break;
+    doBuild(i, best.src, best.idx, best.pay.idxs, best.pay.coins);
+    render(); await nap(550);
+    await botTake(i);
+  }
+  if (!p.main) { startCollect(i); await botTake(i); }
+}
+async function botTake(i) {
+  const p = P(i);
+  while (p.take > 0) {
+    let bk = -1, bv = -1;
+    S.row.forEach((c, k) => { if (!c) return; const v = Math.max(cardVal(p, c), handVal(p)(c) * 1.3); if (v > bv) { bv = v; bk = k; } });
+    if (bk >= 0 && (bv >= 1.4 || p.rowOnly || !S.deck.length)) takeRow(i, bk);
+    else if (!p.rowOnly && S.deck.length) takeDeck(i);
+    else p.take = 0;
+    render(); await nap(250);
+  }
+}
+function botDiscard(i) {
+  const p = P(i), lim = handLimit(p);
+  while (p.hand.length > lim) { let w = 0; p.hand.forEach((h, k) => { if (cardVal(p, h) + handVal(p)(h) < cardVal(p, p.hand[w]) + handVal(p)(p.hand[w])) w = k; }); S.discard.push(p.hand.splice(w, 1)[0]); }
+}
+
+// ---------- flow ----------
+function newGame(cfg) {
+  const n = cfg.seats.length;
+  const copies = n <= 2 ? 2 : 3;
+  const deck = []; BUILDINGS.forEach(b => { for (let k = 0; k < copies; k++) deck.push(mkB(b)); });
+  S = { n, players: cfg.seats.map(s => ({ name: s.name, human: s.human, city: [mkHome()], hand: [], coins: 0, pioneer: false, used: {}, main: false, extra: 0, take: 0, rowOnly: false })),
+    deck: shuffle(deck), discard: [], row: [], lmDeck: shuffle(LANDMARKS.map(mkL)), lms: [], log: [], prompt: null, gid: Math.random(), endTrig: false, over: false, cur: null, view: 0, turnNo: 0 };
+  for (let k = 0; k < 6; k++) S.row.push(S.deck.pop());
+  for (let k = 0; k < 4; k++) S.lms.push(S.lmDeck.pop());
+  S.players.forEach(p => { for (let k = 0; k < 3; k++) p.hand.push(S.deck.pop()); });
+  S.view = Math.max(0, S.players.findIndex(p => p.human));
+  log(`新遊戲：${n} 位市長${n === 1 ? '（單人模式）' : ''}，每種建築 ${copies} 張，共 ${deck.length} 張。`);
+}
+async function run() { try { await runInner(); } catch (e) { if (e !== 'stop') throw e; } }
+async function runInner() {
+  const start = S.n === 1 ? 0 : rint(S.n);
+  [0, 1, 1, 2].forEach((c, k) => { if (k < S.n) P((start + k) % S.n).coins += c; });
+  if (S.n > 1) log(`${nm(start)} 先開始。後面的玩家拿金幣補償。`);
+  const lastSeat = (start - 1 + S.n) % S.n;
+  let cur = start;
+  while (true) {
+    S.cur = cur; S.turnNo++;
+    await playTurn(cur);
+    if (S.endTrig && cur === lastSeat) break;
+    cur = (cur + 1) % S.n;
+  }
+  S.cur = null; S.over = true;
+  const rows = S.players.map((p, i) => ({ i, s: scoreOf(p) })).sort((a, b) => b.s.total - a.s.total || built(P(b.i)) - built(P(a.i)));
+  S.result = rows;
+  log(`遊戲結束！${nm(rows[0].i)} ${S.n === 1 ? '得到' : '獲勝，'} ${rows[0].s.total} 分`);
+  ask({ type: 'end', rows });
+}
+async function playTurn(i) {
+  const p = P(i);
+  p.used = {}; p.extra = 0; p.main = false; p.take = 0; p.rowOnly = false;
+  // turn start effects
+  const sc = countFx(p, 'startCoin'), sd = countFx(p, 'startDraw');
+  if (sc) p.coins += sc;
+  if (sd) drawN(p, sd);
+  if (sc || sd) log(`${nm(i)} 回合開始：${sc ? `+${sc} 金幣 ` : ''}${sd ? `抽 ${sd} 張` : ''}`);
+  if (p.human) {
+    S.view = i;
+    if (humans() > 1) await ask({ type: 'handoff', p: i });
+    await ask({ type: 'turn', p: i });
+  } else { render(); await nap(600); await botTurn(i); }
+  if (p.hand.length > handLimit(p)) {
+    if (p.human) await ask({ type: 'discard', p: i });
+    else botDiscard(i);
+  }
+  if (S.n === 1 && S.row[0]) { S.discard.push(S.row.shift()); S.row.push(draw()); log('單人模式：牌列最左邊那張被棄掉'); }
+  render();
+  if (!p.human) await nap(250);
+}
+
+// ---------- rendering ----------
+const symHTML = (s, big) => `<span class="sym s-${s}${big ? ' big' : ''}">${SYMN[s]}</span>`;
+function cardHTML(c, o = {}) {
+  if (!c) return '';
+  const cls = ['card', 'c-' + c.col, o.mini ? 'mini' : '', o.cls || ''].join(' ');
+  return `<button class="${cls}" ${o.attr || ''}><div class="hd"><span>${esc(c.name)}</span><span class="vp">${c.vp}★</span></div>
+    <div class="tp">${c.top.map(s => symHTML(s)).join('') || '<span class="small muted">無資源</span>'}</div>
+    <div class="fx">${esc(c.text)}</div>
+    ${c.cost.length ? `<div class="ct"><em>費用</em>${c.cost.map(s => symHTML(s)).join('')}</div>` : ''}
+    ${o.use || ''}</button>`;
+}
+function viewer() {
+  if (humans() === 1) return S.players.findIndex(p => p.human);
+  const pr = S.prompt;
+  if (pr && pr.p != null && P(pr.p).human && pr.type !== 'handoff') return pr.p;
+  return -1;
+}
+function myTurn() { const pr = S.prompt; return pr && pr.type === 'turn' ? pr.p : -1; }
+
+function render() {
+  if (!S) return renderSetup();
+  const app = $('#app'), me = viewer(), t = myTurn();
+  const tp = t >= 0 ? P(t) : null;
+  if (tp && tp.take > 0 && !S.row.some(Boolean) && (tp.rowOnly || !S.deck.length)) tp.take = 0;
+  const takeMode = tp && tp.take > 0;
+  const vp = P(S.view);
+  const prod = production(vp);
+  app.innerHTML = `
+  <div class="top"><h1>市長<span>大建設</span><small>城市規劃師 CITY CONNECT 規則・自製卡牌版</small></h1>
+    <div style="display:flex;gap:6px"><button class="pill" id="rulesBtn">規則</button><button class="pill" id="quitBtn">重新開始</button></div></div>
+  <div class="stats"><span class="stat">第 <b>${S.turnNo}</b> 手</span><span class="stat">牌堆 <b>${S.deck.length}</b> 張</span>${S.endTrig ? '<span class="stat warn">最後一輪！</span>' : ''}</div>
+  <div class="players">${S.players.map((p, j) => `<button class="pchip ${S.view === j ? 'viewing' : ''} ${S.cur === j ? 'active' : ''}" data-view="${j}">${esc(p.name)} <b>${scoreOf(p).total}</b>分 · 建築 <b>${built(p)}</b>/10 · ${p.coins}金 · 手牌 ${p.hand.length}${p.pioneer ? ' · 開拓者' : ''}</button>`).join('')}</div>
+  <div class="sec"><h3>地標列 <small>費用高、分數高，可以直接建設</small></h3>
+    <div class="row">${S.lms.map((c, k) => c ? cardHTML(c, { attr: `data-pick="lm:${k}"`, cls: UI.pick === 'lm:' + k ? 'sel' : '' }) : '').join('') || '<span class="small muted">地標都蓋完了</span>'}</div></div>
+  <div class="sec"><h3>牌列 <small>${takeMode ? '點一張拿到手上' : '用「收集資源」把牌拿到手上'}</small></h3>
+    <div class="row">${S.row.map((c, k) => c ? cardHTML(c, { attr: `data-pick="row:${k}"`, cls: (takeMode ? 'take ' : '') + (UI.pick === 'row:' + k ? 'sel' : '') }) : '').join('')}
+      ${takeMode && !tp.rowOnly && S.deck.length ? `<button class="deckcard take" id="deckBtn">牌堆<br>抽 1 張<br><span class="small">${S.deck.length}</span></button>` : ''}</div></div>
+  <div class="panel sec">
+    <h3>${esc(vp.name)} 的城市 <small>建築 ${built(vp)}/10 · ${vp.coins} 金幣 · 預估 ${scoreOf(vp).total} 分</small></h3>
+    <div class="prod"><b class="small">永久產出：</b>${['W', 'S', 'F', 'K', 'G'].filter(s => prod[s]).map(s => `<span>${symHTML(s)}×${prod[s]}</span>`).join('')}${countFx(vp, 'disc1') ? `<span class="small">＋費用 -${countFx(vp, 'disc1')}</span>` : ''}</div>
+    <div class="city">${vp.city.map(c => { let use = '';
+      if (t === S.view && ['gas', 'library'].includes(c.fx)) use = `<button class="usebtn" data-use="${c.id}" ${vp.used[c.id] || !vp.hand.length ? 'disabled' : ''}>${vp.used[c.id] ? '已使用' : '使用'}</button>`;
+      return cardHTML(c, { mini: true, use, attr: `data-info="${c.id}"` }); }).join('')}</div>
+  </div>
+  ${me >= 0 ? `<div class="sec"><h3>${humans() > 1 ? esc(nm(me)) + ' 的' : '你的'}手牌 <small>${P(me).hand.length}/${handLimit(P(me))} 張</small></h3>
+    <div class="row">${P(me).hand.map((c, k) => cardHTML(c, { attr: `data-pick="hand:${k}"`, cls: UI.pick === 'hand:' + k ? 'sel' : '' })).join('') || '<span class="small muted">沒有手牌</span>'}</div></div>` : ''}
+  <div class="sec"><h3>紀錄</h3><div class="log">${S.log.map(l => `<div>${esc(l)}</div>`).join('')}</div></div>`;
+  $('#rulesBtn').onclick = showRules;
+  $('#quitBtn').onclick = confirmQuit;
+  app.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { S.view = +b.dataset.view; render(); });
+  app.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => pickCard(b.dataset.pick));
+  app.querySelectorAll('[data-use]').forEach(b => b.onclick = (e) => { e.stopPropagation(); openUse(+b.dataset.use); });
+  app.querySelectorAll('[data-info]').forEach(b => b.onclick = () => { const c = vp.city.find(x => x.id === +b.dataset.info); if (c) openInfo(c); });
+  const db = $('#deckBtn'); if (db) db.onclick = () => { takeDeck(t); render(); };
+  renderBar(); renderSheet();
+}
+
+function pickCard(key) {
+  const [src, k] = key.split(':'); const idx = +k;
+  const t = myTurn();
+  const card = src === 'hand' ? P(viewer()).hand[idx] : src === 'row' ? S.row[idx] : S.lms[idx];
+  if (!card) return;
+  if (t >= 0 && P(t).take > 0 && src === 'row') { takeRow(t, idx); render(); return; }
+  if (src === 'row') { const m = openSheet(`<h2>${esc(card.name)}</h2><div class="rowb">${cardHTML(card)}</div><p class="small muted">${COLN[card.col]}。牌列的牌要先用「收集資源」拿到手上，才能建設。</p><button class="btn dark" id="ok">關閉</button>`, { dismiss: true }); $('#ok', m).onclick = () => { closeSheet(); }; return; }
+  UI.pick = key;
+  openCardSheet(src, idx, card, t);
+}
+
+function renderBar() {
+  const bar = $('#bar'), inn = $('#barIn'), pr = S.prompt;
+  bar.hidden = false;
+  if (S.over && (!pr || pr.type !== 'end')) { inn.innerHTML = `<div class="t">遊戲結束</div><div class="btns"><button class="btn" id="bShow">看結果</button><button class="btn alt" id="bAgain">再玩一次</button></div>`; $('#bShow').onclick = () => { S.prompt = { type: 'end', rows: S.result }; renderSheet(); }; $('#bAgain').onclick = () => { S = null; render(); }; return; }
+  const t = myTurn();
+  if (t < 0) { inn.innerHTML = `<div class="t">${S.cur != null ? esc(nm(S.cur)) + ' 正在規劃…' : '…'}</div><div class="hint">${esc(S.log[0] || '')}</div>`; return; }
+  const p = P(t);
+  let html;
+  if (p.take > 0) html = `<div class="t"><b>拿牌</b>：還要拿 <b>${p.take}</b> 張${p.rowOnly ? '（只能從牌列拿）' : '（點牌列的牌，或點牌堆）'}</div>`;
+  else if (!p.main) html = `<div class="t"><b>${humans() > 1 ? esc(p.name) + '，' : ''}輪到你了</b>：選一個行動</div>
+    <div class="hint">建設：點一張手牌或地標。已蓋好的建築會永久抵扣費用。牌列的牌要先收集到手上。</div>
+    <div class="btns"><button class="btn" id="bCollect">收集資源（拿 ${collectN(p)} 張）</button></div>`;
+  else html = `<div class="t">${p.extra > 0 ? '建設公司：<b>還可以再蓋 1 棟</b>，點一張卡建設，或結束回合。' : '行動完成。可以用綠色建築的能力，或結束回合。'}</div>
+    <div class="btns"><button class="btn go" id="bEnd">結束回合</button></div>`;
+  inn.innerHTML = html;
+  const c = $('#bCollect'); if (c) c.onclick = () => { startCollect(t); render(); };
+  const e = $('#bEnd'); if (e) e.onclick = () => answer(true);
+}
+
+// ---------- sheets ----------
+function closeSheet() { const m = $('#modal'); if (m) m.remove(); }
+function openSheet(html, o = {}) { closeSheet(); const m = document.createElement('div'); m.className = 'modal' + (o.center ? ' center' : ''); m.id = 'modal'; if (o.keep) m.dataset.keep = '1'; m.innerHTML = `<div class="sheet">${html}</div>`; document.body.appendChild(m); m.addEventListener('click', (ev) => { if (ev.target === m && o.dismiss) { closeSheet(); UI.pick = null; render(); } }); return m; }
+function renderSheet() {
+  const pr = S && S.prompt, open = $('#modal');
+  const T = { handoff: sheetHandoff, discard: sheetDiscard, end: sheetEnd };
+  if (!pr || !T[pr.type]) return;
+  if (open && open.dataset.for === pr.type + (pr.p ?? '')) return;
+  const m = T[pr.type](pr); if (m) m.dataset.for = pr.type + (pr.p ?? '');
+}
+function openInfo(c) {
+  const m = openSheet(`<h2>${esc(c.name)}</h2><div class="rowb">${cardHTML(c)}</div><p class="small muted">${COLN[c.col]}</p><button class="btn dark" id="ok">關閉</button>`, { dismiss: true });
+  $('#ok', m).onclick = () => { closeSheet(); };
+}
+function openCardSheet(src, idx, card, t) {
+  const p = t >= 0 ? P(t) : null;
+  const canBuild = p && canBuildNow(p) && p.take === 0;
+  const srcN = { hand: '你的手牌', lm: '地標列' }[src];
+  if (!canBuild) {
+    const m = openSheet(`<h2>${esc(card.name)}</h2><div class="rowb">${cardHTML(card)}</div><p class="small muted">${COLN[card.col]}・在${srcN}。${p ? (p.take > 0 ? '先把要拿的牌拿完。' : '這回合已經行動過了。') : '還沒輪到你。'}</p><button class="btn dark" id="ok">關閉</button>`, { dismiss: true });
+    $('#ok', m).onclick = () => { closeSheet(); UI.pick = null; render(); };
+    return;
+  }
+  const auto = bestPay(p, card, src === 'hand' ? idx : -1, handVal(p));
+  const sel = new Set(auto ? auto.idxs : []);
+  const m = openSheet(`<h2>建設「${esc(card.name)}」？</h2><div class="rowb">${cardHTML(card)}<div class="small muted" style="flex:1;min-width:140px">${COLN[card.col]}・來自${srcN}<br>${esc(card.text)}</div></div>
+    <div class="costline" id="cl"></div>
+    <b class="small">點手牌選擇要棄掉付費的牌（已幫你選好最省的）：</b>
+    <div class="payhand" id="ph"></div>
+    <div class="rowb"><button class="btn go" id="doBuild">建設</button><button class="btn ghost" id="cancel">取消</button></div>`, { dismiss: true });
+  const upd = () => {
+    const { need, wild } = needOf(p, card);
+    const idxs = [...sel];
+    const cn = coinsNeeded(p, card, idxs);
+    const ok = cn <= p.coins;
+    const prod = production(p);
+    $('#cl', m).innerHTML = `<div class="l">費用：${card.cost.map(s => symHTML(s)).join('')}</div>
+      <div class="l">已蓋好的建築抵扣：${SYMS.filter(s => prod[s] && card.cost.includes(s)).map(s => `${symHTML(s)}×${Math.min(prod[s], card.cost.filter(x => x === s).length)}`).join(' ') || '無'}${wild ? `，萬用 ×${wild}（金／減費）` : ''}</div>
+      <div class="l">還要付：${SYMS.flatMap(s => Array(need[s]).fill(s)).map(s => symHTML(s)).join('') || '<span class="ok">免費！</span>'}${wild && SYMS.some(s => need[s]) ? `<span class="small muted">（其中 ${wild} 個由萬用抵掉）</span>` : ''}</div>
+      <div class="l">${ok ? `<span class="ok">✓ 付得起</span>${cn ? `，要用 ${cn} 枚金幣` : ''}` : `<span class="bad">✗ 還差 ${cn - p.coins} 個符號</span>`}</div>`;
+    $('#ph', m).innerHTML = p.hand.map((c, k) => k === (src === 'hand' ? idx : -1) ? '' : cardHTML(c, { attr: `data-k="${k}"`, cls: sel.has(k) ? 'on' : '' })).join('') || '<span class="small muted">沒有其他手牌</span>';
+    m.querySelectorAll('#ph [data-k]').forEach(b => b.onclick = () => { const k = +b.dataset.k; sel.has(k) ? sel.delete(k) : sel.add(k); upd(); });
+    $('#doBuild', m).disabled = !ok;
+  };
+  upd();
+  $('#doBuild', m).onclick = () => { const idxs = [...sel]; const cn = coinsNeeded(p, card, idxs); closeSheet(); UI.pick = null; doBuild(t, src, idx, idxs, cn); render(); };
+  $('#cancel', m).onclick = () => { closeSheet(); UI.pick = null; render(); };
+}
+function openUse(cardId) {
+  const t = myTurn(); if (t < 0) return;
+  const p = P(t), c = p.city.find(x => x.id === cardId);
+  const m = openSheet(`<h2>${esc(c.name)}</h2><p>${esc(c.text)}。選一張要棄掉的手牌：</p><div class="payhand">${p.hand.map((h, k) => cardHTML(h, { attr: `data-k="${k}"` })).join('')}</div><button class="btn ghost" id="cancel">取消</button>`, { dismiss: true });
+  m.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { closeSheet(); useActive(t, cardId, +b.dataset.k); render(); });
+  $('#cancel', m).onclick = closeSheet;
+}
+function sheetHandoff(pr) {
+  const m = openSheet(`<h2>輪到 ${esc(nm(pr.p))}</h2><p>請把手機交給 ${esc(nm(pr.p))}，其他人別看手牌。</p><button class="btn dark" id="ok">我是 ${esc(nm(pr.p))}，開始</button>`, { center: true });
+  $('#ok', m).onclick = () => answer(true);
+  return m;
+}
+function sheetDiscard(pr) {
+  const p = P(pr.p), lim = handLimit(p), sel = new Set();
+  const m = openSheet(`<h2>手牌超過上限</h2><p>手牌上限 ${lim} 張，請選 <b>${p.hand.length - lim}</b> 張棄掉。</p><div class="payhand" id="ph"></div><button class="btn go" id="ok">棄掉</button>`);
+  const upd = () => {
+    $('#ph', m).innerHTML = p.hand.map((c, k) => cardHTML(c, { attr: `data-k="${k}"`, cls: sel.has(k) ? 'on' : '' })).join('');
+    m.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { const k = +b.dataset.k; sel.has(k) ? sel.delete(k) : sel.add(k); upd(); });
+    $('#ok', m).disabled = sel.size !== p.hand.length - lim;
+  };
+  upd();
+  $('#ok', m).onclick = () => { const d = [...sel].sort((a, b) => b - a).map(k => p.hand.splice(k, 1)[0]); S.discard.push(...d); log(`${nm(pr.p)} 棄掉 ${d.length} 張（手牌上限）`); answer(true); };
+  return m;
+}
+function sheetEnd(pr) {
+  const rows = pr.rows;
+  const solo = S.n === 1;
+  const rank = (s) => s < 35 ? '實習市長' : s < 50 ? '優秀市長' : '傳奇市長';
+  const m = openSheet(`<h2>${solo ? `${rows[0].s.total} 分：${rank(rows[0].s.total)}` : esc(nm(rows[0].i)) + ' 獲勝！'}</h2>
+    <div class="tablewrap"><table class="res"><tr><th>市長</th><th>建築★</th><th>結束加分</th><th>多數</th><th>開拓者</th><th>金幣</th><th>總分</th></tr>
+    ${rows.map((r, k) => `<tr class="${k === 0 ? 'win' : ''}"><td>${esc(nm(r.i))}</td><td>${r.s.vp}</td><td>${r.s.end}</td><td>${r.s.maj}</td><td>${r.s.pio}</td><td>${r.s.coin}</td><td>${r.s.total}</td></tr>`).join('')}</table></div>
+    <p class="small muted">多數獎勵：紅、綠、藍各自最多的人 +3（平手各 +1）${solo ? '；單人模式該顏色有 3 棟以上就 +3' : ''}。剩下的金幣每 3 枚 +1。</p>
+    <div class="rowb"><button class="btn dark" id="again">再玩一次</button><button class="btn ghost" id="close">看城市</button></div>`);
+  $('#again', m).onclick = () => { closeSheet(); S = null; render(); };
+  $('#close', m).onclick = () => { closeSheet(); S.prompt = null; render(); };
+  return m;
+}
+function confirmQuit() {
+  const m = openSheet(`<h2>重新開始？</h2><p>這一局的進度會消失。</p><div class="rowb"><button class="btn dark" id="y">重新開始</button><button class="btn ghost" id="n">繼續玩</button></div>`, { center: true });
+  $('#y', m).onclick = () => { closeSheet(); resolver = null; S = null; render(); };
+  $('#n', m).onclick = closeSheet;
+}
+const RULES = `<div class="rules" style="display:flex;flex-direction:column;gap:8px">
+  <h2>怎麼玩</h2>
+  <div class="note">依網路公開資料整理的自製版本。基本規則照公開資料，<b>27 種建築和 8 張地標的內容是自己設計的</b>，和實體卡片不同。</div>
+  <p>你是市長，要把小鎮蓋成最繁榮的城市。<b>每張牌都同時是建築和資源</b>：拿來蓋，還是拿來付錢，就是這個遊戲的取捨。</p>
+  <h3>看懂卡片</h3>
+  <ul><li>上方的圓形符號是<b>資源</b>：${['W', 'S', 'F', 'K'].map(s => symHTML(s) + SYMN[s]).join('、')}，${symHTML('G')}金可以當任何資源。</li>
+    <li>下方是<b>建造費用</b>，右上角是分數 ★。</li>
+    <li>顏色：<b style="color:var(--red)">紅</b>＝蓋好當下效果；<b style="color:var(--green)">綠</b>＝常駐效果；<b style="color:var(--blue)">藍</b>＝結束時加分；<b style="color:var(--purple)">紫</b>＝地標。</li></ul>
+  <h3>輪到你時，二選一</h3>
+  <ol><li><b>收集資源</b>：拿 2 張牌（牌列或牌堆都可以），有些建築會讓你多拿。</li>
+    <li><b>建設</b>：從手牌選一張建築，或從地標列選一張地標蓋起來。
+      <ul><li>你已經蓋好的建築，上方符號會<b>永久抵扣</b>費用。蓋越多越便宜！</li>
+      <li>剩下的費用，棄掉手牌付（看棄掉那張的上方符號），金幣代幣也能當任何符號。</li></ul></li></ol>
+  <p>綠色建築的「每回合一次」能力，在你的回合內隨時可以用。手牌上限 6 張，超過要棄牌。</p>
+  <h3>遊戲結束</h3>
+  <p>有人蓋滿 10 棟（不算起始的民家），或牌堆抽完，這一輪玩完就結束。第一個蓋滿 10 棟的人拿開拓者獎勵 +3。</p>
+  <h3>計分</h3>
+  <ul><li>建築上的 ★ 分數，加上藍色和地標的結束加分。</li>
+    <li>多數獎勵：紅、綠、藍各自最多的人 +3，平手各 +1。</li>
+    <li>剩下的金幣每 3 枚 +1。</li></ul>
+  <h3>單人模式</h3>
+  <p>每回合結束時，牌列最左邊那張會被棄掉。35 分以下「實習市長」、35～49「優秀市長」、50 以上「傳奇市長」。</p>
+  <h3>卡片一覽</h3>
+  <div class="row" style="flex-wrap:wrap">${BUILDINGS.map(b => cardHTML(mkB(b))).join('')}${LANDMARKS.map(l => cardHTML(mkL(l))).join('')}</div>
+</div>`;
+function showRules() { const m = openSheet(RULES + '<button class="btn dark" id="ok">知道了</button>', { dismiss: true }); $('#ok', m).onclick = closeSheet; }
+
+// ---------- setup ----------
+const BOTNAMES = ['電腦 張市長', '電腦 林議員', '電腦 陳建築師'];
+function renderSetup() {
+  $('#bar').hidden = true;
+  if (!setupCfg) setupCfg = { n: 2, seats: [{ name: '你', human: true }, ...BOTNAMES.map(n => ({ name: n, human: false }))] };
+  const c = setupCfg;
+  $('#app').innerHTML = `
+  <div class="top"><h1>市長<span>大建設</span><small>城市規劃師 CITY CONNECT 規則・自製卡牌版</small></h1><button class="pill" id="rulesBtn">規則</button></div>
+  <p style="margin:0;line-height:1.55">拿牌、蓋建築、讓建築互相加成，蓋出最繁榮的城市。</p>
+  <div class="panel setup">
+    <div><h3>人數</h3><div class="seg">${[1, 2, 3, 4].map(n => `<button data-n="${n}" class="${c.n === n ? 'on' : ''}">${n === 1 ? '單人' : n + ' 人'}</button>`).join('')}</div></div>
+    <div style="display:flex;flex-direction:column;gap:8px"><h3>座位</h3>
+      ${c.seats.slice(0, c.n).map((s, i) => `<div class="seatrow"><input id="nm${i}" value="${esc(s.name)}" maxlength="8" aria-label="名字">
+        ${i > 0 ? `<div class="seg"><button data-h="${i}" class="${s.human ? 'on' : ''}">真人</button><button data-c="${i}" class="${s.human ? '' : 'on'}">電腦</button></div>` : '<span class="small muted">真人</span>'}</div>`).join('')}</div>
+    <button class="btn dark" id="start" style="align-self:flex-start;font-size:1.05rem">開始建設</button>
+  </div>
+  <div class="panel">${RULES}</div>`;
+  const save = () => c.seats.slice(0, c.n).forEach((s, i) => { s.name = $('#nm' + i).value.trim() || `玩家${i + 1}`; });
+  $('#rulesBtn').onclick = showRules;
+  document.querySelectorAll('[data-n]').forEach(b => b.onclick = () => { save(); c.n = +b.dataset.n; renderSetup(); });
+  document.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { save(); const s = c.seats[+b.dataset.h]; s.human = true; if (s.name.startsWith('電腦')) s.name = `玩家${+b.dataset.h + 1}`; renderSetup(); });
+  document.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { save(); const s = c.seats[+b.dataset.c]; s.human = false; if (!s.name.startsWith('電腦')) s.name = BOTNAMES[+b.dataset.c - 1] || '電腦'; renderSetup(); });
+  $('#start').onclick = () => { save(); newGame({ seats: c.seats.slice(0, c.n).map(s => ({ ...s })) }); render(); run(); };
+}
+
+window.__city = () => S;
+window.__cityTest = { bestPay, coinsNeeded, needOf, scoreOf, production };
+render();
+})();
+</script>
+</html>

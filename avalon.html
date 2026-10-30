@@ -1,0 +1,631 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>圓桌騎士</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;900&display=swap">
+<style>
+/* Layout: one column at a candle-lit round table — quest track on top, the knights around the table as tiles, the record of votes below; a fixed action bar at the bottom. Single deliberate dark theme. */
+:root {
+  color-scheme: dark;
+  --night: #121624; --night2: #1b2134; --night3: #252d46;
+  --parch: #efe2c2; --gold: #e2b85c; --gold2: #9c7a32;
+  --fg: #ece6d8; --muted: #a39f95;
+  --good: #4f8ee8; --evil: #e2513f; --ok: #5bbf7a;
+  --line: #ffffff1c;
+  --serif: "Noto Serif TC", "Songti TC", serif;
+  --ui: system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; color: var(--fg); font-family: var(--ui); font-size: 15px; min-height: 100vh;
+  background: radial-gradient(90% 50% at 50% 20%, #2a2440, var(--night) 70%); -webkit-tap-highlight-color: transparent; }
+.wrap { max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 14px 200px; }
+h1, h2, h3 { margin: 0; font-family: var(--serif); font-weight: 900; text-wrap: balance; }
+button { font: inherit; cursor: pointer; color: inherit; }
+button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+.top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.top h1 { font-size: 1.7rem; color: var(--gold); letter-spacing: .08em; }
+.top h1 small { font-size: .78rem; color: var(--muted); letter-spacing: .02em; margin-left: 6px; font-family: var(--ui); font-weight: 400; }
+.pill { border: 1.5px solid #ffffff33; background: transparent; border-radius: 999px; padding: 5px 12px; font-size: .85rem; }
+.quests { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.q { aspect-ratio: 1; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--night2); box-shadow: inset 0 0 0 2px var(--gold2); font-family: var(--serif); position: relative; max-width: 100%; }
+.q b { font-size: 1.4rem; line-height: 1; }
+.q span { font-size: .62rem; color: var(--muted); }
+.q.cur { box-shadow: inset 0 0 0 3px var(--gold), 0 0 18px #e2b85c55; }
+.q.win { background: radial-gradient(circle, #6fa6f2, var(--good)); box-shadow: none; color: #fff; }
+.q.lose { background: radial-gradient(circle, #f07a69, var(--evil)); box-shadow: none; color: #fff; }
+.q.win span, .q.lose span { color: #fff; }
+.q .two { position: absolute; bottom: -6px; font-size: .58rem; background: var(--evil); color: #fff; border-radius: 6px; padding: 0 4px; font-family: var(--ui); }
+.track { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-size: .82rem; color: var(--muted); }
+.rej { display: flex; gap: 4px; align-items: center; }
+.rej i { width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px #ffffff44; display: block; }
+.rej i.on { background: var(--evil); box-shadow: none; }
+.rej i:last-child { box-shadow: inset 0 0 0 1.5px var(--evil); }
+.mybar { display: flex; align-items: center; gap: 10px; background: var(--night2); border-radius: 12px; padding: 10px 12px; box-shadow: inset 0 0 0 1px var(--line); flex-wrap: wrap; }
+.badge { border-radius: 8px; padding: 3px 9px; font-weight: 700; font-size: .85rem; }
+.badge.good { background: #4f8ee833; color: #9cc3ff; } .badge.evil { background: #e2513f33; color: #ff9d8f; }
+.table { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.seat { background: var(--night2); border: 0; border-radius: 12px; padding: 10px; text-align: left; display: flex; flex-direction: column; gap: 5px; box-shadow: inset 0 0 0 1.5px var(--line); position: relative; min-width: 0; }
+.seat .nm { font-weight: 700; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.seat .tags { display: flex; gap: 4px; flex-wrap: wrap; font-size: .7rem; }
+.tag { border-radius: 6px; padding: 1px 6px; background: #ffffff14; color: var(--muted); }
+.tag.lead { background: var(--gold); color: #2a1f08; font-weight: 700; }
+.tag.team { background: #ffffff; color: #1b2134; font-weight: 700; }
+.tag.lady { background: #6ec6d8; color: #0d2a33; font-weight: 700; }
+.tag.k-evil { background: var(--evil); color: #fff; } .tag.k-good { background: var(--good); color: #fff; } .tag.k-mm { background: #a86fd8; color: #fff; }
+.tag.v-yes { background: #5bbf7a33; color: #9fe7b5; } .tag.v-no { background: #e2513f33; color: #ff9d8f; }
+.seat.me { box-shadow: inset 0 0 0 2px var(--gold); }
+.seat.pick { cursor: pointer; }
+.seat.pick:not(.on):hover { background: var(--night3); }
+.seat.on { background: #f3ead2; color: #1b2134; box-shadow: 0 0 0 3px var(--gold); }
+.seat.on .tag { background: #1b213422; color: #1b2134; }
+.seat.dis { opacity: .4; cursor: default; }
+.seat.active { box-shadow: inset 0 0 0 2px #ffffff88; }
+.hist { display: flex; flex-direction: column; gap: 8px; }
+.hq { background: var(--night2); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 6px; font-size: .82rem; }
+.hq h3 { font-size: .95rem; display: flex; justify-content: space-between; gap: 8px; }
+.prop { display: flex; flex-direction: column; gap: 3px; border-top: 1px dashed var(--line); padding-top: 6px; }
+.prop .vs { display: flex; gap: 4px; flex-wrap: wrap; }
+.say { font-size: .82rem; color: var(--muted); display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto; }
+.say div:first-child { color: var(--fg); }
+.muted { color: var(--muted); } .small { font-size: .8rem; }
+
+.bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: #0c0f19f2; backdrop-filter: blur(6px); border-top: 1.5px solid var(--line);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-top: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+.bar .in { max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+.bar .t { font-size: .95rem; line-height: 1.45; }
+.bar .t b { color: var(--gold); }
+.bar .hint { font-size: .8rem; color: var(--muted); line-height: 1.4; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border: 0; border-radius: 10px; padding: 11px 18px; font-weight: 800; background: var(--gold); color: #2a1f08; }
+.btn.yes { background: var(--ok); color: #0c2414; } .btn.no { background: var(--evil); color: #fff; }
+.btn.good { background: var(--good); color: #fff; } .btn.evil { background: var(--evil); color: #fff; }
+.btn.alt { background: transparent; color: var(--fg); box-shadow: inset 0 0 0 1.5px #ffffff44; }
+.btn:disabled { opacity: .35; cursor: default; }
+.modal { position: fixed; inset: 0; z-index: 30; background: #05060be0; display: flex; align-items: center; justify-content: center; padding: 16px; animation: fade .2s; }
+.sheet { background: var(--night2); width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto; border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 12px; text-align: center; align-items: center; box-shadow: 0 0 0 1.5px var(--gold2); }
+.sheet.wide { max-width: 620px; text-align: left; align-items: stretch; }
+.sheet h2 { font-size: 1.4rem; color: var(--gold); }
+.sheet p { margin: 0; line-height: 1.6; }
+@keyframes fade { from { opacity: 0; } }
+.rolecard { width: 150px; height: 200px; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-family: var(--serif); font-weight: 900; font-size: 1.3rem; color: #fff; }
+.rolecard.good { background: linear-gradient(160deg, #5b9af0, #1f4a8e); box-shadow: 0 0 30px #4f8ee866; }
+.rolecard.evil { background: linear-gradient(160deg, #ea6b5a, #7a1f14); box-shadow: 0 0 30px #e2513f66; }
+.rolecard small { font-family: var(--ui); font-size: .78rem; font-weight: 400; opacity: .9; }
+.rolecard svg { width: 64px; height: 64px; }
+.info { background: #ffffff0d; border-radius: 10px; padding: 10px; text-align: left; font-size: .88rem; line-height: 1.6; width: 100%; }
+.votegrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; width: 100%; text-align: left; }
+.votegrid div { background: #ffffff0d; border-radius: 8px; padding: 6px 8px; font-size: .85rem; display: flex; justify-content: space-between; gap: 6px; }
+.cards { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.mcard { width: 54px; height: 76px; border-radius: 8px; display: grid; place-items: center; font-weight: 900; font-family: var(--serif); animation: flip .4s ease-out backwards; }
+.mcard.s { background: var(--good); color: #fff; } .mcard.f { background: var(--evil); color: #fff; }
+@keyframes flip { from { transform: rotateY(90deg); } }
+.rules h3 { font-size: 1.05rem; color: var(--gold); margin-top: 6px; }
+.rules ul, .rules ol { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 4px; line-height: 1.6; font-size: .9rem; }
+.rules p { font-size: .9rem; }
+.tablewrap { overflow-x: auto; width: 100%; }
+table.t { width: 100%; border-collapse: collapse; font-size: .82rem; }
+table.t th, table.t td { padding: 5px 4px; border-bottom: 1px solid var(--line); text-align: center; white-space: nowrap; }
+table.t th:first-child, table.t td:first-child { text-align: left; }
+.setup { display: flex; flex-direction: column; gap: 14px; background: var(--night2); border-radius: 14px; padding: 14px; }
+.seatrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.seatrow input { font: inherit; border: 1.5px solid #ffffff2a; border-radius: 8px; padding: 6px 8px; background: var(--night); color: var(--fg); width: 120px; min-width: 0; }
+.seg { display: inline-flex; border-radius: 9px; overflow: hidden; box-shadow: inset 0 0 0 1.5px #ffffff44; flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; padding: 6px 11px; font-size: .88rem; }
+.seg button.on { background: var(--gold); color: #2a1f08; }
+.chk { display: flex; gap: 8px; align-items: center; font-size: .9rem; }
+.chk input { width: 18px; height: 18px; accent-color: var(--gold); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap" id="app"></div>
+<div class="bar" id="bar" hidden><div class="in" id="barIn"></div></div>
+
+<script>
+(() => {
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const rint = (n) => Math.floor(Math.random() * n);
+const pick = (a) => a[rint(a.length)];
+
+// ---------- rules data (from the user's rule sheet) ----------
+const EVIL_N = { 5: 2, 6: 2, 7: 3, 8: 3, 9: 3, 10: 4 };
+const QUEST = { 5: [2, 3, 2, 3, 3], 6: [2, 3, 4, 3, 4], 7: [2, 3, 3, 4, 4], 8: [3, 4, 4, 5, 5], 9: [3, 4, 4, 5, 5], 10: [3, 4, 4, 5, 5] };
+const DEFAULTS = { 5: ['percival', 'morgana'], 6: ['percival', 'morgana'], 7: ['percival', 'morgana', 'oberon'], 8: ['percival', 'morgana', 'mordred'], 9: ['percival', 'morgana', 'mordred'], 10: ['percival', 'morgana', 'mordred', 'oberon'] };
+const needFails = (n, q) => (n >= 7 && q === 3) ? 2 : 1;
+const ROLE = {
+  merlin: { n: '梅林', side: 'good', d: '你看得到所有邪惡方（除了莫德雷德）。引導好人，但別太明顯，否則最後會被刺客刺殺。' },
+  percival: { n: '派西維爾', side: 'good', d: '你知道誰是梅林（有莫甘娜時會看到兩個人，分不清誰是誰）。保護梅林，必要時假裝自己是梅林。' },
+  loyal: { n: '亞瑟的忠臣', side: 'good', d: '沒有特殊能力的好人。靠投票、出任務結果和大家的發言推理出夥伴。' },
+  assassin: { n: '刺客', side: 'evil', d: '邪惡方。如果好人完成 3 次任務，由你刺殺一人：刺中梅林，邪惡方逆轉勝。' },
+  morgana: { n: '莫甘娜', side: 'evil', d: '邪惡方。在派西維爾眼中，你和梅林看起來一模一樣。' },
+  mordred: { n: '莫德雷德', side: 'evil', d: '邪惡方大魔王。梅林看不到你。' },
+  oberon: { n: '奧伯倫', side: 'evil', d: '邪惡方，但你不認識其他壞人，他們也不認識你（梅林看得到你）。' },
+  minion: { n: '莫德雷德的爪牙', side: 'evil', d: '普通的壞人，和隊友相認後一起搞破壞。' },
+};
+const isEvil = (r) => ROLE[r].side === 'evil';
+const SHIELD = (good) => `<svg viewBox="0 0 40 40"><path d="M20 3l14 5v10c0 9-6 16-14 19C12 34 6 27 6 18V8z" fill="${good ? '#dbe8ff' : '#ffd9d3'}" stroke="#0004" stroke-width="1.5"/>${good ? '<path d="M20 9v22M13 16h14" stroke="#1f4a8e" stroke-width="3" stroke-linecap="round"/>' : '<path d="M14 13l12 14M26 13L14 27" stroke="#7a1f14" stroke-width="3" stroke-linecap="round"/>'}</svg>`;
+
+let S = null, resolver = null, UI = {}, setupCfg = null;
+const P = (i) => S.players[i];
+const nm = (i) => P(i).name;
+const humans = () => S.players.filter(p => p.human).length;
+function log(t) { S.say.unshift(t); if (S.say.length > 120) S.say.pop(); }
+async function nap(ms) { const g = S && S.gid; await sleep(ms); if (!S || S.gid !== g) throw 'stop'; }
+function ask(pr) { UI = {}; S.prompt = pr; render(); return new Promise(r => { resolver = r; }); }
+function answer(v) { const r = resolver; resolver = null; S.prompt = null; UI = {}; closeSheet(); if (r) r(v); }
+
+// ---------- setup ----------
+function buildRoles(n, opts) {
+  const E = EVIL_N[n];
+  const good = ['merlin']; if (opts.includes('percival')) good.push('percival');
+  while (good.length < n - E) good.push('loyal');
+  const evil = ['assassin'];
+  for (const r of ['morgana', 'mordred', 'oberon']) if (opts.includes(r) && evil.length < E) evil.push(r);
+  while (evil.length < E) evil.push('minion');
+  return [...good, ...evil];
+}
+function newGame(cfg) {
+  const n = cfg.seats.length;
+  const roles = shuffle(buildRoles(n, cfg.opts));
+  S = { n, players: cfg.seats.map((s, i) => ({ name: s.name, human: s.human, role: roles[i], seen: false, lady: {} })),
+    roles, opts: cfg.opts, ladyOn: cfg.lady, quest: 0, results: [], hist: [[], [], [], [], []], leader: rint(n), rejects: 0,
+    team: [], ladyHolder: null, ladyUsed: [], say: [], prompt: null, gid: Math.random(), over: false, winner: null, lastVotes: null };
+  if (S.ladyOn) { S.ladyHolder = (S.leader - 1 + n) % n; S.ladyUsed = [S.ladyHolder]; }
+  log(`新遊戲：${n} 位騎士，${EVIL_N[n]} 位邪惡方。角色：${[...new Set(roles)].map(r => ROLE[r].n).join('、')}。`);
+}
+
+// what player i saw at night: map j -> 'evil' | 'mm' (Merlin or Morgana)
+function nightInfo(i) {
+  const me = P(i).role, out = {};
+  S.players.forEach((q, j) => {
+    if (j === i) return;
+    if (me === 'merlin' && isEvil(q.role) && q.role !== 'mordred') out[j] = 'evil';
+    if (me === 'percival' && (q.role === 'merlin' || q.role === 'morgana')) out[j] = 'mm';
+    if (isEvil(me) && me !== 'oberon' && isEvil(q.role) && q.role !== 'oberon') out[j] = 'evil';
+  });
+  return out;
+}
+function nightText(i) {
+  const me = P(i).role, info = nightInfo(i), ids = Object.keys(info).map(Number);
+  const names = (f) => ids.filter(j => info[j] === f).map(nm).join('、');
+  if (me === 'merlin') return ids.length ? `你看到的邪惡方：<b>${names('evil')}</b>${S.roles.includes('mordred') ? '<br>（莫德雷德躲在暗處，你看不到他）' : ''}` : '你沒看到任何邪惡方（莫德雷德躲起來了）。';
+  if (me === 'percival') return S.roles.includes('morgana') ? `這兩人之中一位是梅林、一位是莫甘娜：<b>${names('mm')}</b>` : `梅林是：<b>${names('mm')}</b>`;
+  if (me === 'oberon') return '你不認識其他邪惡方，他們也不知道你是誰。';
+  if (isEvil(me)) return `你的邪惡隊友：<b>${names('evil') || '（沒有）'}</b>${S.roles.includes('oberon') ? '<br>（還有一位奧伯倫，你們互不相認）' : ''}`;
+  return '你閉著眼睛，什麼都沒看到。';
+}
+
+// ---------- computer reasoning: weigh every possible "who is evil" world ----------
+function combos(arr, k) { const out = []; const rec = (s, cur) => { if (cur.length === k) { out.push(cur.slice()); return; } for (let x = s; x < arr.length; x++) { cur.push(arr[x]); rec(x + 1, cur); cur.pop(); } }; rec(0, []); return out; }
+function beliefs(i) {
+  const n = S.n, E = EVIL_N[n], me = P(i);
+  const info = nightInfo(i);
+  const all = [...Array(n).keys()];
+  const worlds = combos(all, E);
+  const evilMe = isEvil(me.role);
+  const knownEvil = Object.keys(info).filter(j => info[j] === 'evil').map(Number);
+  const mm = Object.keys(info).filter(j => info[j] === 'mm').map(Number);
+  const pe = Array(n).fill(0); let tot = 0;
+  for (const w of worlds) {
+    const ev = new Set(w);
+    if (ev.has(i) !== evilMe) continue;
+    if (me.role === 'merlin') { if (!knownEvil.every(j => ev.has(j))) continue; if (!S.roles.includes('mordred') && w.length !== knownEvil.length) continue; }
+    else if (evilMe && me.role !== 'oberon') { if (!knownEvil.every(j => ev.has(j))) continue; const extra = w.filter(j => j !== i && !knownEvil.includes(j)).length; if (extra !== (S.roles.includes('oberon') ? 1 : 0)) continue; }
+    else if (!knownEvil.every(j => ev.has(j))) continue;
+    if (me.role === 'percival' && mm.length === 2 && ev.has(mm[0]) === ev.has(mm[1])) continue;
+    if (me.role === 'percival' && mm.length === 1 && ev.has(mm[0])) continue;
+    let ok = true;
+    for (const [j, side] of Object.entries(me.lady)) if (ev.has(+j) !== (side === 'evil')) ok = false;
+    if (!ok) continue;
+    let wt = 1;
+    S.results.forEach(r => {
+      const e = r.team.filter(j => ev.has(j)).length;
+      if (e < r.fails) wt = 0;
+      else if (r.fails === 0) wt *= Math.pow(0.35, e);
+      else wt *= Math.pow(0.6, e - r.fails);
+    });
+    // vote patterns: evil players tend to back teams with evil on them
+    S.hist.flat().forEach(h => {
+      const teamEvil = h.team.some(j => ev.has(j));
+      h.votes.forEach((v, j) => { if (!ev.has(j) || j === i) return; if (teamEvil && !v) wt *= 0.85; if (!teamEvil && v && h.team.length > 2) wt *= 0.92; });
+    });
+    if (!wt) continue;
+    tot += wt; w.forEach(j => pe[j] += wt);
+  }
+  return tot ? pe.map(x => x / tot) : pe.map((_, j) => (j === i ? (evilMe ? 1 : 0) : E / n));
+}
+function trueEvilKnown(i) { const info = nightInfo(i); const s = new Set(Object.keys(info).filter(j => info[j] === 'evil').map(Number)); if (isEvil(P(i).role)) s.add(i); return s; }
+
+function botTeam(i) {
+  const k = QUEST[S.n][S.quest], me = P(i);
+  if (!isEvil(me.role)) {
+    const pe = beliefs(i);
+    let order = [...Array(S.n).keys()].sort((a, b) => (pe[a] - pe[b]) + (Math.random() - 0.5) * 0.08);
+    if (me.role === 'merlin' && Math.random() < 0.15 && S.quest < 2) { const ev = order.filter(j => pe[j] > 0.9); if (ev.length) order = [i, ev[0], ...order.filter(j => j !== i && j !== ev[0])]; }
+    const team = [i, ...order.filter(j => j !== i)].slice(0, k);
+    return team.sort((a, b) => a - b);
+  }
+  const mates = [...trueEvilKnown(i)].filter(j => j !== i);
+  const others = shuffle([...Array(S.n).keys()].filter(j => j !== i && !mates.includes(j)));
+  const team = [i];
+  if (k >= 4 && mates.length && Math.random() < 0.6) team.push(pick(mates));
+  for (const j of others) if (team.length < k) team.push(j);
+  return team.sort((a, b) => a - b);
+}
+function botVote(i, team, leader) {
+  const me = P(i);
+  if (S.rejects === 4) return !isEvil(me.role) ? true : !team.some(j => trueEvilKnown(i).has(j)) ? false : true;
+  if (isEvil(me.role)) {
+    const known = trueEvilKnown(i);
+    const hasEvil = team.some(j => known.has(j));
+    if (hasEvil) return Math.random() < 0.92;
+    return Math.random() < (S.quest === 0 ? 0.45 : 0.2);
+  }
+  const pe = beliefs(i);
+  const pClean = team.reduce((a, j) => a * (1 - pe[j]), 1);
+  if (me.role === 'merlin' && Math.random() < 0.12) return Math.random() < 0.5;
+  if (S.quest === 0 && S.rejects === 0) return pClean > 0.3 || team.includes(i);
+  if (!team.includes(i) && team.length + 1 > S.n - EVIL_N[S.n]) return false;
+  return pClean > 0.42;
+}
+function botMission(i, team) {
+  const me = P(i); if (!isEvil(me.role)) return true;
+  const need = needFails(S.n, S.quest);
+  const failsSoFar = S.results.filter(r => !r.success).length;
+  const known = [...trueEvilKnown(i)].filter(j => team.includes(j));
+  if (failsSoFar === 2) return false;
+  if (need === 2) return false;
+  if (me.role !== 'oberon' && known.length > 1 && known.sort((a, b) => a - b)[0] !== i) return Math.random() < 0.8;
+  return Math.random() < (S.quest === 0 ? 0.45 : 0.08);
+}
+function merlinScore(j, evilSet) {
+  let s = 0;
+  S.hist.flat().forEach(h => {
+    const te = h.team.filter(x => evilSet.has(x)).length;
+    if (h.leader === j) s += te === 0 ? 1.2 : -0.8 * te;
+    if (te > 0 && !h.votes[j]) s += 0.6; if (te > 0 && h.votes[j]) s -= 0.4;
+    if (te === 0 && h.votes[j]) s += 0.2;
+  });
+  return s + Math.random() * 0.3;
+}
+function botAssassin(i) {
+  const evilSet = new Set(S.players.map((p, j) => j).filter(j => isEvil(P(j).role)));
+  const cand = S.players.map((_, j) => j).filter(j => !evilSet.has(j));
+  return cand.map(j => [merlinScore(j, evilSet), j]).sort((a, b) => b[0] - a[0])[0][1];
+}
+function botLady(i) {
+  const pe = beliefs(i);
+  const cand = S.players.map((_, j) => j).filter(j => j !== i && !S.ladyUsed.includes(j));
+  return cand.sort((a, b) => Math.abs(pe[a] - 0.5) - Math.abs(pe[b] - 0.5))[0];
+}
+function botRemark(i, team) {
+  const me = P(i);
+  if (isEvil(me.role)) {
+    const known = trueEvilKnown(i);
+    const goods = team.filter(j => !known.has(j) && j !== i);
+    const r = Math.random();
+    if (r < 0.4 && goods.length) return `我對 ${nm(pick(goods))} 有點懷疑。`;
+    if (r < 0.7) return team.includes(i) ? '我是好人，讓我出任務就對了。' : '這隊看起來還可以。';
+    return null;
+  }
+  const pe = beliefs(i);
+  const worst = team.filter(j => j !== i).sort((a, b) => pe[b] - pe[a])[0];
+  if (worst != null && pe[worst] > 0.55) return `我覺得 ${nm(worst)} 很可疑。`;
+  if (worst != null && pe[worst] < 0.25 && Math.random() < 0.5) return '這隊我放心。';
+  return Math.random() < 0.3 ? '再觀察看看。' : null;
+}
+
+// ---------- flow ----------
+async function run() { try { await runInner(); } catch (e) { if (e !== 'stop') throw e; } }
+async function privately(i) { if (humans() > 1) await ask({ type: 'handoff', p: i }); }
+async function runInner() {
+  // night
+  for (let i = 0; i < S.n; i++) if (P(i).human) { await privately(i); await ask({ type: 'role', p: i }); P(i).seen = true; }
+  log('天亮了，所有人睜開眼睛。');
+  while (true) {
+    const k = QUEST[S.n][S.quest];
+    S.rejects = 0;
+    let approved = false;
+    while (!approved) {
+      const L = S.leader;
+      S.team = []; S.phase = 'team';
+      let team;
+      if (P(L).human) team = await ask({ type: 'team', p: L, k });
+      else { render(); await nap(900); team = botTeam(L); }
+      S.team = team; S.phase = 'vote';
+      log(`第 ${S.quest + 1} 個任務，第 ${S.rejects + 1} 次組隊：隊長 ${nm(L)} 選了 ${team.map(nm).join('、')}`);
+      render(); await nap(400);
+      const talk = shuffle(S.players.map((_, j) => j).filter(j => !P(j).human)).slice(0, 2);
+      for (const j of talk) { const r = botRemark(j, team); if (r) { log(`${nm(j)}：「${r}」`); render(); await nap(500); } }
+      const votes = [];
+      for (let j = 0; j < S.n; j++) {
+        if (P(j).human) { await privately(j); votes[j] = await ask({ type: 'vote', p: j, team }); }
+        else votes[j] = botVote(j, team, L);
+      }
+      const yes = votes.filter(Boolean).length;
+      approved = yes > S.n / 2;
+      S.hist[S.quest].push({ leader: L, team, votes, approved });
+      S.lastVotes = votes;
+      log(`投票：贊成 ${yes}、反對 ${S.n - yes} → ${approved ? '通過！' : '否決'}`);
+      if (humans()) await ask({ type: 'voteResult', votes, team, approved });
+      else { render(); await nap(600); }
+      S.lastVotes = null;
+      if (!approved) {
+        S.rejects++;
+        S.leader = (S.leader + 1) % S.n;
+        if (S.rejects >= 5) { S.winner = 'evil'; S.why = '同一個任務連續 5 次組隊被否決'; return finish(); }
+      }
+    }
+    // mission
+    S.phase = 'mission';
+    const cards = [];
+    for (const j of S.team) {
+      if (P(j).human) { await privately(j); cards.push(await ask({ type: 'mission', p: j })); }
+      else { cards.push(botMission(j, S.team)); await nap(300); }
+    }
+    const fails = cards.filter(c => !c).length, need = needFails(S.n, S.quest);
+    const success = fails < need;
+    S.results.push({ team: S.team.slice(), fails, success });
+    log(`任務 ${S.quest + 1}：${S.team.length - fails} 張成功、${fails} 張失敗 → ${success ? '任務成功！' : '任務失敗！'}`);
+    await ask({ type: 'missionResult', fails, size: S.team.length, success, need });
+    const wins = S.results.filter(r => r.success).length, losses = S.results.length - wins;
+    if (losses >= 3) { S.winner = 'evil'; S.why = '3 個任務失敗'; return finish(); }
+    if (wins >= 3) {
+      S.phase = 'assassin';
+      const a = S.players.findIndex(p => p.role === 'assassin');
+      log('好人完成了 3 個任務！邪惡方亮出身分，刺客準備刺殺梅林……');
+      let t;
+      if (P(a).human) { await privately(a); t = await ask({ type: 'assassin', p: a }); }
+      else { render(); await nap(1500); t = botAssassin(a); }
+      S.stabbed = t;
+      if (P(t).role === 'merlin') { S.winner = 'evil'; S.why = `刺客 ${nm(a)} 刺中了梅林 ${nm(t)}！`; }
+      else { S.winner = 'good'; S.why = `刺客 ${nm(a)} 刺殺了 ${nm(t)}，但他不是梅林！`; }
+      return finish();
+    }
+    // lady of the lake after quests 2, 3, 4
+    if (S.ladyOn && S.quest >= 1 && S.quest <= 3) {
+      const h = S.ladyHolder;
+      let t;
+      if (P(h).human) { await privately(h); t = await ask({ type: 'lady', p: h }); }
+      else { render(); await nap(700); t = botLady(h); }
+      const side = ROLE[P(t).role].side;
+      P(h).lady[t] = side;
+      if (P(h).human) await ask({ type: 'ladyResult', p: h, t, side });
+      let claim = side;
+      if (!P(h).human && isEvil(P(h).role)) claim = isEvil(P(t).role) ? 'good' : (Math.random() < 0.5 ? 'evil' : 'good');
+      log(`${nm(h)} 用湖中女神查看了 ${nm(t)}${P(h).human ? '' : `，宣稱：${nm(t)} 是${claim === 'good' ? '好人' : '壞人'}`}`);
+      S.ladyHolder = t; S.ladyUsed.push(t);
+    }
+    S.quest++;
+    S.leader = (S.leader + 1) % S.n;
+  }
+}
+function finish() {
+  S.over = true; S.phase = 'over';
+  log(`${S.winner === 'good' ? '正義方' : '邪惡方'}獲勝！${S.why}`);
+  ask({ type: 'end' });
+}
+
+// ---------- rendering ----------
+function viewer() {
+  if (humans() === 1) return S.players.findIndex(p => p.human);
+  const pr = S.prompt;
+  if (pr && pr.p != null && P(pr.p).human && pr.type !== 'handoff') return pr.p;
+  return -1;
+}
+function render() {
+  if (!S) return renderSetup();
+  const app = $('#app'), pr = S.prompt, me = viewer();
+  const info = me >= 0 ? nightInfo(me) : {};
+  const picking = pr && pr.type === 'team' ? pr : null;
+  const targeting = pr && (pr.type === 'lady' || pr.type === 'assassin') ? pr : null;
+  const sel = UI.sel || [];
+  const wins = S.results.filter(r => r.success).length, losses = S.results.length - wins;
+  app.innerHTML = `
+  <div class="top"><h1>圓桌騎士<small>阿瓦隆規則</small></h1><div style="display:flex;gap:6px"><button class="pill" id="rulesBtn">規則</button><button class="pill" id="quitBtn">重新開始</button></div></div>
+  <div class="quests">${QUEST[S.n].map((k, q) => { const r = S.results[q];
+    return `<div class="q ${r ? (r.success ? 'win' : 'lose') : (q === S.quest && !S.over ? 'cur' : '')}"><b>${r ? (r.success ? '✓' : '✗') : k}</b><span>${r ? `${r.fails} 失敗` : `任務 ${q + 1}`}</span>${needFails(S.n, q) === 2 ? '<span class="two">需 2 敗</span>' : ''}</div>`; }).join('')}</div>
+  <div class="track"><span>正義 <b style="color:var(--good)">${wins}</b> ／ 邪惡 <b style="color:var(--evil)">${losses}</b></span>
+    <span class="rej">組隊否決 ${[0, 1, 2, 3, 4].map(x => `<i class="${x < S.rejects ? 'on' : ''}"></i>`).join('')}</span></div>
+  ${me >= 0 ? `<div class="mybar">${humans() > 1 ? esc(nm(me)) + '：' : '你是'}<span class="badge ${ROLE[P(me).role].side}">${ROLE[P(me).role].n}</span><button class="pill" id="roleBtn">身分與夜晚資訊</button></div>` : ''}
+  <div class="table">${S.players.map((p, j) => {
+    const tags = [];
+    if (S.leader === j && !S.over) tags.push('<span class="tag lead">隊長</span>');
+    if (S.team.includes(j) && !S.over && S.phase !== 'team') tags.push('<span class="tag team">出征</span>');
+    if (S.ladyOn && S.ladyHolder === j && !S.over) tags.push('<span class="tag lady">湖中女神</span>');
+    if (S.over) tags.push(`<span class="tag k-${ROLE[p.role].side}">${ROLE[p.role].n}</span>`);
+    else if (info[j] === 'evil') tags.push('<span class="tag k-evil">邪惡</span>');
+    else if (info[j] === 'mm') tags.push('<span class="tag k-mm">梅林？莫甘娜？</span>');
+    if (me >= 0 && P(me).lady[j] && !S.over) tags.push(`<span class="tag k-${P(me).lady[j]}">湖：${P(me).lady[j] === 'good' ? '好人' : '壞人'}</span>`);
+    if (S.lastVotes) tags.push(`<span class="tag ${S.lastVotes[j] ? 'v-yes' : 'v-no'}">${S.lastVotes[j] ? '贊成' : '反對'}</span>`);
+    if (S.over && S.stabbed === j) tags.push('<span class="tag k-evil">被刺殺</span>');
+    let cls = '';
+    if (picking) cls = sel.includes(j) ? 'pick on' : 'pick';
+    if (targeting) { const ok = targeting.type === 'lady' ? j !== targeting.p && !S.ladyUsed.includes(j) : !isEvil(P(j).role); cls = ok ? 'pick' : 'dis'; }
+    return `<button class="seat ${j === me ? 'me' : ''} ${cls} ${S.leader === j ? 'active' : ''}" data-seat="${j}" ${cls.includes('pick') ? '' : 'tabindex="-1"'}><span class="nm">${esc(p.name)}${j === me ? ' <span class="small muted">（你）</span>' : ''}</span><span class="tags">${tags.join('')}</span></button>`; }).join('')}</div>
+  <div class="hist">${S.hist.map((hs, q) => hs.length ? `<div class="hq"><h3><span>任務 ${q + 1}（${QUEST[S.n][q]} 人）</span>${S.results[q] ? `<span style="color:${S.results[q].success ? 'var(--good)' : 'var(--evil)'}">${S.results[q].success ? '成功' : '失敗'}（${S.results[q].fails} 張失敗）</span>` : ''}</h3>
+    ${hs.map((h, x) => `<div class="prop"><span>#${x + 1} 隊長 <b>${esc(nm(h.leader))}</b>：${h.team.map(nm).map(esc).join('、')} → <b style="color:${h.approved ? 'var(--ok)' : 'var(--evil)'}">${h.approved ? '通過' : '否決'}</b></span>
+      <span class="vs">${h.votes.map((v, j) => `<span class="tag ${v ? 'v-yes' : 'v-no'}">${esc(nm(j))} ${v ? '✓' : '✗'}</span>`).join('')}</span></div>`).join('')}</div>` : '').reverse().join('')}</div>
+  <div style="display:flex;flex-direction:column;gap:6px"><h3 style="font-size:1rem">圓桌上的對話</h3><div class="say">${S.say.map(l => `<div>${esc(l)}</div>`).join('')}</div></div>`;
+  $('#rulesBtn').onclick = showRules;
+  $('#quitBtn').onclick = confirmQuit;
+  const rb = $('#roleBtn'); if (rb) rb.onclick = () => showRole(me, false);
+  app.querySelectorAll('.seat.pick').forEach(b => b.onclick = () => {
+    const j = +b.dataset.seat;
+    if (picking) { const s = UI.sel || []; UI.sel = s.includes(j) ? s.filter(x => x !== j) : (s.length < picking.k ? [...s, j] : s); render(); }
+    else if (targeting) { UI.target = j; render(); }
+  });
+  renderBar(); renderSheet();
+}
+function renderBar() {
+  const bar = $('#bar'), inn = $('#barIn'), pr = S.prompt;
+  bar.hidden = false;
+  if (S.over && (!pr || pr.type !== 'end')) { inn.innerHTML = `<div class="t"><b>${S.winner === 'good' ? '正義方' : '邪惡方'}獲勝</b>：${esc(S.why)}</div><div class="btns"><button class="btn" id="bAgain">再玩一次</button></div>`; $('#bAgain').onclick = () => { S = null; render(); }; return; }
+  let html = '';
+  const who = pr && pr.p != null && humans() > 1 ? `<b>${esc(nm(pr.p))}</b>，` : '';
+  if (pr && pr.type === 'team') {
+    const n = (UI.sel || []).length, need = needFails(S.n, S.quest);
+    html = `<div class="t">${who}你是隊長：選 <b>${pr.k}</b> 位騎士出任務（可以選自己）。已選 ${n}/${pr.k}</div>
+      <div class="hint">第 ${S.quest + 1} 個任務${need === 2 ? '需要 2 張失敗牌才會失敗' : '只要 1 張失敗牌就會失敗'}。這是第 ${S.rejects + 1} 次組隊${S.rejects === 4 ? '，再被否決邪惡方就贏了！' : ''}。</div>
+      <div class="btns"><button class="btn" id="bGo" ${n === pr.k ? '' : 'disabled'}>確定隊伍</button></div>`;
+  } else if (pr && pr.type === 'vote') {
+    html = `<div class="t">${who}要讓這支隊伍出發嗎？<b>${pr.team.map(nm).map(esc).join('、')}</b></div>
+      <div class="hint">過半數贊成才通過，平手算否決。這是第 ${S.rejects + 1} 次組隊${S.rejects === 4 ? '：再否決一次，邪惡方直接獲勝！' : ''}。</div>
+      <div class="btns"><button class="btn yes" id="bYes">贊成</button><button class="btn no" id="bNo">反對</button></div>`;
+  } else if (pr && pr.type === 'mission') {
+    const evil = isEvil(P(pr.p).role);
+    html = `<div class="t">${who}你在任務隊伍裡，秘密交出一張任務牌。</div><div class="hint">${evil ? '你是邪惡方，可以選成功（隱藏身分）或失敗（破壞任務）。' : '你是正義方，只能交出「成功」。'}</div>
+      <div class="btns"><button class="btn good" id="bS">任務成功</button>${evil ? '<button class="btn evil" id="bF">任務失敗</button>' : ''}</div>`;
+  } else if (pr && (pr.type === 'lady' || pr.type === 'assassin')) {
+    const t = UI.target;
+    html = pr.type === 'lady'
+      ? `<div class="t">${who}<b>湖中女神</b>：選一位騎士，秘密查看他是好人還是壞人。${t != null ? `（已選 ${esc(nm(t))}）` : ''}</div><div class="hint">已經拿過湖中女神的人不能被查看。</div>`
+      : `<div class="t">${who}你是<b>刺客</b>！好人完成了 3 個任務，選一位你認為是梅林的人刺殺。${t != null ? `（已選 ${esc(nm(t))}）` : ''}</div><div class="hint">邪惡方已亮出身分。刺中梅林，邪惡方逆轉勝。</div>`;
+    html += `<div class="btns"><button class="btn ${pr.type === 'assassin' ? 'evil' : ''}" id="bTgt" ${t != null ? '' : 'disabled'}>${pr.type === 'lady' ? '查看' : '刺殺'}</button></div>`;
+  } else {
+    const L = S.leader;
+    html = `<div class="t">${S.phase === 'mission' ? '任務隊伍正在交出任務牌…' : S.phase === 'assassin' ? '刺客正在思考要刺殺誰…' : `隊長 ${esc(nm(L))} 正在${S.phase === 'vote' ? '等大家投票' : '挑選隊伍'}…`}</div><div class="hint">${esc(S.say[0] || '')}</div>`;
+  }
+  inn.innerHTML = html;
+  const on = (id, f) => { const b = $('#' + id); if (b) b.onclick = f; };
+  on('bGo', () => answer((UI.sel || []).slice().sort((a, b) => a - b)));
+  on('bYes', () => answer(true)); on('bNo', () => answer(false));
+  on('bS', () => answer(true)); on('bF', () => answer(false));
+  on('bTgt', () => answer(UI.target));
+}
+
+// ---------- sheets ----------
+function closeSheet() { const m = $('#modal'); if (m) m.remove(); }
+function openSheet(html, o = {}) { closeSheet(); const m = document.createElement('div'); m.className = 'modal'; m.id = 'modal'; if (o.keep) m.dataset.keep = '1'; m.innerHTML = `<div class="sheet ${o.wide ? 'wide' : ''}">${html}</div>`; document.body.appendChild(m); return m; }
+function renderSheet() {
+  const pr = S && S.prompt, open = $('#modal');
+  const T = { handoff: sheetHandoff, role: (p) => showRole(p.p, true), voteResult: sheetVote, missionResult: sheetMission, ladyResult: sheetLady, end: sheetEnd };
+  if (!pr || !T[pr.type]) { if (open && !open.dataset.keep) closeSheet(); return; }
+  const key = pr.type + (pr.p ?? '') + S.say.length;
+  if (open && open.dataset.for === key) return;
+  const m = T[pr.type](pr); if (m) m.dataset.for = key;
+}
+function showRole(i, isPrompt) {
+  const p = P(i), good = ROLE[p.role].side === 'good';
+  const m = openSheet(`<h2>${humans() > 1 ? esc(p.name) + ' 的' : '你的'}身分</h2>
+    <div class="rolecard ${good ? 'good' : 'evil'}">${SHIELD(good)}${ROLE[p.role].n}<small>${good ? '正義陣營' : '邪惡陣營'}</small></div>
+    <p>${ROLE[p.role].d}</p><div class="info"><b>夜晚資訊</b><br>${nightText(i)}</div>
+    <button class="btn" id="ok">${isPrompt ? '記住了，閉上眼睛' : '關閉'}</button>`, { keep: !isPrompt });
+  $('#ok', m).onclick = () => { if (isPrompt) answer(true); else { closeSheet(); renderSheet(); } };
+  return m;
+}
+function sheetHandoff(pr) {
+  const m = openSheet(`<h2>請交給 ${esc(nm(pr.p))}</h2><p>接下來是秘密行動，其他人請別看螢幕。</p><button class="btn" id="ok">我是 ${esc(nm(pr.p))}</button>`);
+  $('#ok', m).onclick = () => answer(true);
+  return m;
+}
+function sheetVote(pr) {
+  const yes = pr.votes.filter(Boolean).length;
+  const m = openSheet(`<h2>${pr.approved ? '隊伍通過！' : '隊伍被否決'}</h2><p>贊成 ${yes}，反對 ${S.n - yes}${pr.approved ? '' : `（已連續否決 ${S.rejects + 1} 次）`}</p>
+    <div class="votegrid">${pr.votes.map((v, j) => `<div><span>${esc(nm(j))}</span><b style="color:${v ? 'var(--ok)' : 'var(--evil)'}">${v ? '贊成' : '反對'}</b></div>`).join('')}</div>
+    <button class="btn" id="ok">繼續</button>`);
+  $('#ok', m).onclick = () => answer(true);
+  return m;
+}
+function sheetMission(pr) {
+  const cards = shuffle([...Array(pr.size - pr.fails).fill('s'), ...Array(pr.fails).fill('f')]);
+  const m = openSheet(`<h2>任務 ${S.results.length}：${pr.success ? '成功！' : '失敗！'}</h2>
+    <div class="cards">${cards.map((c, k) => `<div class="mcard ${c}" style="animation-delay:${k * 0.25}s">${c === 's' ? '成功' : '失敗'}</div>`).join('')}</div>
+    <p>${pr.size - pr.fails} 張成功、${pr.fails} 張失敗${pr.need === 2 ? '（這個任務需要 2 張失敗才算失敗）' : ''}</p>
+    <p class="small muted">牌已經洗過，看不出是誰交的。</p><button class="btn" id="ok">繼續</button>`);
+  $('#ok', m).onclick = () => answer(true);
+  return m;
+}
+function sheetLady(pr) {
+  const good = pr.side === 'good';
+  const m = openSheet(`<h2>湖中女神的啟示</h2><div class="rolecard ${good ? 'good' : 'evil'}" style="height:150px">${SHIELD(good)}${good ? '正義' : '邪惡'}</div>
+    <p><b>${esc(nm(pr.t))}</b> 是${good ? '正義陣營（好人）' : '邪惡陣營（壞人）'}。</p><p class="small muted">只有你知道。湖中女神交給 ${esc(nm(pr.t))}。</p><button class="btn" id="ok">知道了</button>`);
+  $('#ok', m).onclick = () => answer(true);
+  return m;
+}
+function sheetEnd() {
+  const good = S.winner === 'good';
+  const m = openSheet(`<h2 style="color:${good ? 'var(--good)' : 'var(--evil)'}">${good ? '正義方獲勝！' : '邪惡方獲勝！'}</h2><p>${esc(S.why)}</p>
+    <div class="votegrid">${S.players.map(p => `<div><span>${esc(p.name)}</span><b style="color:${isEvil(p.role) ? 'var(--evil)' : 'var(--good)'}">${ROLE[p.role].n}</b></div>`).join('')}</div>
+    <div class="btns" style="justify-content:center"><button class="btn" id="again">再玩一次</button><button class="btn alt" id="close">看紀錄</button></div>`);
+  $('#again', m).onclick = () => { closeSheet(); S = null; render(); };
+  $('#close', m).onclick = () => { closeSheet(); S.prompt = null; render(); };
+  return m;
+}
+function confirmQuit() {
+  const m = openSheet(`<h2>重新開始？</h2><p>這一局的進度會消失。</p><div class="btns" style="justify-content:center"><button class="btn" id="y">重新開始</button><button class="btn alt" id="n">繼續玩</button></div>`, { keep: true });
+  $('#y', m).onclick = () => { closeSheet(); resolver = null; S = null; render(); };
+  $('#n', m).onclick = () => { closeSheet(); renderSheet(); };
+}
+const RULES = `<div class="rules" style="display:flex;flex-direction:column;gap:8px">
+  <h2>怎麼玩</h2>
+  <p>亞瑟王的騎士裡藏著邪惡的爪牙。<b>正義方</b>要完成 3 個任務，而且最後梅林不能被刺殺；<b>邪惡方</b>要讓 3 個任務失敗、讓組隊連續被否決 5 次，或在最後刺中梅林。</p>
+  <h3>角色</h3>
+  <ul>${Object.keys(ROLE).map(k => `<li><b style="color:${isEvil(k) ? 'var(--evil)' : 'var(--good)'}">${ROLE[k].n}</b>：${ROLE[k].d}</li>`).join('')}</ul>
+  <h3>人數配置</h3>
+  <div class="tablewrap"><table class="t"><tr><th>人數</th><th>正義</th><th>邪惡</th><th>任務1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr>
+    ${[5, 6, 7, 8, 9, 10].map(n => `<tr><td>${n} 人</td><td>${n - EVIL_N[n]}</td><td>${EVIL_N[n]}</td>${QUEST[n].map((k, q) => `<td>${k}${needFails(n, q) === 2 ? '*' : ''}</td>`).join('')}</tr>`).join('')}</table></div>
+  <p class="small muted">* 7 人以上的第 4 個任務，要 2 張失敗牌才算失敗。</p>
+  <h3>每個任務</h3>
+  <ol><li><b>組隊</b>：隊長選出規定人數的騎士（可以選自己）。</li>
+    <li><b>投票</b>：所有人同時投贊成或反對，過半數才通過，平手算否決。否決的話隊長換下一位。同一個任務連續否決 5 次，邪惡方直接獲勝。</li>
+    <li><b>出任務</b>：隊員秘密交出任務牌。好人只能交「成功」，壞人可以選「成功」或「失敗」。牌洗過後才公開。</li></ol>
+  <h3>刺殺梅林</h3><p>好人完成 3 個任務後，邪惡方亮出身分，由刺客選一人刺殺：刺中梅林，邪惡方逆轉勝。</p>
+  <h3>湖中女神（選用，建議 7 人以上）</h3>
+  <p>開局交給隊長右手邊的玩家。第 2、3、4 個任務結束後，持有人秘密查看一位玩家是好人還是壞人，然後把湖中女神交給他。拿過的人不能再被查看。</p>
+  <h3>這個電腦版</h3>
+  <ul><li>依你提供的規則檔製作。9 人配置照規則書用「正義 6、邪惡 3」（Excel 的 9 人列寫 6＋4，加起來是 10 人，應該是筆誤）。</li>
+    <li>電腦騎士會根據任務結果和投票紀錄推理誰是壞人，也會在圓桌上發言；壞人電腦會說謊。</li>
+    <li>好幾個真人輪流用同一支手機時，每次秘密行動前會先跳出「請交給某某」。</li></ul>
+</div>`;
+function showRules() { const m = openSheet(RULES + '<button class="btn" id="ok" style="align-self:flex-start">知道了</button>', { keep: true, wide: true }); $('#ok', m).onclick = () => { closeSheet(); if (S) renderSheet(); }; }
+
+// ---------- setup screen ----------
+const BOTNAMES = ['電腦 艾倫', '電腦 貝拉', '電腦 卡爾', '電腦 黛安', '電腦 艾瑞克', '電腦 菲歐', '電腦 葛雷', '電腦 海倫', '電腦 伊凡'];
+function renderSetup() {
+  $('#bar').hidden = true;
+  if (!setupCfg) setupCfg = { n: 7, opts: DEFAULTS[7].slice(), lady: true, seats: [{ name: '你', human: true }, ...BOTNAMES.map(n => ({ name: n, human: false }))] };
+  const c = setupCfg;
+  const roles = buildRoles(c.n, c.opts);
+  const countOf = (r) => roles.filter(x => x === r).length;
+  const evilSpecial = c.opts.filter(r => ['morgana', 'mordred', 'oberon'].includes(r)).length;
+  $('#app').innerHTML = `
+  <div class="top"><h1>圓桌騎士<small>阿瓦隆規則</small></h1><button class="pill" id="rulesBtn">規則</button></div>
+  <p style="margin:0;color:var(--muted);line-height:1.6">亞瑟王的騎士裡藏著邪惡的爪牙。組隊、投票、出任務，找出誰在說謊。</p>
+  <div class="setup">
+    <div><h3>人數</h3><div class="seg">${[5, 6, 7, 8, 9, 10].map(n => `<button data-n="${n}" class="${c.n === n ? 'on' : ''}">${n}</button>`).join('')}</div>
+      <p class="small muted" style="margin:6px 0 0">正義 ${c.n - EVIL_N[c.n]} 人、邪惡 ${EVIL_N[c.n]} 人。換人數時會套用建議配置。</p></div>
+    <div style="display:flex;flex-direction:column;gap:6px"><h3>特殊角色</h3>
+      ${[['percival', '派西維爾（正義）'], ['morgana', '莫甘娜（邪惡）'], ['mordred', '莫德雷德（邪惡）'], ['oberon', '奧伯倫（邪惡）']].map(([k, l]) => `<label class="chk"><input type="checkbox" data-opt="${k}" ${c.opts.includes(k) ? 'checked' : ''}> ${l}</label>`).join('')}
+      <label class="chk"><input type="checkbox" id="lady" ${c.lady ? 'checked' : ''}> 湖中女神（建議 7 人以上）</label>
+      <p class="small muted" style="margin:0">本局角色：${Object.keys(ROLE).filter(countOf).map(r => `<span style="color:${isEvil(r) ? 'var(--evil)' : 'var(--good)'}">${ROLE[r].n}${countOf(r) > 1 ? '×' + countOf(r) : ''}</span>`).join('、')}</p>
+      ${evilSpecial > EVIL_N[c.n] - 1 ? `<p class="small" style="margin:0;color:var(--evil)">邪惡方只有 ${EVIL_N[c.n]} 人（含刺客），勾選的特殊角色太多，只會用前面幾個。</p>` : ''}</div>
+    <div style="display:flex;flex-direction:column;gap:8px"><h3>座位</h3>
+      ${c.seats.slice(0, c.n).map((s, i) => `<div class="seatrow"><input id="nm${i}" value="${esc(s.name)}" maxlength="8" aria-label="名字">
+        <div class="seg"><button data-h="${i}" class="${s.human ? 'on' : ''}">真人</button><button data-c="${i}" class="${s.human ? '' : 'on'}">電腦</button></div></div>`).join('')}
+      <span class="small muted">好幾個真人可以輪流用同一支手機，秘密行動前會提醒其他人別看。</span></div>
+    <button class="btn" id="start" style="align-self:flex-start;font-size:1.05rem">入座圓桌</button>
+  </div>
+  <div class="setup">${RULES}</div>`;
+  const save = () => c.seats.slice(0, c.n).forEach((s, i) => { s.name = $('#nm' + i).value.trim() || `騎士${i + 1}`; });
+  $('#rulesBtn').onclick = showRules;
+  document.querySelectorAll('[data-n]').forEach(b => b.onclick = () => { save(); c.n = +b.dataset.n; c.opts = DEFAULTS[c.n].slice(); c.lady = c.n >= 7; renderSetup(); });
+  document.querySelectorAll('[data-opt]').forEach(b => b.onchange = () => { save(); const k = b.dataset.opt; c.opts = b.checked ? [...c.opts, k] : c.opts.filter(x => x !== k); renderSetup(); });
+  $('#lady').onchange = (e) => { save(); c.lady = e.target.checked; };
+  document.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { save(); const s = c.seats[+b.dataset.h]; s.human = true; if (s.name.startsWith('電腦')) s.name = `騎士${+b.dataset.h + 1}`; renderSetup(); });
+  document.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { save(); const s = c.seats[+b.dataset.c]; s.human = false; if (!s.name.startsWith('電腦')) s.name = BOTNAMES[+b.dataset.c] || '電腦'; renderSetup(); });
+  $('#start').onclick = () => {
+    save();
+    if (!c.seats.slice(0, c.n).some(s => s.human)) c.seats[0].human = true;
+    newGame({ seats: c.seats.slice(0, c.n).map(s => ({ ...s })), opts: c.opts.slice(), lady: c.lady });
+    render(); run();
+  };
+}
+window.__av = () => S;
+render();
+})();
+</script>
+</html>

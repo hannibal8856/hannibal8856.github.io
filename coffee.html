@@ -1,0 +1,1097 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>從種子到杯子</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&display=swap">
+<style>
+/* Layout: one scrolling column on a dark wood table — header, weather card, players, the four board areas, your personal board, log; a fixed action bar at the bottom. Single deliberate theme (board game table). */
+:root {
+  color-scheme: dark;
+  --table: #2a1c15; --table2: #3a291f;
+  --kraft: #e6d4b4; --kraft2: #d6bf98; --kraft3: #c6aa7e;
+  --ink: #2a1a12; --muted: #6d5442; --soft: #f1e6d4; --soft2: #c9b49a;
+  --cherry: #b8322a; --leaf: #3f6b35;
+  --water: #2f6fa3; --sun: #d47a1e; --honey: #a87a10;
+  --farm: #4a7a35; --academy: #2f6b45; --expo: #3f8f97; --cafe: #8e2a2a;
+  --line: #2a1a1229;
+  --hand: "LXGW WenKai TC", "Kaiti TC", "STKaiti", serif;
+  --ui: system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--table); color: var(--soft); font-family: var(--ui); font-size: 15px;
+  background-image: repeating-linear-gradient(95deg, #ffffff05 0 2px, transparent 2px 9px);
+  -webkit-tap-highlight-color: transparent;
+}
+.wrap {
+  max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 14px 150px;
+}
+h1, h2, h3 { font-family: var(--hand); font-weight: 700; margin: 0; text-wrap: balance; }
+button { font: inherit; cursor: pointer; }
+button:focus-visible, .area:focus-visible { outline: 3px solid #ffd27a; outline-offset: 2px; }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.topbar h1 { font-size: 1.6rem; color: var(--soft); }
+.stats { display: flex; gap: 6px; flex-wrap: wrap; font-size: .82rem; }
+.stat { background: var(--table2); border-radius: 8px; padding: 4px 9px; color: var(--soft2); }
+.stat b { color: var(--soft); font-variant-numeric: tabular-nums; }
+.pill { border: 1.5px solid #ffffff33; background: transparent; color: var(--soft); border-radius: 999px; padding: 5px 12px; font-size: .85rem; }
+
+.panel { background: var(--kraft); color: var(--ink); border-radius: 12px; padding: 12px; box-shadow: 0 3px 0 var(--kraft3), 0 8px 18px #0006; }
+.panel h2 { font-size: 1.15rem; }
+.muted { color: var(--muted); }
+.small { font-size: .82rem; }
+
+.weather { display: flex; gap: 12px; align-items: center; }
+.wicon { flex: 0 0 52px; height: 52px; border-radius: 10px; display: grid; place-items: center; font: 700 1.5rem var(--hand); color: #fff; }
+.sky-晴 { background: linear-gradient(160deg, #f0b43c, #d47a1e); }
+.sky-陰 { background: linear-gradient(160deg, #8f9aa3, #5d6870); }
+.sky-雨 { background: linear-gradient(160deg, #4f86b8, #2f5f86); }
+.weather .info { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.weather .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: .85rem; }
+
+.mb svg { width: 11px; height: 11px; vertical-align: -1px; margin-right: 2px; }
+.mb { display: inline-block; font-size: .74rem; font-weight: 700; color: #fff; border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
+.mb-W { background: var(--water); } .mb-N { background: var(--sun); } .mb-H { background: var(--honey); }
+
+.players { display: flex; gap: 8px; flex-wrap: wrap; }
+.pchip {
+  display: flex; align-items: center; gap: 7px; background: var(--table2); color: var(--soft); border: 0; border-radius: 10px;
+  padding: 6px 10px; font-size: .85rem; box-shadow: inset 0 0 0 1.5px transparent;
+}
+.pchip.viewing { box-shadow: inset 0 0 0 2px var(--soft2); }
+.pchip.active { background: #5a3d2a; }
+.cup { width: 14px; height: 14px; border-radius: 3px 3px 7px 7px; display: inline-block; flex: 0 0 auto; box-shadow: inset 0 -3px 0 #0003; }
+.pchip b { font-variant-numeric: tabular-nums; }
+.crown { color: #ffd27a; font-size: .75rem; }
+
+.areas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.area { position: relative; background: var(--kraft); color: var(--ink); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 6px; min-width: 0; border: 0; text-align: left; box-shadow: 0 3px 0 var(--kraft3); }
+.areas { grid-template-areas: "cafe cafe" "expo farm" "expo academy"; }
+.a-cafe { grid-area: cafe; } .a-expo { grid-area: expo; } .a-farm { grid-area: farm; } .a-academy { grid-area: academy; }
+.area .ahead { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
+.area h3 { font-size: 1.02rem; padding: 2px 9px; border-radius: 6px; color: #fff; white-space: nowrap; }
+.a-farm h3 { background: var(--farm); } .a-academy h3 { background: var(--academy); }
+.a-expo h3 { background: var(--expo); } .a-cafe h3 { background: var(--cafe); }
+.slots { display: flex; flex-direction: row-reverse; gap: 3px; }
+.slot.first { box-shadow: inset 0 0 0 1.5px var(--ink); }
+.slot { width: 16px; height: 16px; border-radius: 4px; background: #fff8; box-shadow: inset 0 0 0 1px var(--line); display: grid; place-items: center; }
+.area .desc { font-size: .8rem; color: var(--muted); line-height: 1.4; }
+.area.can { cursor: pointer; box-shadow: 0 0 0 3px #ffd27a, 0 3px 0 var(--kraft3); animation: glow 1.4s ease-in-out infinite; }
+.area.off { opacity: .45; }
+@keyframes glow { 50% { box-shadow: 0 0 0 3px #ffd27a88, 0 3px 0 var(--kraft3); } }
+.ripe { display: flex; gap: 3px; align-items: center; font-size: .7rem; color: var(--muted); flex-wrap: wrap; }
+
+.sacks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.sack { background: #f6ecd9; border-radius: 9px; padding: 7px; font-size: .74rem; line-height: 1.35; display: flex; flex-direction: column; gap: 3px; min-width: 0; box-shadow: inset 0 0 0 1.5px var(--line); }
+.sack .tiers { display: flex; flex-direction: column; gap: 1px; font-variant-numeric: tabular-nums; }
+.sack .tiers span b { font-weight: 800; }
+.sack.empty { opacity: .5; justify-content: center; text-align: center; }
+
+.cherry { width: 26px; height: 26px; border-radius: 50%; display: inline-grid; place-items: center; font: 700 .78rem var(--ui); color: #fff; text-shadow: 0 1px 1px #0008; box-shadow: inset -3px -4px 0 #0003, inset 2px 2px 0 #fff3; flex: 0 0 auto; }
+.cherry.sm { width: 14px; height: 14px; font-size: 0; }
+.storage { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.storage .empty { width: 26px; height: 26px; border-radius: 50%; border: 1.5px dashed var(--kraft3); }
+
+.sec { display: flex; flex-direction: column; gap: 6px; }
+.sec h3 { font-size: .98rem; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.gcard { background: #fbf4e6; border-radius: 9px; padding: 8px 8px 8px 12px; position: relative; font-size: .78rem; line-height: 1.4; display: flex; flex-direction: column; gap: 4px; box-shadow: inset 0 0 0 1.5px var(--line); min-width: 0; overflow: hidden; }
+.gcard::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--kc); }
+.k-flavor, .k-shade, .k-mknow, .k-compost, .k-select { --kc: var(--academy); }
+.k-cons, .k-perm { --kc: var(--expo); }
+.k-bonus { --kc: #d9a521; }
+.gcard b { font-size: .88rem; }
+.gcard .tag { font-size: .68rem; color: var(--muted); }
+.gcard .newtag { font-size: .68rem; color: #fff; background: var(--muted); border-radius: 5px; padding: 1px 6px; align-self: flex-start; }
+.gcard .use { align-self: flex-start; border: 0; background: var(--ink); color: var(--kraft); border-radius: 7px; padding: 4px 10px; font-size: .78rem; }
+.gcard.pickable { cursor: pointer; }
+.gcard.pickable:hover { box-shadow: inset 0 0 0 2px var(--ink); }
+.tools { display: flex; gap: 6px; flex-wrap: wrap; }
+.tool { background: #fbf4e6; border-radius: 7px; padding: 3px 8px; font-size: .78rem; box-shadow: inset 0 0 0 1px var(--line); }
+.bubble { position: relative; background: #f6f1e8; border: 3px solid #8a6a4f; border-radius: 40px; padding: 10px 16px; display: flex; flex-direction: column; gap: 6px; align-items: center; text-align: center; color: var(--muted); font-family: var(--hand); }
+.bubble::after { content: ""; position: absolute; left: 30%; bottom: -12px; width: 16px; height: 16px; background: #f6f1e8; border-right: 3px solid #8a6a4f; border-bottom: 3px solid #8a6a4f; transform: rotate(45deg) skew(10deg, 10deg); }
+.beans { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; min-height: 18px; }
+.bean { width: 18px; height: 13px; border-radius: 50%; background: #6a3b1f; position: relative; box-shadow: inset -2px -2px 0 #0003; }
+.bean::after { content: ""; position: absolute; left: 3px; right: 3px; top: 6px; height: 1.5px; background: #3a1d0c; border-radius: 1px; transform: rotate(-8deg); }
+.storage.grid6 { display: grid; grid-template-columns: repeat(3, 44px); gap: 4px; padding: 6px; border-radius: 6px; background: var(--pc); width: max-content; max-width: 100%; }
+.storage.grid6 > * { width: 44px; height: 44px; border-radius: 4px; background: #fbf6ec; display: grid; place-items: center; border: 0; }
+.storage.grid6 .cherry { width: 30px; height: 30px; }
+.tips summary { cursor: pointer; font-weight: 700; font-size: .9rem; }
+.tips p { margin: 6px 0 0; font-size: .85rem; line-height: 1.5; }
+.servedrow { display: flex; gap: 8px; flex-wrap: wrap; font-size: .82rem; align-items: center; }
+
+.track { display: grid; grid-template-columns: repeat(11, 1fr); gap: 2px; }
+.tc { position: relative; aspect-ratio: 1; background: #f3e3c3; border-radius: 3px; font-size: .62rem; font-weight: 700; color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 1px; min-width: 0; overflow: hidden; }
+.tc.red { background: #c9452f; color: #fff; }
+.tc.start { background: var(--ink); color: var(--kraft); }
+.ttool { font-size: .56rem; background: #fff; color: var(--expo); border-radius: 3px; padding: 0 2px; line-height: 1.25; margin-top: 1px; }
+.tcups { display: flex; flex-wrap: wrap; gap: 1px; justify-content: center; margin-top: auto; padding-bottom: 2px; }
+.tcup { width: 8px; height: 8px; border-radius: 2px 2px 4px 4px; box-shadow: 0 0 0 1px #fff; }
+.log { display: flex; flex-direction: column; gap: 4px; font-size: .82rem; color: var(--soft2); max-height: 220px; overflow-y: auto; }
+.log div:first-child { color: var(--soft); }
+
+.bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: #1b120dee; backdrop-filter: blur(6px);
+  border-top: 1.5px solid #ffffff1a;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-top: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+}
+.bar .in { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+.bar .t { font-size: .95rem; line-height: 1.4; }
+.bar .t b { color: #ffd27a; }
+.bar .hint { font-size: .8rem; color: var(--soft2); line-height: 1.4; }
+.bar .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border: 0; border-radius: 10px; padding: 10px 16px; font-weight: 700; background: #ffd27a; color: #2a1a12; }
+.btn.alt { background: transparent; color: var(--soft); box-shadow: inset 0 0 0 1.5px #ffffff44; }
+.btn.dark { background: var(--ink); color: var(--kraft); }
+.btn.ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
+.btn:disabled { opacity: .35; cursor: default; }
+
+.modal { position: fixed; inset: 0; z-index: 30; background: #120a06d9; display: flex; align-items: flex-end; justify-content: center; animation: fade .2s; }
+.sheet {
+  background: var(--kraft); color: var(--ink); width: 100%; max-width: 640px; max-height: 92vh; overflow-y: auto;
+  border-radius: 16px 16px 0 0; display: flex; flex-direction: column; gap: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-top: 18px; padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+}
+.sheet h2 { font-size: 1.35rem; }
+.sheet p { margin: 0; line-height: 1.5; }
+.sheet .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+@keyframes fade { from { opacity: 0; } }
+.checks { display: flex; flex-direction: column; gap: 3px; font-size: .86rem; }
+.ok { color: var(--leaf); font-weight: 700; } .bad { color: var(--cherry); font-weight: 700; }
+.sackpick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.sackpick .sack { cursor: pointer; border: 0; text-align: left; font: inherit; font-size: .74rem; color: var(--ink); }
+.sackpick .sack.sel { box-shadow: inset 0 0 0 2.5px var(--ink); background: #fff; }
+.tapcherry { border: 0; padding: 0; background: none; border-radius: 50%; position: relative; }
+.tapcherry.sel .cherry { box-shadow: 0 0 0 3px var(--ink), inset -3px -4px 0 #0003; transform: translateY(-3px); }
+.breakdown { background: #fbf4e6; border-radius: 10px; padding: 10px; font-size: .86rem; line-height: 1.55; }
+.breakdown .big { font: 700 1.3rem var(--hand); }
+.toggle { display: flex; gap: 8px; align-items: center; font-size: .85rem; }
+.rules h3 { font-size: 1.05rem; margin-top: 4px; }
+.rules ol, .rules ul { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 4px; line-height: 1.55; font-size: .9rem; }
+.rules p { font-size: .9rem; }
+table.res { width: 100%; border-collapse: collapse; font-size: .85rem; font-variant-numeric: tabular-nums; }
+table.res th, table.res td { padding: 5px 4px; border-bottom: 1px solid var(--line); text-align: right; }
+table.res th:first-child, table.res td:first-child { text-align: left; }
+.tablewrap { overflow-x: auto; }
+
+/* harvest mini game */
+.field { position: relative; width: 100%; aspect-ratio: 4 / 3; max-width: 100%; border-radius: 14px; overflow: hidden;
+  background: radial-gradient(circle at 50% 40%, #6f9a4c, #3f6b35 60%, #2c4d26); touch-action: manipulation; }
+.field .leaf { position: absolute; width: 40px; height: 18px; border-radius: 0 100% 0 100%; background: #2c5a27; opacity: .55; }
+.field button.cherry { position: absolute; border: 0; width: 34px; height: 34px; font-size: 0; transition: transform .15s, opacity .15s; }
+.field button.cherry.got { transform: scale(0) translateY(-30px); opacity: 0; pointer-events: none; }
+.timer { height: 10px; border-radius: 5px; background: #fff8; overflow: hidden; }
+.timer i { display: block; height: 100%; width: 100%; background: var(--cherry); transform-origin: left; }
+.grabbed { display: flex; gap: 6px; flex-wrap: wrap; min-height: 28px; }
+.toast { position: fixed; left: 50%; top: calc(16px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); z-index: 40;
+  background: #ffd27a; color: #2a1a12; border-radius: 10px; padding: 8px 14px; font-weight: 700; font-size: .9rem; max-width: 90vw; text-align: center;
+  animation: toast 2.6s ease-out forwards; pointer-events: none; }
+@keyframes toast { 0% { opacity: 0; transform: translate(-50%, -10px); } 10%, 85% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }
+
+.setup { display: flex; flex-direction: column; gap: 14px; }
+.seatrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.seatrow input { font: inherit; border: 1.5px solid var(--kraft3); border-radius: 8px; padding: 6px 8px; background: #fbf4e6; color: var(--ink); width: 120px; min-width: 0; }
+.seg { display: inline-flex; border-radius: 9px; overflow: hidden; box-shadow: inset 0 0 0 1.5px var(--ink); }
+.seg button { border: 0; background: transparent; color: var(--ink); padding: 6px 12px; font-size: .88rem; }
+.seg button.on { background: var(--ink); color: var(--kraft); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap" id="app"></div>
+<div class="bar" id="bar" hidden><div class="in" id="barIn"></div></div>
+
+<script>
+(() => {
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const rint = (n) => Math.floor(Math.random() * n);
+
+const AREAS = {
+  farm: { n: '咖啡莊園', slots: 3, d: '採收咖啡漿果（3 秒內動手抓），也可以把不要的漿果放回莊園清倉。' },
+  academy: { n: '農業知識學院', slots: 3, d: '抽農業知識卡。出高分要用的「風味品種」只有這裡有。' },
+  expo: { n: '咖啡博覽會', slots: 5, d: '抽果實加工處理設備卡，再拿一張綜合攤位牌（出杯加分）。' },
+  cafe: { n: '咖啡廳', slots: 4, d: '選一張麻布袋計分卡，交出漿果出杯得分。' },
+};
+const ORDER = ['farm', 'academy', 'expo', 'cafe'];
+const SO = ['H', 'N', 'W'];
+const M = { W: '水洗', N: '日曬', H: '蜜處理' };
+const GC = [null, '#8dbb47', '#c4bd2e', '#e7962c', '#d23f2c', '#981b2f', '#4a1530'];
+const GN = [null, '青綠', '黃綠', '橙黃', '紅', '深紅', '紫黑'];
+const PCOL = ['#c8382c', '#2f5596', '#e0a92e', '#2e7058', '#9a8d86', '#6b5244'];
+const TOOLS = ['手沖壺', '法式濾壓壺', '摩卡壺', '愛樂壓', '虹吸壺'];
+const CONDN = { any: '不限天氣', notRain: '下雨以外的天氣', sun: '只限晴天', notSun: '陰天或下雨' };
+const skyOk = (cond, sky) => cond === 'any' || (cond === 'notRain' && sky !== '雨') || (cond === 'sun' && sky === '晴') || (cond === 'notSun' && sky !== '晴');
+
+const WEATHER = [
+  { n: '晴天／陽光充足', sky: '晴', h: 0, ok: ['N', 'H'] },
+  { n: '晴天／乾燥季風', sky: '晴', h: 1, ok: ['N'], dice: true },
+  { n: '晴天／溫和微風', sky: '晴', h: 1, ok: ['W', 'N', 'H'] },
+  { n: '晴天／秋高氣爽', sky: '晴', h: 0, ok: ['W', 'N'] },
+  { n: '晴天／寒流過後', sky: '晴', h: -1, ok: ['N', 'H'] },
+  { n: '陰天／水源充沛', sky: '陰', h: 0, ok: ['W', 'H'], dice: true },
+  { n: '陰天／霧氣籠罩', sky: '陰', h: 0, ok: ['W', 'H'] },
+  { n: '陰天／早晚溫差大', sky: '陰', h: 1, ok: ['W', 'N', 'H'] },
+  { n: '陰天／山區濕冷', sky: '陰', h: -1, ok: ['W'] },
+  { n: '下雨／午後雷陣雨', sky: '雨', h: 0, ok: ['W', 'H'], dice: true },
+  { n: '下雨／梅雨季', sky: '雨', h: -1, ok: ['W'] },
+  { n: '下雨／颱風來襲', sky: '雨', h: -1, ok: ['W'], dice: true },
+];
+const HN = { '-1': '欠收（少 1 顆）', '0': '正常', '1': '豐收（多 1 顆）' };
+
+let uid = 1;
+const card = (o) => ({ id: uid++, isNew: false, m: [], ...o });
+function academyDeck() {
+  const d = [];
+  ['藝伎 Geisha', '鐵比卡 Typica', '波旁 Bourbon', '卡杜拉 Caturra', 'SL34', '帕卡馬拉 Pacamara', '黃波旁', '瑰夏', '卡杜艾 Catuai', '肯特 Kent']
+    .forEach(n => d.push(card({ kind: 'flavor', name: '風味品種：' + n, text: '出杯時使用。達到 AA 級國際競標豆必備（看計分卡 +7 或 +12 分）。' })));
+  for (let i = 0; i < 4; i++) d.push(card({ kind: 'shade', name: '遮蔭栽培', text: '出杯時使用：不用管計分卡上的天氣條件。' }));
+  for (let i = 0; i < 4; i++) d.push(card({ kind: 'mknow', name: '處理法知識', text: '出杯時使用：天候卡不適合這種處理法也能出杯。' }));
+  for (let i = 0; i < 3; i++) d.push(card({ kind: 'compost', name: '有機堆肥', text: '輪到你時使用：立刻從莊園多拿 2 顆漿果。' }));
+  for (let i = 0; i < 3; i++) d.push(card({ kind: 'select', name: '篩選採收', text: '輪到你時使用：把倉庫裡最低等級的 1 顆漿果，換成莊園裡 1 顆 5～6 級漿果。' }));
+  return shuffle(d);
+}
+function expoDeck() {
+  const d = [];
+  const add = (k, name, m, text, n) => { for (let i = 0; i < n; i++) d.push(card({ kind: k, name, m, text })); };
+  add('cons', '去皮機', ['W', 'H'], '消耗卡：出杯時使用，水洗／蜜處理加分設備。', 4);
+  add('cons', '發酵水槽', ['W'], '消耗卡：出杯時使用，水洗加分設備。', 4);
+  add('cons', '非洲棚架', ['N'], '消耗卡：出杯時使用，日曬加分設備。', 4);
+  add('cons', '翻豆耙', ['N'], '消耗卡：出杯時使用，日曬加分設備。', 3);
+  add('cons', '蜜處理乾燥床', ['H'], '消耗卡：出杯時使用，蜜處理加分設備。', 3);
+  add('perm', '去果膠機', ['H'], '常駐卡：用點數總和 10 以上的漿果建設，之後永久當蜜處理設備。', 2);
+  add('perm', '水洗處理槽', ['W'], '常駐卡：用點數總和 10 以上的漿果建設，之後永久當水洗設備。', 2);
+  add('perm', '機械乾燥機', ['N'], '常駐卡：用點數總和 10 以上的漿果建設，之後永久當日曬設備。', 2);
+  return shuffle(d);
+}
+function boothDeck() {
+  const d = [];
+  [['電子秤', 1, 5], ['拉花鋼杯', 1, 4], ['溫度計', 2, 4], ['濃度儀', 2, 3], ['磨豆機', 2, 2], ['杯測證書', 3, 2]]
+    .forEach(([n, v, k]) => { for (let i = 0; i < k; i++) d.push(card({ kind: 'bonus', name: n, v, text: `出杯時使用：本次出杯 +${v} 分。` })); });
+  return shuffle(d);
+}
+function simpleDeck(list) { const d = []; list.forEach(([n, v, k]) => { for (let i = 0; i < k; i++) d.push({ name: n, v }); }); return shuffle(d); }
+function sackDeck(m) {
+  const conds = { W: ['any', 'notSun', 'notRain', 'any'], N: ['sun', 'notRain', 'any', 'sun'], H: ['notRain', 'any', 'notRain', 'notSun'] }[m];
+  const fvs = [7, 12, 7, 12, 7, 7];
+  const d = [];
+  for (let i = 0; i < 12; i++) {
+    d.push({ id: uid++, m, cond: conds[(i + Math.floor(i / 4)) % 4], thr: 9, g: 4, C: 1, fv: fvs[i % 6] });
+  }
+  return shuffle(d);
+}
+
+let S = null, resolver = null, setupCfg = null;
+
+function log(t) { S.log.unshift(t); if (S.log.length > 60) S.log.pop(); }
+function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2700); }
+const P = (i) => S.players[i];
+const nm = (i) => P(i).name;
+
+function drawPool() { if (!S.pool.length) return null; return S.pool.splice(rint(S.pool.length), 1)[0]; }
+function drawDeck(k) {
+  const d = S.decks[k];
+  if (!d.length) return null;
+  return d.pop();
+}
+function toBottom(c) {
+  const k = c.kind === 'bonus' ? 'booth' : (['cons', 'perm'].includes(c.kind) ? 'expo' : 'academy');
+  c.isNew = false; S.decks[k].unshift(c);
+}
+function drawCycle(k) { const c = S.decks[k].pop(); S.decks[k].unshift(c); return c; }
+
+function addScore(i, pts) {
+  const p = P(i), from = p.score, to = from + pts;
+  p.score = to;
+  for (let sq = from + 1; sq <= to; sq++) {
+    if (S.track[sq]) { p.tools.push(S.track[sq]); log(`${p.name} 的分數經過第 ${sq} 格，拿到沖煮器具「${S.track[sq]}」`); delete S.track[sq]; }
+  }
+}
+
+// ---------------- serving ----------------
+function evalServe(i, m, idxs, bonusIds) {
+  const p = P(i), sack = S.sacks[m][S.sacks[m].length - 1];
+  if (!sack) return null;
+  const ch = idxs.map(x => p.cherries[x]);
+  const sum = ch.reduce((a, b) => a + b, 0);
+  const usable = p.hand.filter(c => !c.isNew);
+  const use = [], checks = [], lines = [];
+  let wOk = skyOk(sack.cond, S.weather.sky), shade = false;
+  if (!wOk) { const c = usable.find(c => c.kind === 'shade'); if (c) { use.push(c); wOk = true; shade = true; } }
+  checks.push({ ok: wOk, t: `天氣條件：${CONDN[sack.cond]}（本回合是${S.weather.sky}天）${shade ? '→ 用「遮蔭栽培」過關' : ''}` });
+  let mOk = S.weather.ok.includes(sack.m), mk = false;
+  if (!mOk) { const c = usable.find(c => c.kind === 'mknow'); if (c) { use.push(c); mOk = true; mk = true; } }
+  checks.push({ ok: mOk, t: `天候卡適合「${M[sack.m]}」${mk ? '→ 用「處理法知識」過關' : ''}` });
+  const sOk = sum > sack.thr;
+  checks.push({ ok: sOk, t: `交出的漿果點數總和 ${sum}，要大於 ${sack.thr}` });
+  const beanOk = S.beans > 0;
+  if (!beanOk) checks.push({ ok: false, t: '咖啡廳已經沒有熟豆了' });
+  let tier = 'C', pts = sack.C;
+  const allHigh = ch.length > 0 && ch.every(x => x >= 4);
+  const perms = p.perms.filter(c => c.m.includes(sack.m)).length;
+  const cons = usable.filter(c => c.kind === 'cons' && c.m.includes(sack.m));
+  if (!allHigh) lines.push(ch.length ? '有漿果低於 4 級 → C 級商業豆' : '還沒選漿果');
+  else {
+    const eq = Math.min(2, perms + cons.length);
+    if (eq === 0) lines.push(`漿果都在 4 級以上，但沒有「${M[sack.m]}」設備 → 只能算 C 級商業豆`);
+    else {
+      const usedCons = cons.slice(0, Math.max(0, eq - perms));
+      use.push(...usedCons);
+      tier = 'B'; pts = sack.g + (eq >= 2 ? 6 : 3);
+      lines.push(`漿果都在 4 級以上 +${sack.g}`);
+      lines.push(`${M[sack.m]}設備 ${eq} 項 +${eq >= 2 ? 6 : 3}` + (perms ? `（常駐 ${Math.min(perms, 2)}）` : '') + (usedCons.length ? `（消耗：${usedCons.map(c => c.name).join('、')}）` : ''));
+      if (eq >= 2) {
+        const f = usable.find(c => c.kind === 'flavor');
+        if (f) { use.push(f); tier = 'AA'; pts = sack.g + 6 + sack.fv; lines.push(`${f.name} +${sack.fv}`); }
+        else lines.push(`再加一張「風味品種」就能升級 AA（+${sack.fv}）`);
+      } else lines.push('再多 1 項設備可以 +6');
+    }
+  }
+  const bonus = usable.filter(c => c.kind === 'bonus' && bonusIds.includes(c.id));
+  const bonusPts = bonus.reduce((a, c) => a + c.v, 0);
+  const tierName = { C: 'C 級商業豆', B: 'B 級精選豆', AA: 'AA 級國際競標豆' }[tier];
+  return { ok: wOk && mOk && sOk && beanOk && ch.length > 0, checks, tier, tierName, pts, sum, use, bonus, bonusPts, lines, sack };
+}
+
+function doServe(i, m, idxs, bonusIds) {
+  const p = P(i), ev = evalServe(i, m, idxs, bonusIds);
+  const sorted = [...idxs].sort((a, b) => b - a);
+  sorted.forEach(x => S.pool.push(p.cherries.splice(x, 1)[0]));
+  [...ev.use, ...ev.bonus].forEach(c => { p.hand.splice(p.hand.indexOf(c), 1); toBottom(c); });
+  const bar = drawCycle('barista'), roast = drawCycle('roast');
+  const total = ev.pts + bar.v + roast.v + ev.bonusPts;
+  S.sacks[m].pop();
+  S.beans--; p.beans++; p.served[m]++;
+  addScore(i, total);
+  const parts = [`${ev.tierName} ${ev.pts}`, `${bar.name} +${bar.v}`, `${roast.name} +${roast.v}`, ...ev.bonus.map(c => `${c.name} +${c.v}`)];
+  log(`${p.name} 出杯「${M[m]}」：${parts.join('、')}，共 ${total} 分`);
+  return { total, parts, ev };
+}
+
+// ---------------- prompts ----------------
+function ask(prompt) { S.prompt = prompt; render(); return new Promise(r => { resolver = r; }); }
+function answer(v) { const r = resolver; resolver = null; S.prompt = null; if (r) r(v); }
+
+// ---------------- game flow ----------------
+function newState(cfg) {
+  const n = cfg.seats.length;
+  S = {
+    players: cfg.seats.map((s, i) => ({ name: s.name, human: s.human, color: PCOL[i], score: 0, cherries: [], hand: [], perms: [], tools: [], served: { W: 0, N: 0, H: 0 }, beans: 0, forced: false })),
+    dealer: 0, round: 0, beans: cfg.beans, weather: null, weatherDeck: shuffle(WEATHER.slice()),
+    pool: [], decks: {}, sacks: { W: sackDeck('W'), N: sackDeck('N'), H: sackDeck('H') },
+    queues: { farm: [], academy: [], expo: [], cafe: [] }, track: {}, log: [], prompt: null, view: cfg.seats.findIndex(s => s.human), sel: [], active: null, over: false, gid: Math.random(),
+  };
+  if (S.view < 0) S.view = 0;
+  [[1, 10], [2, 11], [3, 11], [4, 12], [5, 11], [6, 9]].forEach(([g, k]) => { for (let j = 0; j < k; j++) S.pool.push(g); });
+  S.decks = { academy: academyDeck(), expo: expoDeck(), booth: boothDeck(),
+    barista: simpleDeck([['實習咖啡師', 1, 6], ['新進咖啡師', 2, 5], ['資深咖啡師', 3, 4], ['冠軍咖啡師', 5, 1]]),
+    roast: simpleDeck([['手網烘焙', 1, 6], ['直火烘豆機', 2, 5], ['半熱風烘豆機', 2, 3], ['熱風烘豆機', 3, 2]]) };
+  const sq = shuffle(Array.from({ length: 56 }, (_, k) => k + 5)).slice(0, 10).sort((a, b) => a - b);
+  sq.forEach((s, k) => S.track[s] = TOOLS[k % 5]);
+  log(`遊戲開始！${n} 位玩家，咖啡廳有 ${cfg.beans} 顆熟豆（= 可以出 ${cfg.beans} 杯）。`);
+}
+
+async function run() {
+  try { await runInner(); } catch (e) { if (e !== 'stop') throw e; }
+}
+async function runInner() {
+  const gid = S.gid;
+  const wait = async (ms) => { await sleep(ms); if (!(S && S.gid === gid)) throw 'stop'; };
+  const askG = async (pr) => { const v = await ask(pr); if (!(S && S.gid === gid)) throw 'stop'; return v; };
+  // setup harvest
+  log('準備：大家一起到莊園搶摘漿果（3 秒）');
+  for (let i = 0; i < S.players.length; i++) {
+    
+    S.active = i;
+    const got = P(i).human ? await askG({ type: 'harvest', p: i, first: true }) : botGrab(i);
+    
+    P(i).cherries.push(...got);
+    log(`${nm(i)} 摘到 ${got.length} 顆漿果`);
+    render(); if (!P(i).human) await wait(500);
+  }
+  while (true) {
+    
+    S.round++;
+    S.weather = S.weatherDeck.pop();
+    if (!S.weatherDeck.length) S.weatherDeck = shuffle(WEATHER.slice());
+    let diceMsg = '';
+    if (S.weather.dice) { const d = rint(6) + 1; const lost = Math.min(d, S.beans); S.beans -= lost; diceMsg = `天候卡有骰子圖示：擲出 ${d}，咖啡廳移除 ${lost} 顆熟豆。`; }
+    log(`第 ${S.round} 回合，莊家是 ${nm(S.dealer)}。天候：${S.weather.n}。${diceMsg}`);
+    S.active = null;
+    if (S.players.some(p => p.human)) await askG({ type: 'weather', dice: diceMsg });
+    else { render(); await wait(700); }
+    
+    // placement
+    S.queues = { farm: [], academy: [], expo: [], cafe: [] };
+    for (let k = 0; k < S.players.length; k++) {
+      const i = (S.dealer + k) % S.players.length;
+      S.active = i;
+      P(i).forced = P(i).cherries.length > 6;
+      let a;
+      if (P(i).human) { S.view = i; a = await askG({ type: 'place', p: i }); }
+      else { render(); await wait(550); a = botPlace(i); }
+      
+      S.queues[a].push(i);
+      log(`${nm(i)} 把咖啡杯放到「${AREAS[a].n}」`);
+      render();
+    }
+    // resolution
+    for (const a of ORDER) {
+      const q = S.queues[a];
+      if (!q.length) continue;
+      if (a === 'academy' || a === 'expo') {
+        S.sel = [];
+        for (let k = 0; k < q.length + 1; k++) { const c = drawDeck(a); if (c) S.sel.push(c); }
+      }
+      for (const i of q) {
+        
+        S.active = i;
+        if (P(i).human) { S.view = i; await humanTurn(i, a); }
+        else { render(); await wait(650); await botTurn(i, a); }
+        
+        render();
+      }
+      if (a === 'academy' || a === 'expo') { S.sel.forEach(c => S.decks[a].unshift(c)); S.sel = []; }
+    }
+    // round end
+    S.players.forEach(p => p.hand.forEach(c => c.isNew = false));
+    S.dealer = (S.dealer + 1) % S.players.length;
+    S.active = null;
+    if (S.beans <= 0) break;
+    render();
+  }
+  endGame();
+}
+
+function canPlace(i, a) {
+  if (S.queues[a].length >= AREAS[a].slots) return false;
+  if (P(i).forced && a !== 'farm' && S.queues.farm.length < AREAS.farm.slots) return false;
+  return true;
+}
+
+async function humanTurn(i, a) {
+  S.turn = { p: i, a, acted: false };
+  while (true) {
+    const cmd = await ask({ type: 'turn', p: i, a });
+    if (cmd === 'end') break;
+    if (cmd === 'act') {
+      const done = await humanAction(i, a);
+      if (done) S.turn.acted = true;
+    } else if (cmd && cmd.use) await useCard(i, cmd.use, true);
+  }
+  if (!S.turn.acted) log(`${nm(i)} 這回合 pass`);
+  S.turn = null;
+}
+
+async function humanAction(i, a) {
+  const p = P(i);
+  if (a === 'farm') {
+    const got = await ask({ type: 'harvest', p: i });
+    const msg = applyHarvest(i, got);
+    await ask({ type: 'return', p: i, msg });
+    return true;
+  }
+  if (a === 'academy' || a === 'expo') {
+    if (!S.sel.length) { toast('牌庫沒有牌了'); return true; }
+    const id = await ask({ type: 'pick', p: i, a });
+    if (id == null) return false;
+    takePick(i, a, id);
+    return true;
+  }
+  if (a === 'cafe') {
+    const res = await ask({ type: 'serve', p: i });
+    if (!res) return false;
+    const r = doServe(i, res.m, res.idxs, res.bonus);
+    await ask({ type: 'served', r });
+    return true;
+  }
+}
+
+function applyHarvest(i, got) {
+  const p = P(i), h = S.weather.h;
+  let msg = `摘到 ${got.length} 顆。`;
+  if (h === 1) { const c = drawPool(); if (c) { got.push(c); msg += `天候豐收，多拿 1 顆（${c} 級）。`; } }
+  if (h === -1 && got.length) { const k = rint(got.length); const c = got.splice(k, 1)[0]; S.pool.push(c); msg += `天候欠收，少 1 顆（${c} 級放回莊園）。`; }
+  p.cherries.push(...got);
+  log(`${p.name} 在莊園採收：${msg}`);
+  return msg;
+}
+
+function takePick(i, a, id) {
+  const p = P(i), k = S.sel.findIndex(c => c.id === id);
+  const c = S.sel.splice(k, 1)[0];
+  c.isNew = true; p.hand.push(c);
+  let extra = '';
+  if (a === 'expo') { const b = drawDeck('booth'); if (b) { b.isNew = true; p.hand.push(b); extra = `，另外拿到綜合攤位牌「${b.name}」`; } }
+  log(`${p.name} 在${AREAS[a].n}拿了「${c.name}」${extra}（下回合才能用）`);
+}
+
+async function useCard(i, id, human) {
+  const p = P(i), c = p.hand.find(c => c.id === id);
+  if (!c || c.isNew) return;
+  if (c.kind === 'compost') {
+    const got = [drawPool(), drawPool()].filter(x => x != null);
+    p.cherries.push(...got);
+    p.hand.splice(p.hand.indexOf(c), 1); toBottom(c);
+    log(`${p.name} 使用「有機堆肥」，多拿 ${got.length} 顆漿果（${got.join('、')} 級）` + (p.cherries.length > 6 ? '。倉庫超過 6 顆，下回合必須去莊園清倉' : ''));
+  } else if (c.kind === 'select') {
+    const hiIdx = S.pool.findIndex(g => g >= 5);
+    if (!p.cherries.length || hiIdx < 0) { if (human) toast('現在沒辦法使用'); return; }
+    const lo = p.cherries.indexOf(Math.min(...p.cherries));
+    const old = p.cherries[lo]; const nw = S.pool.splice(hiIdx, 1)[0];
+    p.cherries[lo] = nw; S.pool.push(old);
+    p.hand.splice(p.hand.indexOf(c), 1); toBottom(c);
+    log(`${p.name} 使用「篩選採收」，${old} 級漿果換成 ${nw} 級`);
+  } else if (c.kind === 'perm') {
+    let idxs;
+    if (human) { idxs = await ask({ type: 'build', p: i, card: c }); if (!idxs) return; }
+    else idxs = botPayIdxs(i, 10);
+    if (!idxs) return;
+    [...idxs].sort((a, b) => b - a).forEach(x => S.pool.push(p.cherries.splice(x, 1)[0]));
+    p.hand.splice(p.hand.indexOf(c), 1); p.perms.push(c);
+    log(`${p.name} 用漿果建設了常駐設備「${c.name}」（${c.m.map(x => M[x]).join('／')}）`);
+  }
+  render();
+}
+
+// ---------------- bots ----------------
+function botGrab(i) {
+  const k = 3 + rint(3), got = [];
+  for (let j = 0; j < k; j++) {
+    // peek at 3 random cherries, take the ripest-looking one
+    const cand = [rint(S.pool.length), rint(S.pool.length), rint(S.pool.length)].filter((v, x, arr) => arr.indexOf(v) === x);
+    if (!S.pool.length) break;
+    let best = cand[0]; cand.forEach(x => { if (S.pool[x] > S.pool[best]) best = x; });
+    got.push(S.pool.splice(best, 1)[0]);
+  }
+  return got.slice(0, 6);
+}
+function botBestServe(i) {
+  const p = P(i), n = p.cherries.length;
+  if (!n || S.beans <= 0) return null;
+  const bonusIds = p.hand.filter(c => c.kind === 'bonus' && !c.isNew).map(c => c.id);
+  let best = null;
+  for (const m of ['W', 'N', 'H']) {
+    if (!S.sacks[m].length) continue;
+    for (let mask = 1; mask < (1 << Math.min(n, 9)); mask++) {
+      const idxs = []; for (let b = 0; b < n; b++) if (mask & (1 << b)) idxs.push(b);
+      const ev = evalServe(i, m, idxs, bonusIds);
+      if (!ev || !ev.ok) continue;
+      const val = ev.pts + ev.bonusPts - 0.25 * ev.sum - 0.4 * ev.use.length;
+      if (!best || val > best.val) best = { m, idxs, bonus: bonusIds, val, ev };
+    }
+  }
+  return best;
+}
+function botPayIdxs(i, need) {
+  const p = P(i);
+  const order = p.cherries.map((g, x) => [g, x]).sort((a, b) => a[0] - b[0]);
+  let sum = 0; const idxs = [];
+  for (const [g, x] of order) { if (sum >= need) break; idxs.push(x); sum += g; }
+  return sum >= need ? idxs : null;
+}
+function botPlace(i) {
+  const p = P(i);
+  const opts = ORDER.filter(a => canPlace(i, a));
+  if (opts.length === 1) return opts[0];
+  const best = botBestServe(i);
+  if (best && opts.includes('cafe') && (best.ev.pts >= 7 || p.cherries.length >= 5 || S.beans <= 3)) return 'cafe';
+  const high = p.cherries.filter(g => g >= 4).reduce((a, b) => a + b, 0);
+  if ((p.cherries.length < 3 || high < 10) && opts.includes('farm') && p.cherries.length < 6) return 'farm';
+  const eqCount = p.hand.filter(c => c.kind === 'cons').length + p.perms.length;
+  const hasFlavor = p.hand.some(c => c.kind === 'flavor');
+  if (eqCount < 2 && opts.includes('expo')) return 'expo';
+  if (!hasFlavor && opts.includes('academy')) return 'academy';
+  if (best && opts.includes('cafe')) return 'cafe';
+  return opts[rint(opts.length)];
+}
+async function botTurn(i, a) {
+  const p = P(i);
+  for (const c of p.hand.filter(c => !c.isNew)) {
+    if (c.kind === 'compost' && p.cherries.length <= 3) await useCard(i, c.id, false);
+    else if (c.kind === 'select' && p.cherries.some(g => g <= 2)) await useCard(i, c.id, false);
+    else if (c.kind === 'perm' && p.cherries.length >= 5 && !p.perms.some(x => x.m[0] === c.m[0])) await useCard(i, c.id, false);
+  }
+  if (a === 'farm') {
+    const got = botGrab(i);
+    applyHarvest(i, got);
+    while (p.cherries.length > 6) { const lo = p.cherries.indexOf(Math.min(...p.cherries)); S.pool.push(p.cherries.splice(lo, 1)[0]); }
+    // also toss grade-1 cherries if storage is crowded
+    if (p.cherries.length >= 5) { const k = p.cherries.indexOf(1); if (k >= 0) S.pool.push(p.cherries.splice(k, 1)[0]); }
+  } else if (a === 'academy' || a === 'expo') {
+    if (!S.sel.length) return;
+    const hasFlavor = p.hand.some(c => c.kind === 'flavor');
+    const score = (c) => ({ flavor: hasFlavor ? 1 : 5, cons: 3, perm: p.perms.length ? 1.5 : 2.6, shade: 2, mknow: 2, compost: 1.8, select: 1.8 }[c.kind] || 1) + Math.random() * 0.5;
+    const best = S.sel.slice().sort((x, y) => score(y) - score(x))[0];
+    takePick(i, a, best.id);
+  } else if (a === 'cafe') {
+    const best = botBestServe(i);
+    if (best) doServe(i, best.m, best.idxs, best.bonus);
+    else log(`${p.name} 在咖啡廳湊不出條件，這回合沒出杯`);
+  }
+}
+
+// ---------------- end ----------------
+function extras(i) {
+  const p = P(i), out = [];
+  const sets = Math.min(p.served.W, p.served.N, p.served.H);
+  if (sets) out.push(['三種處理法都出過杯', sets * 5]);
+  for (const m of ['W', 'N', 'H']) {
+    const mx = Math.max(...S.players.map(q => q.served[m]));
+    if (p.served[m] >= 3 && p.served[m] === mx) out.push([`${M[m]}出 3 杯以上且全場最多`, 10]);
+  }
+  const hi = p.cherries.filter(g => g >= 5).length;
+  if (hi) out.push([`手上 5～6 級漿果 ${hi} 顆`, hi]);
+  if (p.perms.length) out.push([`購買常駐設備 ${p.perms.length} 項`, p.perms.length * 3]);
+  const cnt = {}; p.hand.filter(c => c.kind === 'cons').forEach(c => cnt[c.m[0]] = (cnt[c.m[0]] || 0) + 1);
+  const pairs = Object.values(cnt).reduce((a, k) => a + Math.floor(k / 2), 0);
+  if (pairs) out.push([`未用的同處理法設備卡 ${pairs} 組`, pairs * 2]);
+  const kinds = new Set(p.tools).size;
+  if (kinds) out.push([`沖煮器具 ${kinds} 種`, kinds * 5]);
+  return out;
+}
+function endGame() {
+  S.over = true; S.active = null;
+  const rows = S.players.map((p, i) => { const ex = extras(i); return { i, ex, base: p.score, total: p.score + ex.reduce((a, e) => a + e[1], 0) }; });
+  const top = Math.max(...rows.map(r => r.total));
+  log(`遊戲結束！${rows.filter(r => r.total === top).map(r => nm(r.i)).join('、')} 獲勝`);
+  ask({ type: 'end', rows, top });
+}
+
+// ---------------- rendering ----------------
+const cherryHTML = (g, sm) => `<span class="cherry${sm ? ' sm' : ''}" style="background:${GC[g]}" title="${g} 級">${sm ? '' : g}</span>`;
+const ICON = {
+  N: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="10" r="4" fill="currentColor"/><path d="M8 2v2M2.5 5l1.5 1.2M13.5 5 12 6.2M1 10h2M13 10h2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  W: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5C6 5 3.5 7.6 3.5 10.2a4.5 4.5 0 0 0 9 0C12.5 7.6 10 5 8 1.5z" fill="currentColor"/></svg>',
+  H: '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="5" width="10" height="9.5" rx="2.5" fill="currentColor"/><rect x="4.5" y="2" width="7" height="3" rx="1" fill="currentColor"/></svg>',
+};
+const mbs = (ms) => ms.map(m => `<span class="mb mb-${m}">${ICON[m]}${M[m]}</span>`).join(' ');
+function sackHTML(s, m) {
+  if (!s) return `<div class="sack empty">${M[m]}<br>已用完</div>`;
+  return `<span class="mb mb-${s.m}">${ICON[s.m]}${M[s.m]}</span><span>${CONDN[s.cond]}</span><span>漿果總和 &gt; ${s.thr}</span>
+    <div class="tiers"><span>C <b>${s.C}</b> 分</span><span>B <b>${s.g + 3}／${s.g + 6}</b></span><span>AA <b>${s.g + 6 + s.fv}</b></span></div>`;
+}
+function cardHTML(c, btn) {
+  const kindTag = { flavor: '農業知識', shade: '農業知識', mknow: '農業知識', compost: '農業知識', select: '農業知識', cons: '加工設備・消耗', perm: '加工設備・常駐', bonus: '綜合攤位' }[c.kind];
+  return `<div class="gcard k-${c.kind}${btn === 'pick' ? ' pickable' : ''}" data-id="${c.id}">
+    <span class="tag">${kindTag}</span><b>${esc(c.name)}</b>${c.m.length ? `<div>${mbs(c.m)}</div>` : ''}<span>${c.text}</span>
+    ${c.isNew ? '<span class="newtag">下回合才能用</span>' : ''}${btn && btn !== 'pick' ? btn : ''}</div>`;
+}
+
+function render() {
+  const app = $('#app');
+  if (!S) return renderSetup();
+  const w = S.weather;
+    app.innerHTML = `
+  <div class="topbar">
+    <h1>從種子到杯子</h1>
+    <div style="display:flex;gap:6px"><button class="pill" id="rulesBtn">規則</button><button class="pill" id="quitBtn">重新開始</button></div>
+  </div>
+  <div class="stats">
+    <span class="stat">第 <b>${S.round || '–'}</b> 回合</span>
+    <span class="stat">莊家 <b>${esc(nm(S.dealer))}</b></span>
+    <span class="stat">咖啡廳熟豆 <b>${S.beans}</b>（還能出 ${S.beans} 杯）</span>
+  </div>
+  ${w ? `<div class="panel weather"><div class="wicon sky-${w.sky}">${w.sky}</div><div class="info">
+    <h2>天候卡：${w.n}</h2>
+    <div class="row">收成：${HN[w.h]}</div>
+    <div class="row">適合處理法：${mbs(w.ok)}${w.dice ? ' · <span class="muted">有骰子圖示</span>' : ''}</div></div></div>` : ''}
+  <div class="players">${S.players.map((p, i) => `<button class="pchip ${S.view === i ? 'viewing' : ''} ${S.active === i ? 'active' : ''}" data-view="${i}">
+    <span class="cup" style="background:${p.color}"></span>${esc(p.name)}${S.dealer === i ? '<span class="crown">莊</span>' : ''} <b>${p.score}</b> 分 · ${p.cherries.length} 果 · ${p.beans} 杯</button>`).join('')}</div>
+  <div class="areas">${['cafe', 'expo', 'farm', 'academy'].map(a => areaHTML(a)).join('')}</div>
+  ${trackHTML()}
+  ${boardHTML(S.view)}
+  <div class="sec"><h3 style="color:var(--soft)">紀錄</h3><div class="log">${S.log.map(l => `<div>${esc(l)}</div>`).join('')}</div></div>`;
+
+  $('#rulesBtn').onclick = showRules;
+  $('#quitBtn').onclick = () => confirmQuit();
+  app.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { S.view = +b.dataset.view; render(); });
+  app.querySelectorAll('.area.can').forEach(el => el.onclick = () => answer(el.dataset.area));
+  app.querySelectorAll('[data-use]').forEach(b => b.onclick = () => answer({ use: +b.dataset.use }));
+  renderBar();
+  renderSheet();
+}
+
+function trackHTML() {
+  const cells = [];
+  for (let k = 0; k <= 65; k++) {
+    const cups = S.players.map((p, i) => p.score % 66 === k ? `<i class="tcup" style="background:${p.color}" title="${esc(p.name)} ${p.score}"></i>` : '').join('');
+    const tool = S.track[k] ? `<b class="ttool" title="${S.track[k]}">${S.track[k][0]}</b>` : '';
+    cells.push(`<div class="tc ${k === 0 ? 'start' : (k % 5 === 0 ? 'red' : '')}"><span>${k === 0 ? 'S' : k}</span>${tool}<div class="tcups">${cups}</div></div>`);
+  }
+  const left = Object.entries(S.track).map(([sq, t]) => `${t}（${sq}）`).join('、') || '已全部被拿走';
+  return `<div class="panel sec"><h3>計分軌</h3><div class="track">${cells.join('')}</div>
+    <div class="small muted">格子上的字是沖煮器具：${left}。分數經過那一格就拿走，結束時每種 +5 分。分數超過 65 會繞回 START 繼續算。</div></div>`;
+}
+
+function areaHTML(a) {
+  const q = S.queues[a], A = AREAS[a];
+  const pr = S.prompt;
+  const placing = pr && pr.type === 'place';
+  const can = placing && canPlace(pr.p, a);
+  const slots = Array.from({ length: A.slots }, (_, k) => `<span class="slot${k === 0 ? ' first' : ''}" ${k === 0 ? 'title="1st"' : ''}>${q[k] != null ? `<span class="cup" style="background:${P(q[k]).color}"></span>` : ''}</span>`).join('');
+  let body = `<div class="desc">${A.d}</div>`;
+  if (a === 'farm') body += `<div class="ripe">成熟度：${[1, 2, 3, 4, 5, 6].map(g => cherryHTML(g, true) + g).join(' ')}</div><div class="desc">莊園剩 ${S.pool.length} 顆</div>`;
+  if (a === 'academy') body += `<div class="desc">牌庫 ${S.decks.academy.length} 張</div>`;
+  if (a === 'expo') body += `<div class="desc">設備牌庫 ${S.decks.expo.length} 張 · 攤位牌 ${S.decks.booth.length} 張</div>`;
+  if (a === 'cafe') body += `<div class="sacks">${SO.map(m => `<div class="sack">${sackHTML(S.sacks[m][S.sacks[m].length - 1], m)}</div>`).join('')}</div>`;
+  return `<div class="area a-${a} ${a === 'cafe' ? 'wide' : ''} ${can ? 'can' : (placing ? 'off' : '')}" data-area="${a}" ${can ? 'role="button" tabindex="0"' : ''}>
+    <div class="ahead"><h3>${A.n}</h3><div class="slots">${slots}</div></div>${body}</div>`;
+}
+
+function boardHTML(i) {
+  const p = P(i);
+  const pr = S.prompt;
+  const myTurn = pr && pr.type === 'turn' && pr.p === i;
+  const slots = [];
+  for (let k = 0; k < Math.max(6, p.cherries.length); k++) slots.push(p.cherries[k] != null ? `<span>${cherryHTML(p.cherries[k])}</span>` : '<span class="empty"></span>');
+  const sum = p.cherries.reduce((a, b) => a + b, 0);
+  const hand = p.hand.length ? p.hand.map(c => {
+    let btn = '';
+    if (myTurn && !c.isNew && ['compost', 'select'].includes(c.kind)) btn = `<button class="use" data-use="${c.id}">使用</button>`;
+    if (myTurn && !c.isNew && c.kind === 'perm') btn = `<button class="use" data-use="${c.id}">用漿果建設</button>`;
+    return cardHTML(c, btn);
+  }).join('') : '<span class="muted small">還沒有手牌。去「農業知識學院」或「咖啡博覽會」拿牌。</span>';
+  return `<div class="panel sec">
+    <h2><span class="cup" style="background:${p.color}"></span> ${esc(p.name)} 的咖啡廳圖板</h2>
+    <div class="bubble"><span>享受一杯好咖啡的客人們</span><div class="beans">${'<i class="bean"></i>'.repeat(p.beans) || '<span class="muted small">還沒有客人</span>'}</div></div>
+    <div class="sec"><h3>漿果儲藏區（${p.cherries.length}/6，點數總和 ${sum}）</h3><div class="storage grid6" style="--pc:${p.color}">${slots.join('')}</div>
+    ${p.cherries.length > 6 ? '<span class="bad small">超過 6 顆！下回合必須去咖啡莊園清倉。</span>' : ''}</div>
+    <div class="servedrow"><b>已出杯：</b>${['W', 'N', 'H'].map(m => `<span class="mb mb-${m}">${ICON[m]}${M[m]} ${p.served[m]}</span>`).join('')}<span>熟豆（客人）${p.beans} 顆</span></div>
+    ${p.perms.length ? `<div class="sec"><h3>常駐設備</h3><div class="tools">${p.perms.map(c => `<span class="tool">${c.name} ${mbs(c.m)}</span>`).join('')}</div></div>` : ''}
+    ${p.tools.length ? `<div class="sec"><h3>沖煮器具</h3><div class="tools">${p.tools.map(t => `<span class="tool">${t}</span>`).join('')}</div></div>` : ''}
+    <div class="sec"><h3>手牌</h3><div class="cards">${hand}</div></div>
+    <details class="tips"><summary>圖板上的出杯提示</summary>
+      <p><b>必要條件：</b>當回合天候卡有對應的處理法圖案 + 交出點數總和 &gt; 9 的漿果。</p>
+      <p><b>分數更高：</b>a. 用 4～6 級漿果　b. 建置／使用更多相同圖案的設備牌　c. 出示風味品種牌。</p>
+      <p class="muted">例：天氣適合蜜處理，用 4 級豆 ×3 顆，已建置設備 ×2 張，沒有風味品種 → 4 + 6 = 10 分。</p>
+    </details>
+  </div>`;
+}
+
+function hintFor(i) {
+  const p = P(i);
+  if (p.forced) return '你的倉庫超過 6 顆，這回合只能去咖啡莊園清倉。';
+  const best = botBestServe(i);
+  if (best) return `提示：你現在可以出杯（${M[best.m]}，${best.ev.tierName} ${best.ev.pts} 分），可以去咖啡廳。`;
+  if (p.cherries.length < 3) return '提示：漿果不多，先去咖啡莊園採收。';
+  const eq = p.hand.filter(c => c.kind === 'cons').length + p.perms.length;
+  if (eq === 0) return '提示：想拿 B 級以上的分數，需要加工設備（咖啡博覽會）。';
+  if (!p.hand.some(c => c.kind === 'flavor')) return '提示：有 2 項設備 + 風味品種（農業知識學院）就能做 AA 級 22 分。';
+  return '提示：看看咖啡廳三張計分卡，需要什麼條件。';
+}
+
+function renderBar() {
+  const bar = $('#bar'), inn = $('#barIn'), pr = S.prompt;
+  bar.hidden = false;
+  if (S.over) { inn.innerHTML = `<div class="t">遊戲結束</div><div class="btns"><button class="btn" id="bShow">看結果</button><button class="btn alt" id="bAgain">再玩一次</button></div>`;
+    $('#bShow').onclick = () => { S.prompt = S.endPrompt; renderSheet(); }; $('#bAgain').onclick = () => { S = null; render(); }; return; }
+  if (pr && pr.type === 'place') {
+    inn.innerHTML = `<div class="t"><b>${esc(nm(pr.p))}</b>：把咖啡杯放到一個區域（點上面發光的區域）</div><div class="hint">${hintFor(pr.p)}</div>`;
+    return;
+  }
+  if (pr && pr.type === 'turn') {
+    const acted = S.turn && S.turn.acted;
+    const lbl = { farm: '採收漿果', academy: '選農業知識卡', expo: '選加工設備卡', cafe: '出杯' }[pr.a];
+    inn.innerHTML = `<div class="t"><b>${esc(nm(pr.p))}</b> 的回合 · 在「${AREAS[pr.a].n}」</div>
+      <div class="hint">${acted ? '動作做完了。還可以使用手牌，好了就結束回合。' : '可以先用手牌（下面手牌的「使用」按鈕），再執行區域動作。'}</div>
+      <div class="btns"><button class="btn" id="bAct" ${acted ? 'disabled' : ''}>${lbl}</button><button class="btn alt" id="bEnd">${acted ? '結束回合' : '跳過（pass）'}</button></div>`;
+    $('#bAct').onclick = () => answer('act');
+    $('#bEnd').onclick = () => answer('end');
+    return;
+  }
+  const who = S.active != null ? `${esc(nm(S.active))} 行動中…` : '…';
+  inn.innerHTML = `<div class="t">${who}</div><div class="hint">${esc(S.log[0] || '')}</div>`;
+}
+
+// ---------------- sheets ----------------
+function closeSheet() { const m = $('#modal'); if (m) m.remove(); }
+function openSheet(html) {
+  closeSheet();
+  const m = document.createElement('div'); m.className = 'modal'; m.id = 'modal';
+  m.innerHTML = `<div class="sheet">${html}</div>`;
+  document.body.appendChild(m);
+  return m;
+}
+function renderSheet() {
+  const pr = S && S.prompt;
+  const open = $('#modal');
+  if (!pr || ['place', 'turn'].includes(pr.type)) { if (open && !open.dataset.keep) closeSheet(); return; }
+  if (open && open.dataset.for === String(pr.type) + (pr.p ?? '')) return;
+  const fn = { weather: sheetWeather, harvest: sheetHarvest, return: sheetReturn, pick: sheetPick, serve: sheetServe, served: sheetServed, build: sheetBuild, end: sheetEnd }[pr.type];
+  if (fn) { const m = fn(pr); if (m) m.dataset.for = String(pr.type) + (pr.p ?? ''); }
+}
+
+function sheetWeather(pr) {
+  const w = S.weather;
+  const m = openSheet(`<h2>第 ${S.round} 回合</h2>
+    <p>莊家 <b>${esc(nm(S.dealer))}</b> 翻開天候卡：</p>
+    <div class="panel weather" style="box-shadow:none;background:#fbf4e6"><div class="wicon sky-${w.sky}">${w.sky}</div><div class="info">
+      <h2>${w.n}</h2><div class="row">收成：${HN[w.h]}</div><div class="row">適合處理法：${mbs(w.ok)}</div></div></div>
+    ${pr.dice ? `<p class="bad">${pr.dice}</p>` : ''}
+    <p class="muted small">接下來從莊家開始，每個人把咖啡杯放到一個區域排隊。</p>
+    <button class="btn dark" id="go">開始放咖啡杯</button>`);
+  $('#go', m).onclick = () => { closeSheet(); answer(true); };
+  return m;
+}
+
+function sheetHarvest(pr) {
+  const p = P(pr.p);
+  const sample = [];
+  const n = Math.min(22, S.pool.length);
+  for (let k = 0; k < n; k++) sample.push(S.pool.splice(rint(S.pool.length), 1)[0]);
+  const cols = 6, rows = Math.ceil(n / cols);
+  const pos = shuffle(Array.from({ length: cols * rows }, (_, k) => k)).slice(0, n);
+  const m = openSheet(`<h2>${esc(p.name)}：採收咖啡漿果</h2>
+    <p>按「開始」後 <b>3 秒</b>內點漿果，一次拿一顆，最多 6 顆。顏色越深越成熟、等級越高。</p>
+    <div class="ripe">成熟度：${[1, 2, 3, 4, 5, 6].map(g => cherryHTML(g, true) + g + '級').join(' ')}</div>
+    <div class="timer"><i id="tbar"></i></div>
+    <div class="field" id="field">
+      ${Array.from({ length: 9 }, () => `<span class="leaf" style="left:${rint(90)}%;top:${rint(90)}%;transform:rotate(${rint(180)}deg)"></span>`).join('')}
+      ${sample.map((g, k) => { const c = pos[k] % cols, r = Math.floor(pos[k] / cols);
+        return `<button class="cherry" data-k="${k}" disabled style="background:${GC[g]};left:calc(${(c + 0.5) * 100 / cols}% - 17px + ${rint(16) - 8}px);top:calc(${(r + 0.5) * 100 / rows}% - 17px + ${rint(14) - 7}px)" aria-label="漿果"></button>`; }).join('')}
+    </div>
+    <div class="grabbed" id="grabbed"></div>
+    <div class="row"><button class="btn dark" id="go">開始！</button></div>`);
+  m.dataset.keep = '1';
+  const got = [];
+  let done = false, t0 = 0, raf = 0;
+  const finish = () => {
+    if (done) return; done = true; cancelAnimationFrame(raf);
+    m.querySelectorAll('.field .cherry').forEach(b => b.disabled = true);
+    sample.forEach((g, k) => { if (!got.some(x => x.k === k)) S.pool.push(g); });
+    $('#tbar', m).style.transform = 'scaleX(0)';
+    const btn = $('#go', m);
+    btn.textContent = `收進倉庫（${got.length} 顆）`; btn.disabled = false;
+    btn.onclick = () => { closeSheet(); answer(got.map(x => x.g)); };
+  };
+  m.querySelectorAll('.field .cherry').forEach(b => b.onclick = () => {
+    if (done) return;
+    const k = +b.dataset.k; b.classList.add('got');
+    got.push({ k, g: sample[k] });
+    $('#grabbed', m).insertAdjacentHTML('beforeend', cherryHTML(sample[k]));
+    if (got.length >= 6) finish();
+  });
+  $('#go', m).onclick = () => {
+    $('#go', m).disabled = true; $('#go', m).textContent = '採收中…';
+    m.querySelectorAll('.field .cherry').forEach(b => b.disabled = false);
+    t0 = performance.now();
+    const tick = (now) => { const f = Math.max(0, 1 - (now - t0) / 3000); $('#tbar', m).style.transform = `scaleX(${f})`; if (f <= 0) finish(); else raf = requestAnimationFrame(tick); };
+    raf = requestAnimationFrame(tick);
+  };
+  return m;
+}
+
+function sheetReturn(pr) {
+  const p = P(pr.p);
+  const sel = new Set();
+  const m = openSheet(`<h2>清倉</h2><p>${esc(pr.msg)}</p><p class="small muted">倉庫最多放 6 顆。可以點選不要的漿果放回莊園（例如還沒成熟的青綠果）。</p>
+    <div class="storage" id="st"></div><p class="small" id="info"></p><div class="row"><button class="btn dark" id="ok"></button></div>`);
+  const draw = () => {
+    $('#st', m).innerHTML = p.cherries.map((g, k) => `<button class="tapcherry ${sel.has(k) ? 'sel' : ''}" data-k="${k}">${cherryHTML(g)}</button>`).join('');
+    m.querySelectorAll('.tapcherry').forEach(b => b.onclick = () => { const k = +b.dataset.k; sel.has(k) ? sel.delete(k) : sel.add(k); draw(); });
+    const left = p.cherries.length - sel.size;
+    $('#info', m).innerHTML = left > 6 ? `<span class="bad">還要放回 ${left - 6} 顆</span>` : `留下 ${left} 顆`;
+    const ok = $('#ok', m); ok.disabled = left > 6; ok.textContent = sel.size ? `放回 ${sel.size} 顆，完成` : '不用清倉，完成';
+  };
+  draw();
+  $('#ok', m).onclick = () => {
+    [...sel].sort((a, b) => b - a).forEach(k => S.pool.push(p.cherries.splice(k, 1)[0]));
+    if (sel.size) log(`${p.name} 清倉，放回 ${sel.size} 顆漿果`);
+    closeSheet(); answer(true);
+  };
+  return m;
+}
+
+function sheetPick(pr) {
+  const isExpo = pr.a === 'expo';
+  const m = openSheet(`<h2>${AREAS[pr.a].n}：選一張牌</h2>
+    <p class="small muted">選牌區有 ${S.sel.length} 張（排隊人數 + 1）。照排隊順序每人選一張，剩下的放回牌庫。${isExpo ? '選完再從上方拿一張綜合攤位牌。' : ''}拿到的牌下回合才能用。</p>
+    <div class="cards">${S.sel.map(c => cardHTML(c, 'pick')).join('')}</div>
+    <div class="row"><button class="btn ghost" id="cancel">先不選，回去</button></div>`);
+  m.querySelectorAll('.gcard.pickable').forEach(el => el.onclick = () => { closeSheet(); answer(+el.dataset.id); });
+  $('#cancel', m).onclick = () => { closeSheet(); answer(null); };
+  return m;
+}
+
+function sheetServe(pr) {
+  const i = pr.p, p = P(i);
+  let m0 = SO.find(m => S.sacks[m].length && S.weather.ok.includes(m)) || SO.find(m => S.sacks[m].length);
+  const sel = new Set();
+  const bonusAvail = p.hand.filter(c => c.kind === 'bonus' && !c.isNew);
+  const bon = new Set(bonusAvail.map(c => c.id));
+  const m = openSheet(`<h2>咖啡廳：出杯</h2>
+    <p class="small muted">1. 選一張麻布袋計分卡　2. 點選要交出的漿果　3. 確認條件都打勾</p>
+    <div class="sackpick" id="sp"></div>
+    <div class="storage" id="st"></div>
+    <div class="checks" id="ck"></div>
+    ${bonusAvail.length ? `<div class="sec"><b class="small">綜合攤位牌（出杯加分）</b>${bonusAvail.map(c => `<label class="toggle"><input type="checkbox" data-b="${c.id}" checked> ${c.name} +${c.v}</label>`).join('')}</div>` : ''}
+    <div class="breakdown" id="bd"></div>
+    <div class="row"><button class="btn dark" id="ok">出杯！</button><button class="btn ghost" id="cancel">先不出杯</button></div>`);
+  const draw = () => {
+    $('#sp', m).innerHTML = SO.map(k => { const s = S.sacks[k][S.sacks[k].length - 1];
+      return `<button class="sack ${k === m0 ? 'sel' : ''} ${s ? '' : 'empty'}" data-m="${k}" ${s ? '' : 'disabled'}>${sackHTML(s, k)}</button>`; }).join('');
+    m.querySelectorAll('#sp .sack').forEach(b => b.onclick = () => { m0 = b.dataset.m; draw(); });
+    $('#st', m).innerHTML = p.cherries.map((g, k) => `<button class="tapcherry ${sel.has(k) ? 'sel' : ''}" data-k="${k}">${cherryHTML(g)}</button>`).join('') || '<span class="muted small">倉庫沒有漿果</span>';
+    m.querySelectorAll('#st .tapcherry').forEach(b => b.onclick = () => { const k = +b.dataset.k; sel.has(k) ? sel.delete(k) : sel.add(k); draw(); });
+    const ev = m0 ? evalServe(i, m0, [...sel], [...bon]) : null;
+    if (!ev) { $('#ck', m).innerHTML = '<span class="bad">沒有計分卡了</span>'; $('#ok', m).disabled = true; $('#bd', m).innerHTML = ''; return; }
+    $('#ck', m).innerHTML = ev.checks.map(c => `<div class="${c.ok ? 'ok' : 'bad'}">${c.ok ? '✓' : '✗'} <span style="color:var(--ink);font-weight:400">${c.t}</span></div>`).join('');
+    $('#bd', m).innerHTML = `<div class="big">${ev.tierName}：${ev.pts} 分</div>${ev.lines.map(l => `<div>· ${esc(l)}</div>`).join('')}
+      ${ev.bonusPts ? `<div>· 綜合攤位牌 +${ev.bonusPts}</div>` : ''}<div>· 出杯時再從咖啡師、烘焙器具牌庫各翻一張加分</div>
+      ${ev.use.length ? `<div class="muted small">會用掉：${ev.use.map(c => c.name).join('、')}</div>` : ''}`;
+    $('#ok', m).disabled = !ev.ok;
+  };
+  m.querySelectorAll('[data-b]').forEach(cb => cb.onchange = () => { const id = +cb.dataset.b; cb.checked ? bon.add(id) : bon.delete(id); draw(); });
+  draw();
+  $('#ok', m).onclick = () => { closeSheet(); answer({ m: m0, idxs: [...sel], bonus: [...bon] }); };
+  $('#cancel', m).onclick = () => { closeSheet(); answer(null); };
+  return m;
+}
+
+function sheetServed(pr) {
+  const r = pr.r;
+  const m = openSheet(`<h2>出杯成功！+${r.total} 分</h2>
+    <div class="breakdown">${r.parts.map(x => `<div>· ${esc(x)}</div>`).join('')}<div class="big">合計 ${r.total} 分</div></div>
+    <p class="small muted">從咖啡廳拿一顆熟豆放到你的「客人區」。麻布袋計分卡被拿走後，翻開下一張。</p>
+    <button class="btn dark" id="ok">好</button>`);
+  $('#ok', m).onclick = () => { closeSheet(); answer(true); };
+  return m;
+}
+
+function sheetBuild(pr) {
+  const p = P(pr.p), c = pr.card, sel = new Set();
+  const m = openSheet(`<h2>建設「${c.name}」</h2><p class="small">${c.text}</p><p class="small muted">選要付出的漿果，點數總和要 10 以上。付出的漿果放回莊園。</p>
+    <div class="storage" id="st"></div><p id="info" class="small"></p>
+    <div class="row"><button class="btn dark" id="ok">建設</button><button class="btn ghost" id="cancel">取消</button></div>`);
+  const draw = () => {
+    $('#st', m).innerHTML = p.cherries.map((g, k) => `<button class="tapcherry ${sel.has(k) ? 'sel' : ''}" data-k="${k}">${cherryHTML(g)}</button>`).join('');
+    m.querySelectorAll('.tapcherry').forEach(b => b.onclick = () => { const k = +b.dataset.k; sel.has(k) ? sel.delete(k) : sel.add(k); draw(); });
+    const sum = [...sel].reduce((a, k) => a + p.cherries[k], 0);
+    $('#info', m).innerHTML = `已選總和 ${sum} ${sum >= 10 ? '<span class="ok">✓</span>' : '<span class="bad">（不到 10）</span>'}`;
+    $('#ok', m).disabled = sum < 10;
+  };
+  draw();
+  $('#ok', m).onclick = () => { closeSheet(); answer([...sel]); };
+  $('#cancel', m).onclick = () => { closeSheet(); answer(null); };
+  return m;
+}
+
+function sheetEnd(pr) {
+  S.endPrompt = pr;
+  const winners = pr.rows.filter(r => r.total === pr.top).map(r => nm(r.i)).join('、');
+  const m = openSheet(`<h2>遊戲結束：${esc(winners)} 獲勝！</h2>
+    <p class="small muted">咖啡廳的熟豆用完了，這一回合做完後結算。</p>
+    ${pr.rows.map(r => `<div class="breakdown"><b>${esc(nm(r.i))}</b>：出杯得分 ${r.base}
+      ${r.ex.map(e => `<div>· ${esc(e[0])} +${e[1]}</div>`).join('') || '<div class="muted">· 沒有額外加分</div>'}
+      <div class="big">總分 ${r.total}</div></div>`).join('')}
+    <div class="row"><button class="btn dark" id="again">再玩一次</button><button class="btn ghost" id="close">看盤面</button></div>`);
+  $('#again', m).onclick = () => { closeSheet(); S = null; render(); };
+  $('#close', m).onclick = () => { closeSheet(); S.prompt = null; render(); };
+  return m;
+}
+
+function confirmQuit() {
+  const m = openSheet(`<h2>重新開始？</h2><p>這一局的進度會消失。</p><div class="row"><button class="btn dark" id="y">重新開始</button><button class="btn ghost" id="n">繼續玩</button></div>`);
+  m.dataset.keep = '1';
+  $('#y', m).onclick = () => { closeSheet(); if (S) S.gid = -1; resolver = null; S = null; render(); };
+  $('#n', m).onclick = () => { closeSheet(); renderSheet(); };
+}
+
+const RULES = `<div class="rules sec">
+  <h2>怎麼玩（白話版）</h2>
+  <p>你經營一間咖啡廳，要從種咖啡一路做到端出一杯咖啡：<b>採收漿果 → 學農業知識、買加工設備 → 在咖啡廳出杯得分</b>。咖啡廳的熟豆（= 能出的杯數）用完時，做完那一回合遊戲結束，總分最高的人贏。</p>
+  <h3>每一回合</h3>
+  <ol>
+    <li><b>翻天候卡</b>：決定這回合的天氣（晴／陰／雨）、收成（豐收多 1 顆、欠收少 1 顆）、適合哪些處理法。有骰子圖示就擲骰，咖啡廳少掉那麼多顆熟豆。</li>
+    <li><b>放咖啡杯</b>：從莊家開始，每人把自己的咖啡杯放到一個區域排隊（每區格子有限）。</li>
+    <li><b>執行</b>：照「莊園 → 學院 → 博覽會 → 咖啡廳」的順序，同一區照排隊順序輪流。輪到你時可以：用手牌、執行區域動作，或 pass。</li>
+    <li>莊家換下一位，下一回合。</li>
+  </ol>
+  <h3>四個區域</h3>
+  <ul>
+    <li><b>咖啡莊園</b>：3 秒內用手抓漿果（一次一顆）。漿果分 1～6 級，顏色越深越熟。倉庫最多 6 顆，也可以把不要的放回去（清倉）。</li>
+    <li><b>農業知識學院</b>：翻開「排隊人數 + 1」張牌，照順序每人選一張。<b>風味品種</b>只有這裡有。</li>
+    <li><b>咖啡博覽會</b>：一樣翻開「排隊人數 + 1」張加工設備卡選一張，另外再拿一張綜合攤位牌。設備分「消耗卡」（出杯時用掉）和「常駐卡」（付點數 10 以上的漿果建設，永久使用）。</li>
+    <li><b>咖啡廳</b>：選一張麻布袋計分卡出杯。</li>
+  </ul>
+  <p>學院和博覽會拿到的牌<b>下回合才能用</b>。</p>
+  <h3>出杯怎麼算分（最重要）</h3>
+  <ol>
+    <li>必要條件：天候卡上有這張計分卡的處理法圖案（日曬☀／水洗💧／蜜處理🍯）、天氣符合計分卡、交出的漿果<b>點數總和大於 9</b>。</li>
+    <li>等級：<br>C 級商業豆：條件達到就有（約 1 分）。<br>B 級精選豆：漿果<b>全部 4 級以上</b> + 該處理法設備 1 項（7 分）或 2 項（10 分）。<br>AA 級國際競標豆：4 級以上 + 2 項設備 + 風味品種（看計分卡，17 或 22 分）。</li>
+    <li>再加：從咖啡師牌庫、烘焙器具牌庫各翻一張的分數，加上你想用的綜合攤位牌。</li>
+    <li>說明書範例：B 級 10 + 咖啡師 2 + 烘焙器具 1 + 攤位牌 2 = 15 分。</li>
+    <li>個人圖板範例：天氣適合蜜處理，用 4 級豆 ×3 顆，已建置設備 ×2 張，沒有風味品種 → 4 + 6 = 10 分。</li>
+  </ol>
+  <h3>結束時的額外加分</h3>
+  <ol>
+    <li>三種處理法都出過杯：每組 +5</li>
+    <li>同一種處理法出 3 杯以上且全場最多：+10</li>
+    <li>手上 5、6 級的漿果：每顆 +1</li>
+    <li>買了常駐設備：每項 +3</li>
+    <li>手上沒用的同處理法設備卡：每 2 張 +2</li>
+    <li>收集到的沖煮器具：每種 +5（沖煮器具放在計分軌上，分數經過那格就拿走）</li>
+  </ol>
+  <h3>這個電腦版的補充</h3>
+  <ul>
+    <li>說明書沒寫清楚的地方，這裡這樣處理：區域執行順序固定為 莊園 → 學院 → 博覽會 → 咖啡廳（簡易版）。</li>
+    <li>計分卡、天候卡、知識卡、設備卡的內容是照說明書的範例自己設計的，實體卡片可能不完全一樣。</li>
+    <li>沖煮器具隨機放在計分軌第 5～60 格（實體遊戲是大家輪流自己選格子）。用過的卡直接放回牌庫底部。</li>
+    <li>畫面上的區域位置照實體底板排：上面咖啡廳，左邊咖啡博覽會，右邊咖啡莊園和農業知識學院。三個麻布袋順序是 蜜處理、日曬、水洗。</li>
+    <li>所有人的資訊都公開，方便一起學。</li>
+  </ul>
+</div>`;
+function showRules() {
+  const m = openSheet(RULES + '<button class="btn dark" id="ok">知道了</button>');
+  m.dataset.keep = '1';
+  $('#ok', m).onclick = () => { closeSheet(); renderSheet(); };
+}
+
+// ---------------- setup ----------------
+function renderSetup() {
+  $('#bar').hidden = true;
+  if (!setupCfg) setupCfg = { n: 3, seats: [{ name: '你', human: true }, { name: '電腦 阿豆', human: false }, { name: '電腦 小莓', human: false }, { name: '電腦 老農', human: false }, { name: '電腦 阿焙', human: false }, { name: '電腦 小拿', human: false }], beans: null };
+  const c = setupCfg;
+  const beans = c.beans ?? c.n * 4;
+  $('#app').innerHTML = `
+  <div class="topbar"><h1>從種子到杯子</h1><button class="pill" id="rulesBtn">規則</button></div>
+  <p style="margin:0;color:var(--soft2);line-height:1.5">咖啡供應鏈桌遊的電腦版。從莊園採收漿果、學農業知識、買加工設備，最後在咖啡廳端出一杯好咖啡得分。</p>
+  <div class="panel setup">
+    <div class="sec"><h3>玩家人數</h3><div class="seg">${[2, 3, 4, 5, 6].map(n => `<button data-n="${n}" class="${c.n === n ? 'on' : ''}">${n} 人</button>`).join('')}</div></div>
+    <div class="sec"><h3>座位</h3>
+      ${c.seats.slice(0, c.n).map((s, i) => `<div class="seatrow"><span class="cup" style="background:${PCOL[i]}"></span>
+        <input id="nm${i}" value="${esc(s.name)}" maxlength="8" aria-label="名字">
+        <div class="seg"><button data-h="${i}" class="${s.human ? 'on' : ''}">真人</button><button data-c="${i}" class="${s.human ? '' : 'on'}">電腦</button></div></div>`).join('')}
+      <span class="small muted">好幾個真人可以輪流用同一支手機玩。</span></div>
+    <div class="sec"><h3>咖啡廳熟豆（= 這局總共能出幾杯）</h3>
+      <div class="row" style="display:flex;gap:8px;align-items:center"><button class="btn ghost" id="bm">－</button><b style="font-size:1.2rem;min-width:2em;text-align:center">${beans}</b><button class="btn ghost" id="bp">＋</button><span class="small muted">說明書建議：人數 × 4</span></div></div>
+    <button class="btn dark" id="start" style="align-self:flex-start;font-size:1.05rem">開始遊戲</button>
+  </div>
+  <div class="panel">${RULES}</div>`;
+  const save = () => c.seats.slice(0, c.n).forEach((s, i) => { s.name = $('#nm' + i).value.trim() || `玩家${i + 1}`; });
+  $('#rulesBtn').onclick = showRules;
+  document.querySelectorAll('[data-n]').forEach(b => b.onclick = () => { save(); c.n = +b.dataset.n; c.beans = null; renderSetup(); });
+  document.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { save(); const s = c.seats[+b.dataset.h]; s.human = true; if (s.name.startsWith('電腦')) s.name = `玩家${+b.dataset.h + 1}`; renderSetup(); });
+  document.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { save(); const s = c.seats[+b.dataset.c]; s.human = false; if (!s.name.startsWith('電腦')) s.name = '電腦 ' + ['', '阿豆', '小莓', '老農', '阿焙', '小拿'][+b.dataset.c] || '阿豆'; renderSetup(); });
+  $('#bm').onclick = () => { save(); c.beans = Math.max(c.n * 2, beans - 1); renderSetup(); };
+  $('#bp').onclick = () => { save(); c.beans = Math.min(c.n * 8, beans + 1); renderSetup(); };
+  $('#start').onclick = () => {
+    save();
+    newState({ seats: c.seats.slice(0, c.n).map(s => ({ ...s })), beans });
+    render();
+    run();
+  };
+}
+
+window.__coffee = () => S;
+render();
+})();
+</script>
+</html>

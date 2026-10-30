@@ -1,0 +1,948 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>文明崛起</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&display=swap">
+<style>
+/* Layout: an old-map strategy table — header, rivals strip, scrollable world map, your empire panel, log, fixed action bar. Single deliberate parchment theme. */
+:root{
+  color-scheme: light;
+  --bg:#efe4cc; --paper:#fbf5e7; --paper2:#f4ead3; --ink:#3a2a18; --muted:#7c6a52; --line:#d8c5a0; --acc:#8a4b14; --acc2:#b8742a;
+  --good:#2f7d3e; --bad:#b33a2b; --head:"Noto Serif TC", "Songti TC", serif;
+  --ui: system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --cs: 34px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:14px;-webkit-tap-highlight-color:transparent;
+  background-image:radial-gradient(120% 60% at 50% 0%,#f7eedb,var(--bg) 70%)}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.wrap{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:10px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-top:12px;padding-bottom:230px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.top h1{margin:0;font-family:var(--head);font-size:1.55rem;color:var(--acc);letter-spacing:.06em;line-height:1.1}
+.top h1 small{display:block;font-family:var(--ui);font-size:.7rem;color:var(--muted);letter-spacing:0;font-weight:400}
+.tbtn{display:flex;gap:6px}
+.pill{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:6px 12px;font-size:.82rem}
+.phases{display:flex;gap:4px;flex-wrap:wrap;align-items:center;font-size:.78rem}
+.phases .rd{font-weight:800;color:var(--acc);margin-right:4px;font-family:var(--head);font-size:.95rem}
+.phases span.ph{padding:3px 8px;border-radius:999px;background:var(--paper2);color:var(--muted);border:1px solid transparent}
+.phases span.ph.on{background:var(--acc);color:#fff}
+.rivals{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
+.riv{flex:0 0 auto;min-width:148px;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:6px 9px;text-align:left;display:flex;flex-direction:column;gap:3px}
+.riv.cur{box-shadow:0 0 0 2px var(--acc2)}
+.riv .nm{display:flex;align-items:center;gap:6px;font-weight:800;font-size:.9rem;white-space:nowrap}
+.riv .nm em{font-style:normal;font-size:.68rem;font-weight:600;color:#fff;border-radius:4px;padding:0 4px}
+.riv .sts{display:grid;grid-template-columns:1fr 1fr;gap:1px 8px;font-size:.74rem;color:var(--muted);white-space:nowrap}
+.riv .sts b{color:var(--ink)}
+.dot{width:11px;height:11px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 0 1px #0003}
+.mapbox{position:relative;background:#2b241c;border-radius:12px;padding:6px;overflow:auto;max-height:62vh;border:1px solid #1a140e;box-shadow:inset 0 0 0 1px #0006}
+.grid{display:grid;gap:0;width:max-content;margin:0 auto}
+.cell{width:var(--cs);height:var(--cs);position:relative;border-right:1px solid #00000018;border-bottom:1px solid #00000018;font-size:calc(var(--cs)*.36);line-height:1;padding:0;border-top:0;border-left:0;display:block}
+.cell.tl{border-left:2px solid #2b241c}.cell.tt{border-top:2px solid #2b241c}
+.cell.fog{background:repeating-linear-gradient(45deg,#4b4136 0 4px,#43392f 4px 8px)}
+.cell .rs{position:absolute;right:1px;top:1px;font-size:calc(var(--cs)*.3)}
+.cell .bd{position:absolute;left:1px;top:1px;background:#fffbe9;color:var(--acc);border-radius:3px;font-size:calc(var(--cs)*.28);font-weight:800;padding:1px 2px;box-shadow:0 0 0 1px #8a4b1455}
+.cell .ct{position:absolute;inset:0;display:grid;place-items:center;font-size:calc(var(--cs)*.5)}
+.cell .xt{position:absolute;left:2px;bottom:2px;font-size:calc(var(--cs)*.26);font-weight:800;color:#3a2a18aa}
+.cell .fg{position:absolute;left:50%;bottom:1px;transform:translateX(-50%);color:#fff;border-radius:7px;font-size:calc(var(--cs)*.27);font-weight:800;padding:1px 3px;white-space:nowrap;box-shadow:0 0 0 1px #fff9}
+.cell.city{box-shadow:inset 0 0 0 3px var(--oc)}
+.cell.own::after{content:"";position:absolute;inset:0;background:var(--oc);opacity:.18;pointer-events:none}
+.cell.rch{outline:2px dashed #fff;outline-offset:-3px;cursor:pointer}
+.cell.rch::before{content:"";position:absolute;inset:0;background:#ffffff40}
+.cell.atk{outline:2px solid #ff4b3a;outline-offset:-3px}
+.cell.atk::before{content:"";position:absolute;inset:0;background:#ff4b3a44}
+.cell.sel{outline:3px solid #fff;outline-offset:-3px;z-index:2}
+.cell.foc{outline:3px solid #ffe066;outline-offset:-2px;z-index:2}
+.cell.pl{outline:2px dashed #ffe066;outline-offset:-3px;cursor:pointer}
+.cell.pl::before{content:"";position:absolute;inset:0;background:#ffe06650}
+.info{font-size:.8rem;color:var(--muted);min-height:1.2em;line-height:1.5}
+.info b{color:var(--ink)}
+.maprow{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:.74rem;color:var(--muted);flex-wrap:wrap}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.panel h3{margin:0;font-family:var(--head);font-size:1.02rem;color:var(--acc);display:flex;gap:6px;align-items:center}
+.kv{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.82rem}
+.kv span{white-space:nowrap}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{background:var(--paper2);border:1px solid var(--line);border-radius:6px;padding:2px 6px;font-size:.76rem;white-space:nowrap}
+.chip.n{background:#fff3d6;border-color:var(--acc2)}
+.log{font-size:.78rem;color:var(--muted);display:flex;flex-direction:column;gap:2px;max-height:150px;overflow:auto}
+.log div{line-height:1.4}
+.log i{font-style:normal;font-weight:700}
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:10;background:#fbf5e7f5;backdrop-filter:blur(6px);border-top:1px solid var(--line);box-shadow:0 -6px 20px #0000001a;
+  padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.bar .in{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
+.bar .t{font-size:.9rem;line-height:1.45}
+.bar .t b{color:var(--acc)}
+.bar .hint{font-size:.76rem;color:var(--muted)}
+.btns{display:flex;flex-wrap:wrap;gap:6px}
+.b{border:1px solid var(--line);background:var(--paper);border-radius:10px;padding:9px 12px;font-size:.88rem;font-weight:600;min-height:42px}
+.b.p{background:var(--acc);border-color:var(--acc);color:#fff}
+.b.g{background:var(--good);border-color:var(--good);color:#fff}
+.b:disabled{opacity:.45;cursor:not-allowed}
+.b small{display:block;font-weight:400;font-size:.72rem;opacity:.85}
+.ov{position:fixed;inset:0;z-index:20;background:#2a1d0f88;display:flex;align-items:flex-end;justify-content:center;padding:12px}
+.sheet{background:var(--paper);border:1px solid var(--line);width:100%;max-width:520px;max-height:86vh;overflow-y:auto;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;
+  margin-bottom:env(safe-area-inset-bottom,0px)}
+.sheet h2{margin:0;font-family:var(--head);color:var(--acc);font-size:1.25rem}
+.sheet p{margin:0;line-height:1.6}
+.sheet .sub{font-size:.8rem;color:var(--muted)}
+.opt{display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;border:1px solid var(--line);background:var(--paper2);border-radius:10px;padding:9px 11px;width:100%}
+.opt:disabled{opacity:.5}
+.opt .l{display:flex;flex-direction:column;gap:2px}
+.opt .l b{font-size:.92rem}
+.opt .l span{font-size:.76rem;color:var(--muted)}
+.opt .r{font-size:.8rem;font-weight:700;color:var(--acc);white-space:nowrap}
+.opt.on{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc2)}
+.sec{font-size:.8rem;font-weight:800;color:var(--acc);margin-top:4px}
+.civs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.civb{border:1px solid var(--line);background:var(--paper2);border-radius:10px;padding:8px;text-align:left;display:flex;flex-direction:column;gap:3px}
+.civb b{font-size:1rem}
+.civb span{font-size:.72rem;color:var(--muted);line-height:1.4}
+.civb.on{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc2);background:#fff6e2}
+.seg{display:flex;gap:6px}
+.seg button{flex:1}
+.pyr{display:flex;flex-direction:column;gap:4px;align-items:center}
+.pyr .row{display:flex;gap:4px;flex-wrap:wrap;justify-content:center}
+.bt{display:flex;flex-direction:column;gap:6px}
+.front{display:grid;grid-template-columns:1fr 24px 1fr;align-items:center;gap:4px}
+.card{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 7px;font-size:.82rem;display:flex;justify-content:space-between;gap:4px;min-height:34px;align-items:center}
+.card.e{background:#fdeeea;border-color:#e2b2a8}
+.card.empty{background:transparent;border-style:dashed;color:var(--muted);justify-content:center}
+.card b{font-size:.95rem}
+.card.dead{opacity:.4;text-decoration:line-through}
+.hand{display:flex;flex-wrap:wrap;gap:6px}
+.hand .card{cursor:pointer;min-width:74px}
+.hand .card.on{box-shadow:0 0 0 2px var(--acc);border-color:var(--acc)}
+.tot{display:flex;justify-content:space-between;font-weight:800;font-size:.95rem}
+.vs{font-size:.72rem;color:var(--muted);text-align:center}
+.toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:30;background:#3a2a18f0;color:#fff;border-radius:10px;padding:8px 14px;font-size:.86rem;max-width:90vw;text-align:center;box-shadow:0 6px 20px #0004}
+.end h2{font-size:1.6rem}
+table.t{border-collapse:collapse;width:100%;font-size:.8rem}
+table.t th,table.t td{border-bottom:1px solid var(--line);padding:4px;text-align:left}
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <h1>文明崛起<small>文明帝國桌遊（2010）規則 · 非官方練習版</small></h1>
+    <div class="tbtn"><button class="pill" id="bRules">規則</button><button class="pill" id="bNew">新局</button></div>
+  </div>
+  <div class="phases" id="phases"></div>
+  <div class="rivals" id="rivals"></div>
+  <div class="mapbox" id="mapbox"><div class="grid" id="grid"></div></div>
+  <div class="maprow"><span id="legend">🏰首都 🏠城市 ⚔軍隊 👣斥候 🛖小屋 🏘村落 ★偉人 🏛奇觀</span><button class="pill" id="bZoom">🔍 縮放</button></div>
+  <div class="info" id="info">點地圖上的格子可以看產出。</div>
+  <div class="panel" id="me"></div>
+  <div class="panel"><h3>📜 紀錄</h3><div class="log" id="log"></div></div>
+</div>
+<div class="bar" id="bar" hidden><div class="in" id="barIn"></div></div>
+<div class="ov" id="ov" hidden><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+'use strict';
+const $=s=>document.querySelector(s);
+const rnd=n=>Math.floor(Math.random()*n);
+const pick=a=>a[rnd(a.length)];
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
+let SLEEP=420;
+
+/* ===== 資料 ===== */
+const TERR={g:{n:'草原',c:'#a9d077',ic:{p:1,t:1}},f:{n:'森林',c:'#5c9e5a',ic:{p:2}},m:{n:'山脈',c:'#a8998a',ic:{p:1}},d:{n:'沙漠',c:'#e8d396',ic:{t:1}},w:{n:'水域',c:'#72b4dd',ic:{t:2}}};
+const RES={wheat:{n:'小麥',e:'🌾',u:'生產時抵 2 產能'},iron:{n:'鐵',e:'⛏️',u:'戰鬥開始時 +3 強度'},silk:{n:'絲綢',e:'🧵',u:'研究時換 3 貿易'},spice:{n:'香料',e:'🌶️',u:'奉獻藝術 +2 文化'}};
+const UT={inf:{n:'步兵',e:'🗡️',beats:'cav'},cav:{n:'騎兵',e:'🐎',beats:'art'},art:{n:'砲兵',e:'💥',beats:'inf'},air:{n:'空軍',e:'✈️',beats:null}};
+const LVSTR=[0,1,3,5,7];
+const TECHS=[
+ {k:'pottery',n:'陶器',lv:1,bld:'granary',coin:1},
+ {k:'bronze',n:'青銅器',lv:1,bld:'mine'},
+ {k:'horse',n:'騎馬',lv:1,speed:3},
+ {k:'code',n:'法典',lv:1,gov:'monarchy',coin:1},
+ {k:'writing',n:'文字',lv:1,bld:'library'},
+ {k:'currency',n:'貨幣',lv:1,bld:'market',coin:1},
+ {k:'masonry',n:'石工',lv:1,walls:1,stack:3},
+ {k:'irrigation',n:'灌溉',lv:2,cityLim:3},
+ {k:'philosophy',n:'哲學',lv:2,gp:1},
+ {k:'feudal',n:'封建制度',lv:2,gov:'feudal'},
+ {k:'math',n:'數學',lv:2,unit:['art',2]},
+ {k:'navigation',n:'航海',lv:2,water:1,bld:'harbor'},
+ {k:'ironwork',n:'冶鐵',lv:2,unit:['inf',2]},
+ {k:'republic',n:'共和制度',lv:2,gov:'republic',coin:1},
+ {k:'chivalry',n:'騎士精神',lv:2,unit:['cav',2]},
+ {k:'democracy',n:'民主制度',lv:3,gov:'democracy',coin:1},
+ {k:'theology',n:'神學',lv:3,gov:'fund',bld:'cathedral'},
+ {k:'banking',n:'銀行業',lv:3,bld:'bank',coin:1},
+ {k:'gunpowder',n:'火藥',lv:3,unit:['inf',3]},
+ {k:'education',n:'教育',lv:3,bld:'university'},
+ {k:'metallurgy',n:'冶金',lv:3,unit:['art',3]},
+ {k:'railroad',n:'鐵路',lv:3,speed:4,unit:['cav',3]},
+ {k:'communism',n:'共產主義',lv:4,gov:'communism'},
+ {k:'flight',n:'飛行',lv:4,air:1},
+ {k:'industry',n:'工業化',lv:4,bld:'factory'},
+ {k:'combustion',n:'內燃機',lv:4,unit:['cav',4]},
+ {k:'ballistics',n:'彈道學',lv:4,unit:['art',4]},
+ {k:'mechinf',n:'機械化步兵',lv:4,unit:['inf',4]},
+ {k:'media',n:'大眾傳媒',lv:4,media:1},
+ {k:'space',n:'太空飛行',lv:5,win:1},
+];
+const TK=Object.fromEntries(TECHS.map(t=>[t.k,t]));
+const TCOST=[0,6,11,16,21,26];
+const BLD={
+ temple:{n:'神廟',a:'廟',cost:5,terr:'gfmd',add:{cu:1}},
+ granary:{n:'穀倉',a:'穀',cost:6,terr:'g',add:{p:2}},
+ mine:{n:'礦坑',a:'礦',cost:6,terr:'m',add:{p:2}},
+ market:{n:'市場',a:'市',cost:7,terr:'gd',add:{t:2}},
+ library:{n:'圖書館',a:'圖',cost:7,terr:'gfmd',add:{t:1,cu:1}},
+ harbor:{n:'港口',a:'港',cost:7,terr:'w',add:{p:2}},
+ cathedral:{n:'大教堂',a:'教',cost:10,terr:'gfmd',add:{cu:3}},
+ university:{n:'大學',a:'大',cost:10,terr:'gfmd',add:{t:3}},
+ bank:{n:'銀行',a:'銀',cost:10,terr:'gd',add:{t:1,coin:1}},
+ factory:{n:'工廠',a:'工',cost:12,terr:'gfmd',add:{p:4}},
+};
+const BLDTECH={temple:null};for(const t of TECHS)if(t.bld)BLDTECH[t.bld]=t.k;
+const WON={
+ pyramids:{n:'金字塔',era:1,cost:14,d:'你每座城市生產 +1'},
+ colossus:{n:'巨像',era:1,cost:14,d:'每回合貿易 +2'},
+ gardens:{n:'空中花園',era:1,cost:14,d:'每回合 +1 文化'},
+ glib:{n:'大圖書館',era:1,cost:14,d:'研究花費 -2'},
+ wall:{n:'長城',era:2,cost:20,d:'防守戰鬥 +4'},
+ sistine:{n:'西斯汀禮拜堂',era:2,cost:20,d:'奉獻藝術 +2 文化'},
+ apollo:{n:'阿波羅計畫',era:3,cost:28,d:'太空飛行花費 -10'},
+ hollywood:{n:'好萊塢',era:3,cost:28,d:'每回合 +3 文化'},
+};
+const GOV={
+ despot:{n:'專制',d:'沒有加成'},
+ monarchy:{n:'君主制',d:'奉獻藝術時 +1 文化'},
+ feudal:{n:'封建',d:'戰鬥手牌 +1'},
+ republic:{n:'共和',d:'每座城市貿易 +1'},
+ democracy:{n:'民主',d:'每座城市貿易 +2；戰鬥手牌 -1'},
+ fund:{n:'宗教激進',d:'戰鬥強度 +4；每座城市貿易 -1'},
+ communism:{n:'共產',d:'每座城市生產 +1'},
+};
+const GP={artist:{n:'藝術家',add:{cu:3}},sci:{n:'科學家',add:{t:3}},eng:{n:'工程師',add:{p:3}},merch:{n:'商人',add:{coin:1,t:1}},gen:{n:'將軍',add:{p:1,cu:2}}};
+const CIVS=[
+ {k:'usa',n:'美國',e:'🦅',tech:'currency',strat:'econ',d:'開局得到 1 位偉人；之後每得到 1 位偉人，額外 +3 貿易。'},
+ {k:'china',n:'中國',e:'🐉',tech:'writing',strat:'culture',d:'首都一開始就有城牆（防守 +4）；戰鬥中每殺死 1 個敵方單位 +1 文化。'},
+ {k:'egypt',n:'埃及',e:'🐫',tech:'bronze',strat:'tech',d:'開局在首都免費蓋 1 座古代奇觀。'},
+ {k:'germany',n:'德國',e:'🛡️',tech:'masonry',strat:'military',d:'開局多 2 張步兵卡；學會讓步兵升級的科技時，再免費拿 2 張步兵卡。'},
+ {k:'rome',n:'羅馬',e:'🏛️',tech:'code',strat:'culture',d:'每次蓋好奇觀或攻下城市，免費推進文化軌 1 格；奉獻藝術時 +1 文化。'},
+ {k:'russia',n:'俄羅斯',e:'🐻',tech:'horse',strat:'military',gov:'communism',d:'開局政體是共產（每座城市生產 +1）；堆疊上限 +1；軍隊上限 7。'},
+];
+const COLORS=['#cf4535','#3366cc','#c99512','#2b9457'];
+const STRATN={culture:'文化',econ:'經濟',tech:'科技',military:'軍事'};
+const WT={culture:{cu:1.7,t:1,p:.9,coin:2},econ:{cu:.8,t:1.2,p:1,coin:4},tech:{cu:.8,t:1.7,p:1,coin:2},military:{cu:.6,t:1,p:1.4,coin:1.5}};
+const CULT_MAX=18, COIN_WIN=15, TRADE_MAX=27;
+const CEV=[
+ {n:'豐收',d:'獲得 1 小麥',f:p=>p.res.wheat++},
+ {n:'發現礦脈',d:'獲得 1 鐵',f:p=>p.res.iron++},
+ {n:'香料船隊',d:'獲得 1 香料',f:p=>p.res.spice++},
+ {n:'絲路商隊',d:'貿易 +4',f:p=>addTrade(p,4)},
+ {n:'文藝復興',d:'文化 +2',f:p=>p.cu+=2},
+ {n:'招募新兵',d:'免費拿 1 張單位卡',f:p=>addUnit(p,bestUnitType(p))},
+ {n:'黃金時代',d:'+1 金幣',f:p=>p.coinTok++},
+ {n:'靈感',d:'下次研究花費 -3',f:p=>p.insp=1},
+ {n:'外交使節',d:'每個對手失去 2 貿易',f:p=>others(p).forEach(o=>o.trade=Math.max(0,o.trade-2))},
+ {n:'移民潮',d:'首都旁免費出現 1 個斥候（未達上限時）',f:p=>{const c=p.cities.find(q=>q.cap);if(c&&cntFig(p,'scout')<2)addFig(p,'scout',c)}},
+];
+
+/* ===== 狀態 ===== */
+let S=null, P=null, R=null, FID=0, CID=0;
+const UI={sel:null,grp:'all',bsel:null,info:null,zoom:0,focus:null,cell:null,setup:{civ:'rome',opp:2}};
+function ask(p){P=p;render();return new Promise(r=>R=r)}
+function answer(v){if(!R)return;const r=R;R=null;P=null;UI.sel=null;UI.bsel=null;render();r(v)}
+function nap(ms){const g=S.gid;return new Promise(r=>setTimeout(r,ms??SLEEP)).then(()=>{if(S.gid!==g)throw 'stop'})}
+function win(p,type){throw {win:{p:p.i,type}}}
+
+const C=(x,y)=>S.cells[y][x];
+const inb=(x,y)=>x>=0&&y>=0&&x<S.W&&y<S.H;
+const tIdx=(x,y)=>Math.floor(y/4)*S.tw+Math.floor(x/4);
+const rev=(x,y)=>S.tiles[tIdx(x,y)].rev;
+const N8=[[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]], N4=[[0,-1],[-1,0],[1,0],[0,1]];
+const has=(p,k)=>p.techs.includes(k);
+const others=p=>S.players.filter(o=>o!==p);
+const cheb=(a,b,c,d)=>Math.max(Math.abs(a-c),Math.abs(b-d));
+const me=()=>S.players.find(p=>p.human);
+
+function log(m,p){S.log.unshift({m,c:p?p.color:null});if(S.log.length>80)S.log.pop()}
+let toastT=null;
+function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
+function note(p,m){log(m,p);if(p.human)toast(m)}
+
+/* ===== 計算 ===== */
+function figsAt(x,y){const r=[];for(const p of S.players)for(const f of p.figs)if(f.x===x&&f.y===y)r.push({p,f});return r}
+function cityAt(x,y){const v=C(x,y).city;if(v==null)return null;const p=S.players[v];return {p,c:p.cities.find(q=>q.x===x&&q.y===y)}}
+function enemyAt(p,x,y){return figsAt(x,y).some(o=>o.p!==p)||(C(x,y).city!=null&&C(x,y).city!==p.i)}
+function addY(y,o){for(const k in o)y[k]=(y[k]||0)+o[k]}
+function cellYield(c){const y={p:0,t:0,cu:0,coin:0};addY(y,TERR[c.t].ic);y.cu+=c.cu;y.coin+=c.coin;if(c.bld)addY(y,BLD[c.bld].add);if(c.gp)addY(y,GP[c.gp].add);if(c.won)y.cu+=2;return y}
+function outskirts(c){return N8.map(([dx,dy])=>[c.x+dx,c.y+dy]).filter(([x,y])=>inb(x,y))}
+function scoutSq(p){const r=[];if(!p.cities.length)return r;for(const f of p.figs){if(f.type!=='scout')continue;if(C(f.x,f.y).city!=null)continue;if(p.cities.some(c=>cheb(c.x,c.y,f.x,f.y)<=1))continue;let bi=0,bd=1e9;p.cities.forEach((c,i)=>{const d=Math.abs(c.x-f.x)+Math.abs(c.y-f.y);if(d<bd){bd=d;bi=i}});r.push({f,ci:bi})}return r}
+function cityYield(p,c){
+  const y=c.cap?{p:2,t:2,cu:1,coin:0}:{p:1,t:1,cu:0,coin:0};
+  for(const [x,yy] of outskirts(c)){if(figsAt(x,yy).some(o=>o.p!==p))continue;addY(y,cellYield(C(x,yy)))}
+  const ci=p.cities.indexOf(c);
+  for(const s of scoutSq(p))if(s.ci===ci){const v=cellYield(C(s.f.x,s.f.y));y.p+=v.p;y.t+=v.t;y.cu+=v.cu}
+  if(p.gov==='republic')y.t+=1;if(p.gov==='democracy')y.t+=2;if(p.gov==='fund')y.t-=1;if(p.gov==='communism')y.p+=1;
+  if(p.wonders.includes('pyramids'))y.p+=1;
+  y.t=Math.max(0,y.t);return y}
+function coins(p){let n=p.coinTok;for(const k of p.techs)n+=TK[k].coin||0;for(const c of p.cities)n+=cityYield(p,c).coin;return n}
+function tradeIncome(p){let t=0;for(const c of p.cities)t+=cityYield(p,c).t;if(p.wonders.includes('colossus'))t+=2;return t}
+const stackLim=p=>(has(p,'masonry')?3:2)+(p.civ.k==='russia'?1:0);
+const speed=p=>has(p,'railroad')?4:has(p,'horse')?3:2;
+const cityLim=p=>has(p,'irrigation')?3:2;
+const armyLim=p=>p.civ.k==='russia'?7:6;
+const cntFig=(p,t)=>p.figs.filter(f=>f.type===t).length;
+function unitLv(p,t){if(t==='air')return has(p,'flight')?1:0;const m={inf:[['mechinf',4],['gunpowder',3],['ironwork',2]],cav:[['combustion',4],['railroad',3],['chivalry',2]],art:[['ballistics',4],['metallurgy',3],['math',2]]}[t];for(const [k,l] of m)if(has(p,k))return l;return 1}
+const cardStr=(p,u)=>u.type==='air'?8+u.v:LVSTR[unitLv(p,u.type)]+u.v;
+function handSize(p,n){let h=3+2*Math.max(0,n-1);if(p.gov==='feudal')h++;if(p.gov==='democracy')h--;return Math.max(1,h)}
+const tcount=(p,lv)=>p.techs.filter(k=>TK[k].lv===lv).length;
+function canLearn(p,t){if(has(p,t.k))return false;if(t.lv===1)return true;return tcount(p,t.lv)+2<=tcount(p,t.lv-1)}
+function techCost(p,t){let c=TCOST[t.lv];if(p.wonders.includes('glib'))c-=2;if(p.insp)c-=3;if(t.k==='space'&&p.wonders.includes('apollo'))c-=10;return Math.max(1,c)}
+function cultCost(step){const s=step+1;return s<=6?{cu:5,t:0}:s<=12?{cu:8,t:5}:{cu:12,t:10}}
+function canCult(p){if(p.step>=CULT_MAX)return false;const k=cultCost(p.step);return p.cu>=k.cu&&p.trade>=k.t}
+function addTrade(p,n){p.trade=Math.min(TRADE_MAX,p.trade+n)}
+function availGovs(p){const g=['despot'];for(const k of p.techs)if(TK[k].gov)g.push(TK[k].gov);if(p.civ.gov)g.push(p.civ.gov);return [...new Set(g)]}
+function wonderOk(p,k){if(S.wonderOwner[k]!=null)return false;const e=WON[k].era;if(e===1)return true;return p.techs.some(t=>TK[t].lv>=e)}
+function bestUnitType(p){const ts=['inf','cav','art'];if(has(p,'flight'))ts.push('air');let best=null,bv=-1e9;for(const t of ts){const v=(t==='air'?9:LVSTR[unitLv(p,t)])*10-p.units.filter(u=>u.type===t).length*3+Math.random();if(v>bv){bv=v;best=t}}return best}
+function addUnit(p,t){p.units.push({type:t,v:rnd(3)})}
+function techText(t){const a=[];if(t.bld)a.push('可蓋'+BLD[t.bld].n);if(t.gov)a.push('政體：'+GOV[t.gov].n);if(t.coin)a.push('+1 金幣');if(t.unit)a.push(UT[t.unit[0]].n+'升到 '+t.unit[1]+' 級');if(t.speed)a.push('移動速度 '+t.speed);if(t.stack)a.push('堆疊上限 +1');if(t.walls)a.push('所有城市城牆（防守 +4）');if(t.cityLim)a.push('城市上限 3');if(t.water)a.push('可以走水域');if(t.gp)a.push('立刻得到 1 位偉人');if(t.air)a.push('可以生產空軍');if(t.media)a.push('奉獻藝術 +2 文化');if(t.win)a.push('🚀 科技勝利！');return a.join('；')}
+function yText(y){const a=[];if(y.p)a.push('生產 '+y.p);if(y.t)a.push('貿易 '+y.t);if(y.cu)a.push('文化 '+y.cu);if(y.coin)a.push('金幣 '+y.coin);return a.join('・')||'無'}
+
+/* ===== 地圖 ===== */
+const HOMES={2:[[0,0],[3,1]],3:[[0,0],[3,0],[1,2]],4:[[0,0],[3,0],[0,3],[3,3]]};
+function wpick(w){let s=0;for(const k in w)s+=w[k];let r=Math.random()*s;for(const k in w){r-=w[k];if(r<0)return k}return 'g'}
+function genTile(ti,home){
+  const T=S.tiles[ti],ox=T.tx*4,oy=T.ty*4;const sq=[];for(let y=0;y<4;y++)for(let x=0;x<4;x++)sq.push(C(ox+x,oy+y));
+  if(home){
+    const bag=shuffle(['g','g','g','g','g','g','f','f','f','f','m','m','d','w','w','f']);
+    sq.forEach((c,i)=>c.t=bag[i]);
+  } else sq.forEach(c=>c.t=wpick({g:30,f:25,m:15,d:12,w:18}));
+  for(const c of sq){
+    if(c.t!=='w'&&Math.random()<.12)c.cu=1;
+    if(c.t!=='w'&&Math.random()<(home?.04:.06))c.coin=1;
+    const rp={g:['wheat',.15],m:['iron',.35],f:['silk',.15],d:['spice',.35]}[c.t];
+    if(rp&&Math.random()<rp[1])c.res=rp[0];
+  }
+  if(home){
+    if(!sq.some(c=>c.res==='wheat')){const g=sq.find(c=>c.t==='g');if(g)g.res='wheat'}
+    if(!sq.some(c=>c.res==='iron')){const m=sq.find(c=>c.t==='m');if(m)m.res='iron'}
+  } else {
+    const land=shuffle(sq.filter(c=>c.t!=='w'));
+    const nh=1+rnd(2);for(let i=0;i<nh&&land.length;i++)land.pop().hut=1;
+    if(Math.random()<.6&&land.length)land.pop().village=1;
+  }
+}
+function genMap(){
+  const n=S.players.length;
+  S.tiles=[];for(let ty=0;ty<S.th;ty++)for(let tx=0;tx<S.tw;tx++)S.tiles.push({tx,ty,rev:false,home:null});
+  S.cells=Array.from({length:S.H},(_,y)=>Array.from({length:S.W},(_,x)=>({x,y,t:'g',res:null,cu:0,coin:0,hut:0,village:0,bld:null,gp:null,won:null,city:null})));
+  const homes=shuffle(HOMES[n].slice());
+  S.players.forEach((p,i)=>{const [tx,ty]=homes[i];const ti=ty*S.tw+tx;S.tiles[ti].home=i;S.tiles[ti].rev=true;p.homeTile=ti});
+  S.tiles.forEach((T,i)=>genTile(i,T.home!=null));
+}
+function setupPlayer(p){
+  const T=S.tiles[p.homeTile],ox=T.tx*4,oy=T.ty*4,mx=S.W/2,my=S.H/2;
+  let best=null,bd=1e9;for(const [lx,ly] of [[1,1],[2,1],[1,2],[2,2]]){const d=Math.hypot(ox+lx+.5-mx,oy+ly+.5-my);if(d<bd){bd=d;best=[ox+lx,oy+ly]}}
+  const [cx,cy]=best;const cc=C(cx,cy);cc.t='g';cc.res=null;cc.cu=0;cc.coin=0;cc.city=p.i;
+  const cap={x:cx,y:cy,cap:true};p.cities.push(cap);
+  const spots=N4.map(([dx,dy])=>[cx+dx,cy+dy]).filter(([x,y])=>inb(x,y)&&C(x,y).t!=='w');
+  const put=(type,k)=>{const s=spots[k%spots.length]||[cx,cy];p.figs.push({id:++FID,type,x:s[0],y:s[1],moved:false})};
+  put('army',0);put('scout',1);
+  ['inf','cav','art'].forEach(t=>addUnit(p,t));
+  if(p.civ.k==='germany'){addUnit(p,'inf');addUnit(p,'inf')}
+  p.techs.push(p.civ.tech);
+  p.gov=p.civ.gov||'despot';
+  if(p.civ.k==='usa')gainGP(p,true);
+  if(p.civ.k==='egypt'){const k=pick(Object.keys(WON).filter(k=>WON[k].era===1&&S.wonderOwner[k]==null));placeWonder(p,cap,k,true)}
+}
+function mkPlayer(i,civ,human){return {i,civ,human,name:civ.n,color:COLORS[i],trade:0,cu:0,coinTok:0,step:0,techs:[],gov:'despot',newGov:[],anarchy:false,res:{wheat:0,iron:0,silk:0,spice:0},units:[],cities:[],figs:[],wonders:[],insp:0,homeTile:0}}
+function revealAround(x,y,p){let nw=false;for(const [dx,dy] of [[0,0],...N8]){const a=x+dx,b=y+dy;if(!inb(a,b))continue;const T=S.tiles[tIdx(a,b)];if(!T.rev){T.rev=true;nw=true}}if(nw&&p)log(`${p.name} 探索到新的土地`,p)}
+
+/* ===== 動作 ===== */
+function siteScore(x,y){let s=2;for(const [dx,dy] of N8){const a=x+dx,b=y+dy;if(!inb(a,b))return -99;if(!rev(a,b))return -99;const v=cellYield(C(a,b));s+=v.p*1.1+v.t+v.cu*1.5+v.coin*2+(C(a,b).res?.8:0)}return s}
+function canFound(p,x,y,ignoreLim){
+  if(!ignoreLim&&p.cities.length>=cityLim(p))return false;
+  const c=C(x,y);if(c.t==='w'||c.hut||c.village||c.city!=null||!rev(x,y))return false;
+  for(const [dx,dy] of N8){const a=x+dx,b=y+dy;if(!inb(a,b)||!rev(a,b))return false}
+  for(const q of S.players)for(const cc of q.cities)if(cheb(cc.x,cc.y,x,y)<=2)return false;
+  if(figsAt(x,y).some(o=>o.p!==p))return false;
+  return true}
+function foundCity(p,f){
+  const c={x:f.x,y:f.y,cap:false};p.cities.push(c);C(f.x,f.y).city=p.i;
+  const cc=C(f.x,f.y);cc.bld=null;
+  removeFig(p,f);revealAround(c.x,c.y);
+  note(p,`${p.name} 建立了新城市`);
+}
+function removeFig(p,f){const i=p.figs.indexOf(f);if(i>=0)p.figs.splice(i,1)}
+function freeSqFor(p,c){const sq=[[c.x,c.y],...N4.map(([dx,dy])=>[c.x+dx,c.y+dy])];for(const [x,y] of sq){if(!inb(x,y)||C(x,y).t==='w'||C(x,y).hut||C(x,y).village)continue;if(enemyAt(p,x,y))continue;if(p.figs.filter(f=>f.x===x&&f.y===y).length<stackLim(p))return [x,y]}return null}
+function addFig(p,type,c){const s=freeSqFor(p,c);if(!s)return false;p.figs.push({id:++FID,type,x:s[0],y:s[1],moved:false});return true}
+function gpSquare(p){const cs=[...p.cities].sort((a,b)=>(b.cap?1:0)-(a.cap?1:0));for(const c of cs){let best=null,bv=1e9;for(const [x,y] of outskirts(c)){const q=C(x,y);if(q.t==='w'||q.bld||q.gp||q.won||q.city!=null||q.hut||q.village)continue;const v=cellYield(q);const s=v.p+v.t+v.cu+v.coin*2;if(s<bv){bv=s;best=q}}if(best)return best}return null}
+function gainGP(p,quiet){const k=pick(Object.keys(GP));const q=gpSquare(p);if(q){q.gp=k;if(!quiet)note(p,`${p.name} 得到偉人：${GP[k].n}（${yText(GP[k].add)}）`)}else{p.cu+=3;if(!quiet)note(p,`${p.name} 得到偉人，但沒有空地，改得 3 文化`)}if(p.civ.k==='usa'&&!quiet)addTrade(p,3)}
+function placeWonder(p,c,k,quiet){S.wonderOwner[k]=p.i;p.wonders.push(k);let best=null,bv=1e9;for(const [x,y] of outskirts(c)){const q=C(x,y);if(q.t==='w'||q.bld||q.gp||q.won||q.city!=null||q.hut||q.village)continue;const v=cellYield(q);const s=v.p+v.t+v.cu;if(s<bv){bv=s;best=q}}if(best)best.won=k;if(!quiet){note(p,`${p.name} 蓋好奇觀「${WON[k].n}」：${WON[k].d}`);if(p.civ.k==='rome')advanceCulture(p,true)}}
+function drawEvent(p){if(!S.cev.length)S.cev=shuffle(CEV.flatMap(e=>[e,e]));const e=S.cev.pop();e.f(p);note(p,`${p.name} 文化事件「${e.n}」：${e.d}`)}
+function advanceCulture(p,free){
+  if(p.step>=CULT_MAX)return;
+  if(!free){const k=cultCost(p.step);p.cu-=k.cu;p.trade-=k.t}
+  p.step++;log(`${p.name} 文化軌前進到第 ${p.step} 格${free?'（免費）':''}`,p);
+  if(p.step>=CULT_MAX)win(p,'culture');
+  if(p.step%3===0)gainGP(p);else drawEvent(p);
+}
+function cityProd(p,c){return cityYield(p,c).p}
+function afford(p,c,cost){return cityProd(p,c)+2*p.res.wheat+Math.floor(p.trade/3)>=cost}
+function payText(p,c,cost){let need=cost-cityProd(p,c);if(need<=0)return '城市產能足夠';const a=[];const w=Math.min(p.res.wheat,Math.ceil(need/2));if(w){a.push(`${w} 小麥`);need-=2*w}if(need>0)a.push(`${need*3} 貿易`);return '另付 '+a.join('＋')}
+function pay(p,c,cost){let need=cost-cityProd(p,c);if(need<=0)return;const w=Math.min(p.res.wheat,Math.ceil(need/2));p.res.wheat-=w;need-=2*w;if(need>0)p.trade-=need*3}
+function bldSquares(p,c,k){const b=BLD[k];return outskirts(c).filter(([x,y])=>{const q=C(x,y);return b.terr.includes(q.t)&&!q.bld&&!q.gp&&!q.won&&q.city==null&&!q.hut&&!q.village&&rev(x,y)})}
+function prodItems(p,c){
+  const it=[];
+  if(cntFig(p,'army')<armyLim(p)&&freeSqFor(p,c))it.push({kind:'army',n:'軍隊模型 ⚔',d:`移動和攻擊用（目前 ${cntFig(p,'army')}/${armyLim(p)}）`,cost:5});
+  if(cntFig(p,'scout')<2&&freeSqFor(p,c))it.push({kind:'scout',n:'斥候 👣',d:`建立新城市用（目前 ${cntFig(p,'scout')}/2）`,cost:6});
+  for(const t of ['inf','cav','art','air']){if(t==='air'&&!has(p,'flight'))continue;it.push({kind:'unit',type:t,n:`單位卡：${UT[t].n} ${UT[t].e}`,d:`${unitLv(p,t)} 級，強度約 ${t==='air'?'8～10':(LVSTR[unitLv(p,t)])+'～'+(LVSTR[unitLv(p,t)]+2)}`,cost:t==='air'?10:5})}
+  for(const k in BLD){const tk=BLDTECH[k];if(tk&&!has(p,tk))continue;if(!bldSquares(p,c,k).length)continue;it.push({kind:'bld',key:k,n:`建築：${BLD[k].n}`,d:`${yText(BLD[k].add)}（蓋在${[...BLD[k].terr].map(t=>TERR[t].n).join('/')}）`,cost:BLD[k].cost})}
+  for(const k in WON){if(!wonderOk(p,k))continue;it.push({kind:'won',key:k,n:`奇觀：${WON[k].n} 🏛`,d:WON[k].d+'；奇觀格 +2 文化',cost:WON[k].cost})}
+  return it}
+function produce(p,c,it,sq){
+  pay(p,c,it.cost);
+  if(it.kind==='army'||it.kind==='scout'){addFig(p,it.kind,c);log(`${p.name} 生產了${it.kind==='army'?'軍隊':'斥候'}`,p)}
+  else if(it.kind==='unit'){addUnit(p,it.type);log(`${p.name} 生產了${UT[it.type].n}卡`,p)}
+  else if(it.kind==='bld'){C(sq[0],sq[1]).bld=it.key;log(`${p.name} 蓋了${BLD[it.key].n}`,p)}
+  else if(it.kind==='won')placeWonder(p,c,it.key);
+}
+function artsGain(p,c,spice){let g=1+cityYield(p,c).cu;if(p.civ.k==='rome')g++;if(p.gov==='monarchy')g++;if(p.wonders.includes('sistine'))g+=2;if(has(p,'media'))g+=2;if(spice)g+=2;return g}
+function arts(p,c,spice){const g=artsGain(p,c,spice);if(spice)p.res.spice--;p.cu+=g;log(`${p.name} 奉獻藝術 +${g} 文化`,p)}
+function harvestOpts(p,c){const s=new Set();for(const [x,y] of outskirts(c)){const q=C(x,y);if(q.res&&!figsAt(x,y).some(o=>o.p!==p))s.add(q.res)}return [...s]}
+function learn(p,t){
+  const cost=techCost(p,t);p.techs.push(t.k);p.insp=0;
+  p.trade=Math.max(0,Math.min(p.trade-cost,coins(p)));
+  note(p,`${p.name} 研究了「${t.n}」：${techText(t)}`);
+  if(t.gov)p.newGov.push(t.gov);
+  if(t.gp)gainGP(p);
+  if(t.unit&&t.unit[0]==='inf'&&p.civ.k==='germany'){addUnit(p,'inf');addUnit(p,'inf')}
+  if(t.win)win(p,'tech');
+}
+function chk(){for(const p of S.players)if(coins(p)>=COIN_WIN)win(p,'econ')}
+function hutReward(p){const r=Math.random();if(r<.7){const k=pick(Object.keys(RES));p.res[k]++;note(p,`${p.name} 探索小屋，得到 ${RES[k].e}${RES[k].n}`)}else if(r<.85){p.coinTok++;note(p,`${p.name} 探索小屋，得到 1 金幣`)}else{p.cu+=3;note(p,`${p.name} 探索小屋，得到 3 文化`)}}
+function villageReward(p){if(Math.random()<.4)gainGP(p);else{p.coinTok++;const k=pick(Object.keys(RES));p.res[k]++;note(p,`${p.name} 攻下村落：+1 金幣、${RES[k].e}${RES[k].n}`)}}
+function destroyCity(p,c){p.cities.splice(p.cities.indexOf(c),1);C(c.x,c.y).city=null}
+
+/* ===== 移動 ===== */
+function passThrough(p,x,y){if(!inb(x,y)||!rev(x,y))return false;const c=C(x,y);if(c.t==='w'&&!has(p,'navigation'))return false;if(enemyAt(p,x,y)||c.hut||c.village)return false;return true}
+function reachFor(p,figs){
+  const res=new Map();if(!figs.length)return res;const sx=figs[0].x,sy=figs[0].y,arm=figs.some(f=>f.type==='army'),sp=speed(p),lim=stackLim(p);
+  const dist=new Map([[sx+','+sy,0]]);const q=[[sx,sy]];
+  while(q.length){const [x,y]=q.shift();const d=dist.get(x+','+y);if(d>=sp)continue;
+    for(const [dx,dy] of N4){const a=x+dx,b=y+dy,k=a+','+b;if(dist.has(k)||!inb(a,b)||!rev(a,b))continue;const c=C(a,b);if(c.t==='w'&&!has(p,'navigation'))continue;
+      if(enemyAt(p,a,b)){if(arm)res.set(k,'atk');dist.set(k,d+1);continue}
+      if(c.village){if(arm)res.set(k,'vil');dist.set(k,d+1);continue}
+      if(c.hut){res.set(k,'hut');dist.set(k,d+1);continue}
+      dist.set(k,d+1);q.push([a,b]);
+      const here=p.figs.filter(f=>f.x===a&&f.y===b&&!figs.includes(f)).length;
+      if(here+figs.length<=lim)res.set(k,'go');
+    }}
+  return res}
+function distFrom(p,tx,ty){
+  const D=new Int16Array(S.W*S.H).fill(-1);D[ty*S.W+tx]=0;const q=[[tx,ty]];
+  while(q.length){const [x,y]=q.shift();const d=D[y*S.W+x];for(const [dx,dy] of N4){const a=x+dx,b=y+dy;if(!inb(a,b)||D[b*S.W+a]>=0)continue;if(!rev(a,b))continue;const c=C(a,b);if(c.t==='w'&&!has(p,'navigation'))continue;D[b*S.W+a]=d+1;if(passThrough(p,a,b)||p.figs.some(f=>f.x===a&&f.y===b))q.push([a,b])}}
+  return D}
+async function doMove(p,figs,[x,y]){
+  const arms=figs.filter(f=>f.type==='army');const c=C(x,y);
+  const en=figsAt(x,y).filter(o=>o.p!==p);const ec=cityAt(x,y);const eCity=ec&&ec.p!==p?ec:null;
+  if(en.length||eCity){
+    const dp=eCity?eCity.p:en[0].p;const dArm=en.filter(o=>o.f.type==='army');
+    if(!dArm.length&&!eCity){en.forEach(o=>removeFig(o.p,o.f));note(dp,`${p.name} 消滅了 ${dp.name} 的斥候`);if(p.human)toast('消滅了對手的斥候')}
+    else{
+      const won=await battle({p,n:arms.length},{p:dp,n:dArm.length,city:eCity?eCity.c:null},eCity?(eCity.c.cap?'攻打首都':'攻打城市'):'野戰');
+      if(!won){figs.forEach(f=>removeFig(p,f));return}
+      en.forEach(o=>removeFig(o.p,o.f));
+      if(eCity){if(eCity.c.cap){figs.forEach(f=>{f.x=x;f.y=y});win(p,'military')}destroyCity(dp,eCity.c);note(p,`${p.name} 攻下並摧毀了 ${dp.name} 的城市！`);if(dp.human)toast(`你的城市被 ${p.name} 攻下了！`);if(p.civ.k==='rome')advanceCulture(p,true);await loot(p,dp,2)}
+      else await loot(p,dp,1);
+    }
+  } else if(c.village){
+    const won=await battle({p,n:arms.length},{barb:true,n:1},'攻打蠻族村落');
+    if(!won){figs.forEach(f=>removeFig(p,f));return}
+    c.village=0;villageReward(p);
+  } else if(c.hut){c.hut=0;hutReward(p)}
+  figs.forEach(f=>{f.x=x;f.y=y;f.moved=true});
+  revealAround(x,y,p);
+}
+
+/* ===== 戰鬥 ===== */
+function beats(a,b){return UT[a.type].beats===b.type}
+function fight(x,y){const hit=(a,b)=>{b.dmg+=a.str};if(beats(x,y)){hit(x,y);if(y.dmg<y.str)hit(y,x)}else if(beats(y,x)){hit(y,x);if(x.dmg<x.str)hit(x,y)}else{hit(x,y);hit(y,x)}}
+function estStr(p,n,city,barb){
+  if(barb){const lv=Math.min(3,1+Math.floor(S.round/10));return 3*(LVSTR[lv]+1)*.8}
+  const u=p.units;if(!u.length)return 0;const avg=u.reduce((s,c)=>s+cardStr(p,c),0)/u.length;const h=Math.min(handSize(p,n)+(city?2:0),u.length);
+  let b=p.gov==='fund'?4:0;if(city){b+=city.cap?10:3;if(has(p,'masonry')||(city.cap&&p.civ.k==='china'))b+=4;if(p.wonders.includes('wall'))b+=4}
+  return avg*h*.8+b}
+async function battle(A,D,title){
+  const mk=(p,n,isDef,city)=>{
+    const s={p,human:!!(p&&p.human),name:p?p.name:'蠻族',color:p?p.color:'#555',hand:[],bonus:0,bonusTx:[],kills:0};
+    if(p){const deck=shuffle(p.units.slice()).slice(0,handSize(p,n)+(isDef&&city?2:0));s.hand=deck.map(u=>({id:++CID,type:u.type,str:cardStr(p,u),dmg:0,ref:u}));
+      if(p.gov==='fund'){s.bonus+=4;s.bonusTx.push('宗教激進 +4')}
+      if(isDef&&city){s.bonus+=city.cap?10:3;s.bonusTx.push((city.cap?'首都':'城市')+' +'+(city.cap?10:3));if(has(p,'masonry')||(city.cap&&p.civ.k==='china')){s.bonus+=4;s.bonusTx.push('城牆 +4')}}
+      if(isDef&&p.wonders.includes('wall')){s.bonus+=4;s.bonusTx.push('長城 +4')}}
+    else{const lv=Math.min(3,1+Math.floor(S.round/10));for(let i=0;i<3;i++)s.hand.push({id:++CID,type:pick(['inf','cav','art']),str:LVSTR[lv]+rnd(3),dmg:0})}
+    return s};
+  const a=mk(A.p,A.n,false,null),d=D.barb?mk(null,0,true,null):mk(D.p,D.n,true,D.city);
+  const humanIn=a.human||d.human;
+  S.battle={a,d,fronts:[],title,res:null};
+  for(const s of [a,d]){if(!s.p||s.p.res.iron<1)continue;let use=true;if(s.human)use=await ask({type:'iron'});if(use){s.p.res.iron--;s.bonus+=3;s.bonusTx.push('鐵 +3')}}
+  if(humanIn)render();
+  let cur=d;
+  while(a.hand.length||d.hand.length){
+    if(cur.hand.length){
+      const side=cur===a?'a':'d';
+      let mv;if(cur.human)mv=await ask({type:'battle',side});else{if(humanIn){render();await nap(650)}mv=aiBattle(cur,side)}
+      playCard(side,mv);
+    }
+    cur=cur===a?d:a;
+  }
+  const tot=side=>S.battle.fronts.reduce((s,f)=>s+(f[side]?f[side].str-f[side].dmg:0),0)+S.battle[side].bonus;
+  const ta=tot('a'),td=tot('d'),aw=ta>td;
+  for(const s of [a,d])if(s.p&&s.p.civ.k==='china'&&s.kills){s.p.cu+=s.kills}
+  S.battle.res={ta,td,aw};
+  log(`⚔ ${title}：${a.name} ${ta} 對 ${d.name} ${td}，${aw?a.name:d.name} 獲勝`,aw?a.p:d.p);
+  if(humanIn)await ask({type:'battleEnd'});
+  S.battle=null;
+  return aw}
+function playCard(side,{ci,tgt}){
+  const B=S.battle,me=B[side],oth=side==='a'?'d':'a',card=me.hand.splice(ci,1)[0];
+  if(tgt==='new'){B.fronts.push({a:side==='a'?card:null,d:side==='d'?card:null});return}
+  const f=B.fronts[tgt];f[side]=card;fight(card,f[oth]);
+  for(const s of ['a','d']){const c=f[s];if(c&&c.dmg>=c.str){f[s]=null;const owner=B[s];if(owner.p&&c.ref){const i=owner.p.units.indexOf(c.ref);if(i>=0)owner.p.units.splice(i,1)}B[s==='a'?'d':'a'].kills++;(B.dead||(B.dead=[])).push({side:s,c})}}
+  if(!f.a&&!f.d)B.fronts.splice(tgt,1);
+}
+function aiBattle(me,side){
+  const B=S.battle,oth=side==='a'?'d':'a',op=B[oth];let best=null,bs=-1e9;
+  me.hand.forEach((c,ci)=>{
+    const sNew=op.hand.length?c.str*.5:c.str;if(sNew>bs){bs=sNew;best={ci,tgt:'new'}}
+    B.fronts.forEach((f,fi)=>{if(f[side]||!f[oth])return;const e=f[oth];const x={...c},y={...e};fight(x,y);
+      const mine=x.dmg<x.str?x.str-x.dmg:0;const after=y.dmg<y.str?y.str-y.dmg:0;const s=mine+((e.str-e.dmg)-after)+(after===0?.5:0);if(s>bs){bs=s;best={ci,tgt:fi}}})});
+  return best}
+async function loot(p,dp,n){
+  for(let i=0;i<n;i++){
+    const o=[];if(dp.trade>0)o.push({k:'trade',n:`搶 ${Math.min(5,dp.trade)} 貿易`});if(dp.cu>0)o.push({k:'cu',n:`搶 ${Math.min(3,dp.cu)} 文化`});if(dp.coinTok>0)o.push({k:'coin',n:'搶 1 金幣'});for(const r in RES)if(dp.res[r]>0)o.push({k:'r:'+r,n:`搶 1 ${RES[r].e}${RES[r].n}`});
+    if(!o.length)return;
+    let k;if(p.human)k=await ask({type:'loot',opts:o});else k=(o.find(x=>x.k==='coin')||o.find(x=>x.k==='trade'&&dp.trade>=4)||o.find(x=>x.k==='cu')||o[0]).k;
+    if(k==='trade'){const v=Math.min(5,dp.trade);dp.trade-=v;addTrade(p,v)}else if(k==='cu'){const v=Math.min(3,dp.cu);dp.cu-=v;p.cu+=v}else if(k==='coin'){dp.coinTok--;p.coinTok++}else{const r=k.slice(2);dp.res[r]--;p.res[r]++}
+    log(`${p.name} 戰利品：${o.find(x=>x.k===k).n}`,p);if(dp.human&&!p.human)toast(`${p.name} 從你這裡${o.find(x=>x.k===k).n}`);
+  }}
+
+/* ===== 回合 ===== */
+const PHASES=[['start','回合開始'],['trade','貿易'],['city','城市管理'],['move','移動'],['research','研究']];
+function order(){const n=S.players.length;return Array.from({length:n},(_,i)=>S.players[(S.first+i)%n])}
+async function run(){
+  try{
+    while(true){
+      S.round++;
+      if(S.round>1)S.first=(S.first+1)%S.players.length;
+      await phaseStart();await phaseTrade();await phaseCity();await phaseMove();await phaseResearch();
+      if(S.round>=90){const b=[...S.players].sort((x,y)=>y.step+tcount(y,4)*2-(x.step+tcount(x,4)*2))[0];win(b,'time')}
+    }
+  }catch(e){if(e==='stop')return;if(e&&e.win){S.over=e.win;P=null;R=null;S.battle=null;render();return}console.error(e);throw e}
+}
+async function phaseStart(){
+  S.phase='start';log(`—— 第 ${S.round} 回合 ——`);
+  for(const p of order()){
+    S.cur=p.i;
+    if(p.wonders.includes('gardens'))p.cu+=1;if(p.wonders.includes('hollywood'))p.cu+=3;
+    if(p.human)await humanFound(p);else botFound(p);
+    if(p.human)await humanGov(p);else botGov(p);
+    chk();
+  }
+}
+async function phaseTrade(){
+  S.phase='trade';
+  for(const p of order()){S.cur=p.i;const t=tradeIncome(p);addTrade(p,t);log(`${p.name} 收集貿易 +${t}（共 ${p.trade}）`,p)}
+  render();await nap();
+}
+async function phaseCity(){
+  S.phase='city';
+  for(const p of order()){S.cur=p.i;if(p.human)await humanCities(p);else{render();await botCities(p)}chk()}
+}
+async function phaseMove(){
+  S.phase='move';
+  for(const p of order()){S.cur=p.i;p.figs.forEach(f=>f.moved=false);if(p.human)await humanMove(p);else{render();await botMove(p)}chk()}
+}
+async function phaseResearch(){
+  S.phase='research';
+  for(const p of order()){
+    S.cur=p.i;p.newGov=[];
+    if(p.anarchy){p.anarchy=false;log(`${p.name} 處於無政府狀態，這回合不能研究`,p);continue}
+    if(p.human)await humanResearch(p);else botResearch(p);
+    chk();
+  }
+  render();await nap(SLEEP/2);
+}
+
+/* ===== 玩家（你） ===== */
+async function humanFound(p){
+  while(true){
+    const opts=p.figs.filter(f=>f.type==='scout'&&canFound(p,f.x,f.y));
+    if(!opts.length)return;
+    const a=await ask({type:'found',opts:opts.map(f=>f.id)});
+    if(a==null)return;
+    const f=p.figs.find(q=>q.id===a);if(f)foundCity(p,f);
+  }}
+async function humanGov(p){
+  if(!p.newGov.length)return;
+  const av=availGovs(p).filter(g=>g!==p.gov);if(!av.length)return;
+  const g=await ask({type:'gov',opts:av});
+  if(!g)return;
+  const free=p.newGov.includes(g);p.gov=g;if(!free)p.anarchy=true;
+  log(`${p.name} 改為「${GOV[g].n}」政體${free?'':'（無政府一回合）'}`,p);
+}
+async function humanCities(p){
+  for(let i=0;i<p.cities.length;i++){
+    const c=p.cities[i];UI.focus=[c.x,c.y];scrollToCell(c.x,c.y);
+    while(true){
+      const a=await ask({type:'city',ci:i});
+      if(a==='culture'){advanceCulture(p);continue}
+      if(a==='prod'){const it=await ask({type:'prod',ci:i});if(!it)continue;
+        if(it.kind==='bld'){const sq=await ask({type:'place',ci:i,it,squares:bldSquares(p,c,it.key)});if(!sq)continue;produce(p,c,it,sq)}else produce(p,c,it);break}
+      if(a==='arts'||a==='arts2'){arts(p,c,a==='arts2');break}
+      if(a==='harvest'){const r=await ask({type:'harvest',ci:i,opts:harvestOpts(p,c)});if(!r)continue;p.res[r]++;log(`${p.name} 採集 ${RES[r].e}${RES[r].n}`,p);break}
+      if(a==='skip')break;
+    }
+    chk();
+  }
+  UI.focus=null;
+  while(canCult(p)){const a=await ask({type:'cultonly'});if(a!=='culture')break;advanceCulture(p)}
+}
+async function humanMove(p){
+  UI.grp='all';
+  while(p.figs.some(f=>!f.moved)){
+    const a=await ask({type:'move'});
+    if(a==='done')return;
+    const figs=a.ids.map(id=>p.figs.find(f=>f.id===id)).filter(Boolean);
+    if(figs.length)await doMove(p,figs,a.to);
+    chk();
+  }}
+async function humanResearch(p){
+  while(true){
+    const a=await ask({type:'research'});
+    if(a==='silk'){p.res.silk--;addTrade(p,3);continue}
+    if(!a)return;
+    learn(p,TK[a]);return;
+  }}
+
+/* ===== 電腦 ===== */
+function botFound(p){for(const f of p.figs.filter(f=>f.type==='scout')){if(canFound(p,f.x,f.y)&&(siteScore(f.x,f.y)>=9||S.round>12))foundCity(p,f)}}
+const GOVPREF={culture:{monarchy:3,republic:3,democracy:4,communism:4,feudal:1,fund:1,despot:0},econ:{republic:4,democracy:5,monarchy:2,communism:3,feudal:1,fund:0,despot:0},tech:{republic:4,democracy:5,monarchy:2,communism:3,feudal:1,fund:0,despot:0},military:{fund:5,feudal:4,communism:4,monarchy:2,republic:2,democracy:1,despot:0}};
+function botGov(p){if(!p.newGov.length)return;const pr=GOVPREF[p.civ.strat];let best=p.gov;for(const g of p.newGov)if(pr[g]>pr[best])best=g;if(best!==p.gov){p.gov=best;log(`${p.name} 改為「${GOV[best].n}」政體`,p)}}
+function botCulture(p){let g=0;while(g++<6&&canCult(p)){const k=cultCost(p.step);if(p.civ.strat!=='culture'&&k.t>0&&p.trade-k.t<8)break;advanceCulture(p)}}
+function threatNear(p){for(const o of others(p))for(const f of o.figs)if(f.type==='army'&&p.cities.some(c=>cheb(c.x,c.y,f.x,f.y)<=5))return true;return false}
+function hasSite(p){for(let y=0;y<S.H;y++)for(let x=0;x<S.W;x++)if(canFound(p,x,y,true)&&siteScore(x,y)>=9)return true;return S.tiles.some(t=>!t.rev)}
+function botChoose(p,c){
+  const y=cityYield(p,c),w=WT[p.civ.strat],st=p.civ.strat,prod=y.p+2*p.res.wheat,o=[];
+  const aff=cost=>prod>=cost, affT=cost=>prod+Math.floor(Math.max(0,p.trade-10)/3)>=cost;
+  const g=artsGain(p,c,false);o.push({kind:'arts',v:g*w.cu+.3});
+  if(p.res.spice)o.push({kind:'arts2',v:(g+2)*w.cu+.2});
+  const sc=cntFig(p,'scout'),ar=cntFig(p,'army'),thr=threatNear(p);
+  if(p.cities.length+sc<cityLim(p)&&sc<2&&aff(6)&&freeSqFor(p,c)&&hasSite(p))o.push({kind:'scout',cost:6,v:16});
+  const wantA=st==='military'?2+Math.floor(S.round/5):2+Math.floor(S.round/8)+(thr?1:0);
+  if(ar<Math.min(wantA,armyLim(p))&&aff(5)&&freeSqFor(p,c))o.push({kind:'army',cost:5,v:11+(thr?4:0)});
+  const wantU=3+Math.floor(S.round/(st==='military'?3:5))+(thr?2:0);
+  if(p.units.length<wantU&&aff(5)){const t=bestUnitType(p);o.push({kind:'unit',type:t,cost:t==='air'?10:5,v:9+(thr?5:0)})}
+  for(const k in BLD){const tk=BLDTECH[k];if(tk&&!has(p,tk))continue;const b=BLD[k];if(!aff(b.cost))continue;const sq=bldSquares(p,c,k);if(!sq.length)continue;const a=b.add;const v=((a.p||0)*w.p+(a.t||0)*w.t+(a.cu||0)*w.cu+(a.coin||0)*w.coin)*3.2;
+    let bs=null,bv=1e9;for(const s of sq){const q=cellYield(C(s[0],s[1]));const sv=q.p+q.t+q.cu;if(sv<bv){bv=sv;bs=s}}o.push({kind:'bld',key:k,cost:b.cost,sq:bs,v})}
+  for(const k in WON){if(!wonderOk(p,k)||!affT(WON[k].cost))continue;o.push({kind:'won',key:k,cost:WON[k].cost,v:2*w.cu*2.5+5})}
+  const h=harvestOpts(p,c);if(h.length)o.push({kind:'harvest',r:h.includes('iron')&&st==='military'?'iron':pick(h),v:st==='military'?3.5:2.8});
+  o.forEach(x=>x.v+=Math.random()*1.5);o.sort((a,b)=>b.v-a.v);return o[0]}
+async function botCities(p){
+  botCulture(p);
+  for(const c of p.cities.slice()){
+    const it=botChoose(p,c);
+    if(it.kind==='arts'||it.kind==='arts2')arts(p,c,it.kind==='arts2');
+    else if(it.kind==='harvest'){p.res[it.r]++;log(`${p.name} 採集 ${RES[it.r].e}${RES[it.r].n}`,p)}
+    else produce(p,c,it,it.sq);
+    render();await nap(SLEEP/3);
+  }
+  botCulture(p);
+}
+function botResearch(p){
+  const st=p.civ.strat;
+  const sc=t=>{let v=t.lv*10+Math.random()*4;if(t.win)v+=1000;if(t.cityLim)v+=15;if(t.gov)v+=GOVPREF[st][t.gov]*3;if(t.unit)v+=st==='military'?9:2;if(t.coin)v+=st==='econ'?10:3;if(t.bld)v+=4;if(t.media)v+=st==='culture'?9:2;if(t.speed)v+=2;if(t.air)v+=st==='military'?7:1;if(t.gp)v+=5;if(st==='tech')v+=t.lv*4;return v};
+  const opts=TECHS.filter(t=>canLearn(p,t)).sort((a,b)=>sc(b)-sc(a));
+  if(!opts.length)return;
+  const top=opts[0];
+  while(p.res.silk>0&&p.trade<techCost(p,top)&&p.trade+3>=techCost(p,top)){p.res.silk--;addTrade(p,3)}
+  if(p.trade>=techCost(p,top)){learn(p,top);return}
+  if(techCost(p,top)-p.trade<=tradeIncome(p)*0.8&&top.lv>1)return;
+  const alt=opts.find(t=>p.trade>=techCost(p,t));if(alt)learn(p,alt);
+}
+async function botStep(p,figs,goal){
+  const reach=reachFor(p,figs);const gk=goal[0]+','+goal[1];
+  let dest=null;
+  if(reach.has(gk))dest=goal;
+  else{const D=distFrom(p,goal[0],goal[1]);const cur=D[figs[0].y*S.W+figs[0].x];let bd=cur<0?1e9:cur;
+    for(const [k,kind] of reach){if(kind!=='go'&&kind!=='hut')continue;const [x,y]=k.split(',').map(Number);const d=D[y*S.W+x];if(d>=0&&d<bd){bd=d;dest=[x,y]}}}
+  if(!dest)return;
+  await doMove(p,figs,dest);render();await nap(SLEEP/2);
+}
+function nearestFog(p,f){let best=null,bd=1e9;const D=distFrom(p,f.x,f.y);for(let y=0;y<S.H;y++)for(let x=0;x<S.W;x++){const d=D[y*S.W+x];if(d<0||!passThrough(p,x,y))continue;if(N8.some(([dx,dy])=>inb(x+dx,y+dy)&&!rev(x+dx,y+dy))&&d<bd){bd=d;best=[x,y]}}return best}
+function scoutGoal(p,f,claimed){
+  if(p.cities.length<cityLim(p)){
+    if(canFound(p,f.x,f.y)&&siteScore(f.x,f.y)>=9)return null;
+    const D=distFrom(p,f.x,f.y);let best=null,bv=-1e9;
+    for(let y=0;y<S.H;y++)for(let x=0;x<S.W;x++){const d=D[y*S.W+x];if(d<0||d>18)continue;if(!canFound(p,x,y,true)||claimed.has(x+','+y))continue;const s=siteScore(x,y);if(s<9)continue;const v=s-d*.9;if(v>bv){bv=v;best=[x,y]}}
+    if(best){claimed.add(best.join(','));return best}
+  }
+  const fg=nearestFog(p,f);if(fg)return fg;
+  let best=null,bv=0;const D=distFrom(p,f.x,f.y);
+  for(let y=0;y<S.H;y++)for(let x=0;x<S.W;x++){const d=D[y*S.W+x];if(d<0||d>6||!passThrough(p,x,y)&&!(x===f.x&&y===f.y))continue;if(p.cities.some(c=>cheb(c.x,c.y,x,y)<=1))continue;const v=cellYield(C(x,y));const s=v.p+v.t+v.cu-d*.3;if(s>bv){bv=s;best=[x,y]}}
+  return best&&(best[0]!==f.x||best[1]!==f.y)?best:null}
+function armyGoal(p,stack){
+  const f=stack[0],st=p.civ.strat,my=estStr(p,stack.length,null);
+  const D=distFrom(p,f.x,f.y);const at=(x,y)=>D[y*S.W+x];
+  let best=null,bv=-1e9;
+  for(let y=0;y<S.H;y++)for(let x=0;x<S.W;x++){
+    const d=at(x,y);if(d<0)continue;const c=C(x,y);
+    if(c.hut&&d<=8){const v=10-d;if(v>bv){bv=v;best=[x,y]}}
+    if(c.village&&d<=8&&my>=estStr(null,0,null,true)*1.25){const v=12-d;if(v>bv){bv=v;best=[x,y]}}
+  }
+  for(const c of p.cities){if(p.figs.some(q=>q.type==='army'&&q.x===c.x&&q.y===c.y))continue;for(const o of others(p))for(const e of o.figs)if(e.type==='army'&&cheb(c.x,c.y,e.x,e.y)<=3){const v=20-(at(c.x,c.y)<0?20:at(c.x,c.y));if(v>bv){bv=v;best=[c.x,c.y]}}}
+  const aggressive=st==='military'?(S.round>=8?1.3:9):(S.round>=15?1.7:9);
+  for(const o of others(p))for(const c of o.cities){
+    const d=at(c.x,c.y);if(d<0)continue;const dn=o.figs.filter(q=>q.type==='army'&&q.x===c.x&&q.y===c.y).length;
+    const es=estStr(o,dn,c);if(my<es*aggressive)continue;const v=(c.cap?16:12)-d*.6+(my-es)*.2;if(v>bv){bv=v;best=[c.x,c.y]}}
+  if(st==='military'&&stack.length<2&&!best){const cap=p.cities.find(c=>c.cap);if(cap&&cheb(cap.x,cap.y,f.x,f.y)>1)return [cap.x,cap.y]}
+  if(!best&&S.tiles.some(t=>!t.rev)&&Math.random()<.6){const fg=nearestFog(p,f);if(fg)return fg}
+  return best}
+async function botMove(p){
+  const claimed=new Set();
+  for(const f of p.figs.filter(f=>f.type==='scout')){if(!p.figs.includes(f)||f.moved)continue;const g=scoutGoal(p,f,claimed);if(g)await botStep(p,[f],g);f.moved=true}
+  const seen=new Set();
+  for(const f of p.figs.filter(f=>f.type==='army')){
+    if(!p.figs.includes(f)||f.moved||seen.has(f))continue;
+    const stack=p.figs.filter(q=>q.type==='army'&&q.x===f.x&&q.y===f.y&&!q.moved);stack.forEach(q=>seen.add(q));
+    const g=armyGoal(p,stack);if(g&&(g[0]!==f.x||g[1]!==f.y))await botStep(p,stack,g);
+    stack.forEach(q=>q.moved=true);
+  }
+}
+
+/* ===== 畫面 ===== */
+function ownerGrid(){const g={};for(const p of S.players)for(const c of p.cities)for(const [x,y] of outskirts(c))g[x+','+y]=p;return g}
+function selFigs(){const p=me();if(!UI.sel)return [];const [x,y]=UI.sel;let f=p.figs.filter(q=>q.x===x&&q.y===y&&!q.moved);if(UI.grp==='army')f=f.filter(q=>q.type==='army').slice(0,1);else if(UI.grp==='scout')f=f.filter(q=>q.type==='scout').slice(0,1);return f}
+function renderMap(){
+  const g=$('#grid');document.documentElement.style.setProperty('--cs',UI.zoom?'26px':'34px');
+  g.style.gridTemplateColumns=`repeat(${S.W},var(--cs))`;
+  const own=ownerGrid();let reach=new Map();
+  if(P&&P.type==='move'&&UI.sel)reach=reachFor(me(),selFigs());
+  const place=P&&P.type==='place'?new Set(P.squares.map(s=>s.join(','))):null;
+  const foc=UI.focus?UI.focus.join(','):null;
+  let h='';
+  for(let y=0;y<S.H;y++)for(let x=0;x<S.W;x++){
+    const k=x+','+y;let cls='cell'+(x%4===0&&x?' tl':'')+(y%4===0&&y?' tt':'');
+    if(!rev(x,y)){h+=`<button class="${cls} fog" data-x="${x}" data-y="${y}" aria-label="未探索"></button>`;continue}
+    const c=C(x,y);let st=`background:${TERR[c.t].c};`,in_='';
+    const o=own[k];if(o){cls+=' own';st+=`--oc:${o.color};`}
+    if(c.city!=null){const p=S.players[c.city];const cc=p.cities.find(q=>q.x===x&&q.y===y);cls+=' city';st+=`--oc:${p.color};`;in_+=`<span class="ct">${cc&&cc.cap?'🏰':'🏠'}</span>`}
+    else if(c.won)in_+=`<span class="ct">🏛</span>`;
+    else if(c.gp)in_+=`<span class="ct">★</span>`;
+    else if(c.village)in_+=`<span class="ct">🏘</span>`;
+    else if(c.hut)in_+=`<span class="ct">🛖</span>`;
+    if(c.bld)in_+=`<span class="bd">${BLD[c.bld].a}</span>`;
+    if(c.res)in_+=`<span class="rs">${RES[c.res].e}</span>`;
+    else if(c.coin)in_+=`<span class="rs">🪙</span>`;
+    const fs=figsAt(x,y);if(fs.length){const p=fs[0].p;const a=fs.filter(q=>q.f.type==='army').length,s=fs.length-a;in_+=`<span class="fg" style="background:${p.color}">${a?'⚔'+a:''}${s?'👣'+s:''}</span>`}
+    if(reach.has(k))cls+=(reach.get(k)==='atk'||reach.get(k)==='vil')?' rch atk':' rch';
+    if(place&&place.has(k))cls+=' pl';
+    if(UI.sel&&UI.sel.join(',')===k)cls+=' sel';
+    if(foc===k)cls+=' foc';
+    h+=`<button class="${cls}" style="${st}" data-x="${x}" data-y="${y}">${in_}</button>`;
+  }
+  g.innerHTML=h;
+}
+function cellInfo(x,y){
+  if(!rev(x,y))return '尚未探索。';
+  const c=C(x,y);const a=[`<b>${TERR[c.t].n}</b>`,yText(cellYield(c))];
+  if(c.res)a.push(`${RES[c.res].e}${RES[c.res].n}（${RES[c.res].u}）`);
+  if(c.bld)a.push('建築：'+BLD[c.bld].n);if(c.gp)a.push('偉人：'+GP[c.gp].n);if(c.won)a.push('奇觀：'+WON[c.won].n);
+  if(c.hut)a.push('🛖 小屋：走進去拿獎勵');if(c.village)a.push('🏘 蠻族村落：要用軍隊打下來');
+  const ct=cityAt(x,y);if(ct){const y2=cityYield(ct.p,ct.c);a.push(`${ct.p.name} 的${ct.c.cap?'首都':'城市'}（${yText(y2)}）`)}
+  const fs=figsAt(x,y);if(fs.length)a.push(`${fs[0].p.name}：軍隊 ${fs.filter(q=>q.f.type==='army').length}、斥候 ${fs.filter(q=>q.f.type==='scout').length}`);
+  return a.join('　')}
+function riv(p){
+  const cur=S.cur===p.i&&!S.over;
+  return `<button class="riv${cur?' cur':''}" data-pl="${p.i}"><span class="nm"><span class="dot" style="background:${p.color}"></span>${p.civ.e} ${p.name}${p.human?`<em style="background:${p.color}">你</em>`:''}</span>
+  <span class="sts"><span>貿易 <b>${p.trade}</b></span><span>金幣 <b>${coins(p)}</b>/${COIN_WIN}</span><span>文化軌 <b>${p.step}</b>/${CULT_MAX}</span><span>科技 <b>${p.techs.length}</b></span><span>城市 <b>${p.cities.length}</b></span><span>單位 <b>${p.units.length}</b></span></span></button>`}
+function renderMe(){
+  const p=me();if(!p){$('#me').innerHTML='';return}
+  const k=cultCost(p.step);
+  const uc=['inf','cav','art','air'].filter(t=>t!=='air'||has(p,'flight')).map(t=>`${UT[t].e}${UT[t].n}×${p.units.filter(u=>u.type===t).length}（${unitLv(p,t)}級）`).join('　');
+  $('#me').innerHTML=`<h3><span class="dot" style="background:${p.color}"></span>${p.civ.e} 你的文明：${p.name}</h3>
+  <div class="kv"><span>政體：<b>${GOV[p.gov].n}</b>${p.anarchy?'（無政府）':''}</span><span>文化代幣 <b>${p.cu}</b></span><span>下一格：${k.cu} 文化${k.t?'＋'+k.t+' 貿易':''}</span><span>移動 ${speed(p)}・堆疊 ${stackLim(p)}・城市上限 ${cityLim(p)}</span></div>
+  <div class="kv">${Object.keys(RES).map(r=>`<span>${RES[r].e}${RES[r].n} <b>${p.res[r]}</b></span>`).join('')}</div>
+  <div class="kv"><span>常備軍：${uc}</span></div>
+  <div class="chips">${p.techs.map(t=>`<span class="chip">${TK[t].lv}・${TK[t].n}</span>`).join('')}${p.wonders.map(w=>`<span class="chip n">🏛${WON[w].n}</span>`).join('')}</div>
+  <div class="sub" style="font-size:.74rem;color:var(--muted)">${p.civ.d}</div>`}
+function render(){
+  if(!S){return}
+  $('#phases').innerHTML=`<span class="rd">第 ${S.round} 回合</span>`+PHASES.map(([k,n])=>`<span class="ph${S.phase===k?' on':''}">${n}</span>`).join('');
+  $('#rivals').innerHTML=S.players.map(riv).join('');
+  renderMap();renderMe();
+  $('#log').innerHTML=S.log.slice(0,40).map(l=>`<div>${l.c?`<i style="color:${l.c}">●</i> `:''}${l.m}</div>`).join('');
+  if(UI.cell)$('#info').innerHTML=cellInfo(...UI.cell);
+  renderBar();renderSheet();
+}
+function btn(label,act,cls='',dis=false,sub=''){return `<button class="b ${cls}" data-act="${act}"${dis?' disabled':''}>${label}${sub?`<small>${sub}</small>`:''}</button>`}
+function renderBar(){
+  const bar=$('#bar'),b=$('#barIn');
+  if(S.over||!P||['found','gov','prod','harvest','research','battle','loot','iron','battleEnd'].includes(P.type)){
+    if(!S.over&&!P){bar.hidden=false;const cp=S.players[S.cur];b.innerHTML=`<div class="t">${cp?`<span class="dot" style="display:inline-block;background:${cp.color}"></span> <b>${cp.name}</b> 正在行動…`:'…'}</div><div class="hint">${PHASES.find(x=>x[0]===S.phase)?.[1]||''}階段</div>`;return}
+    bar.hidden=true;return}
+  bar.hidden=false;const p=me();
+  if(P.type==='city'){
+    const c=p.cities[P.ci],y=cityYield(p,c),k=cultCost(p.step),hv=harvestOpts(p,c);
+    b.innerHTML=`<div class="t">🏙 <b>${c.cap?'首都':'城市'}（${P.ci+1}/${p.cities.length}）</b>：產能 ${y.p}・貿易 ${y.t}・文化 ${y.cu}${y.coin?'・金幣 '+y.coin:''}</div>
+    <div class="hint">每座城市一回合只能做一件事。黃框是這座城市。</div>
+    <div class="btns">${btn('🔨 生產','prod','p')}${btn(`🎭 奉獻藝術 +${artsGain(p,c,false)}`,'arts')}${p.res.spice?btn(`🌶️ 藝術 +${artsGain(p,c,true)}`,'arts2','',false,'用 1 香料'):''}${hv.length?btn('⛏ 採集資源','harvest','',false,hv.map(r=>RES[r].e).join('')):''}${canCult(p)?btn('📈 推進文化軌','culture','g',false,`${k.cu} 文化${k.t?'＋'+k.t+' 貿易':''}`):''}${btn('跳過','skip')}</div>`;
+  } else if(P.type==='cultonly'){
+    const k=cultCost(p.step);
+    b.innerHTML=`<div class="t">還有文化代幣 <b>${p.cu}</b>，要再推進文化軌嗎？</div><div class="btns">${btn('📈 推進文化軌','culture','g',false,`${k.cu} 文化${k.t?'＋'+k.t+' 貿易':''}`)}${btn('完成','skip','p')}</div>`;
+  } else if(P.type==='place'){
+    b.innerHTML=`<div class="t">點選要蓋「<b>${BLD[P.it.key].n}</b>」的格子（虛線框）</div><div class="btns">${btn('取消','cancel')}</div>`;
+  } else if(P.type==='move'){
+    const sf=selFigs();const sel=UI.sel?p.figs.filter(q=>q.x===UI.sel[0]&&q.y===UI.sel[1]&&!q.moved):[];
+    const na=sel.filter(q=>q.type==='army').length,ns=sel.length-na;
+    let g='';if(sel.length>1){g=btn(`全部 ${sel.length}`,'g:all',UI.grp==='all'?'p':'');if(na)g+=btn('只動 1 軍隊','g:army',UI.grp==='army'?'p':'');if(ns)g+=btn('只動 1 斥候','g:scout',UI.grp==='scout'?'p':'')}
+    const left=p.figs.filter(f=>!f.moved).length;
+    b.innerHTML=`<div class="t">🚶 <b>移動</b>：${UI.sel?`已選 ${sf.length} 個，點虛線格移動（紅框＝戰鬥）`:'點你的部隊（有你顏色的 ⚔ / 👣），再點目的地'}</div>
+    <div class="hint">每個部隊最多走 ${speed(p)} 格（不能斜走）。走到未探索區旁邊會翻開地圖。斥候停在城市外圍以外的格子，可以把該格產出送回最近的城市。還有 ${left} 個可以動。</div>
+    <div class="btns">${g}${UI.sel?btn('取消選取','unsel'):''}${btn('結束移動','done','p')}</div>`;
+  }
+}
+function opt(act,l,s,r,dis=false,on=false){return `<button class="opt${on?' on':''}" data-act="${act}"${dis?' disabled':''}><span class="l"><b>${l}</b>${s?`<span>${s}</span>`:''}</span><span class="r">${r||''}</span></button>`}
+function renderSheet(){
+  const ov=$('#ov'),sh=$('#sheet');let h='';
+  if(!S){ov.hidden=false;sh.innerHTML=setupHTML();return}
+  if(UI.info){h=UI.info()}
+  else if(S.over)h=endHTML();
+  else if(P){
+    const p=me();
+    if(P.type==='found'){
+      h=`<h2>🏙 建立新城市？</h2><p class="sub">你的斥候站在可以建城的位置。建城會用掉這個斥候。城市上限 ${cityLim(p)}（目前 ${p.cities.length}）。</p>`;
+      for(const id of P.opts){const f=p.figs.find(q=>q.id===id);const y={p:1,t:1,cu:0,coin:0};for(const [dx,dy] of N8)addY(y,cellYield(C(f.x+dx,f.y+dy)));h+=opt('f:'+id,`在 (${f.x+1},${f.y+1}) 建城`,`預估：${yText(y)}`,'建城')}
+      h+=opt('f:none','先不要','','')}
+    else if(P.type==='gov'){
+      h=`<h2>🏛 更換政體？</h2><p class="sub">剛學會的政體可以免費更換；其他的要經過一回合無政府（那回合不能研究）。目前：${GOV[p.gov].n}。</p>`;
+      for(const g of P.opts)h+=opt('g:'+g,GOV[g].n,GOV[g].d,p.newGov.includes(g)?'免費':'無政府 1 回合');
+      h+=opt('g:none','維持現狀','','')}
+    else if(P.type==='prod'){
+      const c=p.cities[P.ci];const y=cityYield(p,c);
+      h=`<h2>🔨 生產</h2><p class="sub">這座城市產能 <b>${y.p}</b>。不夠時會自動用小麥（1 個抵 2）和貿易（3 貿易抵 1）補。你有 🌾${p.res.wheat}、貿易 ${p.trade}。</p>`;
+      for(const [i,it] of prodItems(p,c).entries()){const ok=afford(p,c,it.cost);h+=opt('i:'+i,it.n,it.d+(ok?'・'+payText(p,c,it.cost):''),`${it.cost} 產能`,!ok)}
+      h+=opt('i:none','返回','','')}
+    else if(P.type==='harvest'){h=`<h2>⛏ 採集資源</h2>`;for(const r of P.opts)h+=opt('r:'+r,`${RES[r].e} ${RES[r].n}`,RES[r].u,'');h+=opt('r:none','返回','','')}
+    else if(P.type==='research'){
+      h=`<h2>🔬 研究科技</h2><p class="sub">貿易 <b>${p.trade}</b>。每回合最多學 1 項。新科技要放在金字塔上：每一層的張數必須比下一層少。研究後貿易只保留到你的金幣數（${coins(p)}）。</p>`;
+      if(p.res.silk)h+=opt('silk','🧵 用 1 絲綢換 3 貿易',`你有 ${p.res.silk} 絲綢`,'');
+      h+=pyramid(p);
+      for(let lv=1;lv<=5;lv++){h+=`<div class="sec">第 ${lv} 級（${TCOST[lv]} 貿易）</div>`;for(const t of TECHS.filter(t=>t.lv===lv)){if(has(p,t.k))continue;const can=canLearn(p,t),cost=techCost(p,t),ok=can&&p.trade>=cost;h+=opt('t:'+t.k,t.n,techText(t),ok?`${cost} 貿易`:(can?'貿易不足':'金字塔不夠'),!ok)}}
+      h+=opt('t:none','這回合不研究（保留貿易）','','')}
+    else if(P.type==='iron'){h=`<h2>⛏️ 使用鐵？</h2><p>花 1 個鐵，這場戰鬥 +3 強度。（你有 ${p.res.iron} 個）</p>${opt('y','使用','+3 強度','')}${opt('n','不用','','')}`}
+    else if(P.type==='loot'){h=`<h2>💰 戰利品</h2><p class="sub">你打贏了！選一項。</p>`;for(const o of P.opts)h+=opt('l:'+o.k,o.n,'','');}
+    else if(P.type==='battle'||P.type==='battleEnd')h=battleHTML();
+  }
+  if(!h){ov.hidden=true;return}
+  ov.hidden=false;sh.innerHTML=h;
+}
+function pyramid(p){let h='<div class="pyr">';for(let lv=5;lv>=1;lv--){const ts=p.techs.filter(k=>TK[k].lv===lv);h+=`<div class="row">${ts.length?ts.map(k=>`<span class="chip">${TK[k].n}</span>`).join(''):`<span class="chip" style="opacity:.4">第${lv}級</span>`}</div>`}return h+'</div>'}
+function cardH(c,e,dead){if(!c)return `<div class="card empty">—</div>`;return `<div class="card${e?' e':''}${dead?' dead':''}"><span>${UT[c.type].e} ${UT[c.type].n}</span><b>${c.str-c.dmg}${c.dmg?`<small style="font-weight:400;color:var(--muted)">/${c.str}</small>`:''}</b></div>`}
+function battleHTML(){
+  const B=S.battle;if(!B)return '';const p=me();
+  const mySide=B.a.p===p?'a':B.d.p===p?'d':'a',op=mySide==='a'?'d':'a',M=B[mySide],O=B[op];
+  let h=`<h2>⚔ ${B.title}</h2><div class="sub">${B.a.name}（進攻）對 ${B.d.name}（防守）。相剋：步兵剋騎兵、騎兵剋砲兵、砲兵剋步兵；剋制的一方先出手。數字＝目前強度。</div>`;
+  h+=`<div class="front"><div class="vs" style="color:${M.color}">${M.name}${M.bonusTx.length?'<br>'+M.bonusTx.join('、'):''}</div><div></div><div class="vs" style="color:${O.color}">${O.name}${O.bonusTx.length?'<br>'+O.bonusTx.join('、'):''}</div></div><div class="bt">`;
+  B.fronts.forEach((f,i)=>{const canT=P&&P.type==='battle'&&UI.bsel!=null&&!f[mySide]&&f[op];h+=`<div class="front">${cardH(f[mySide],false)}<div class="vs">vs</div>${canT?`<button class="card e" data-act="bt:${i}" style="cursor:pointer;box-shadow:0 0 0 2px var(--bad)">${UT[f[op].type].e} 攻擊這張 <b>${f[op].str-f[op].dmg}</b></button>`:cardH(f[op],true)}</div>`});
+  if(!B.fronts.length)h+=`<div class="vs">（還沒有戰線）</div>`;
+  h+='</div>';
+  if(B.res){const mine=mySide==='a'?B.res.ta:B.res.td,their=mySide==='a'?B.res.td:B.res.ta,won=(mySide==='a')===B.res.aw;
+    h+=`<div class="tot"><span>你 ${mine}</span><span>${their} ${O.name}</span></div><p style="font-weight:800;color:${won?'var(--good)':'var(--bad)'}">${won?'你獲勝了！':'你戰敗了…'}${mySide==='d'?'（平手算防守方贏）':''}</p>${opt('ok','繼續','','')}`;return h}
+  h+=`<div class="sec">你的手牌（${M.hand.length}）・對手剩 ${O.hand.length} 張</div><div class="hand">${M.hand.map((c,i)=>`<button class="card${UI.bsel===i?' on':''}" data-act="bs:${i}"><span>${UT[c.type].e} ${UT[c.type].n}</span><b>${c.str}</b></button>`).join('')||'<span class="vs">沒有手牌了</span>'}</div>`;
+  if(P&&P.type==='battle'){h+=UI.bsel==null?`<p class="sub">先點一張手牌。</p>`:`<div class="btns">${btn('開新戰線','bt:new','p')}<span class="vs" style="align-self:center">或點上方紅框攻擊敵方卡</span></div>`}
+  else h+=`<p class="sub">對手思考中…</p>`;
+  return h}
+function setupHTML(){
+  const s=UI.setup;
+  return `<h2>文明崛起</h2><p class="sub">依《文明帝國》桌遊（2010，Fantasy Flight）規則改編的非官方練習版。你和電腦文明比賽，最先達成任一勝利條件的人獲勝：文化軌走到終點、研究出太空飛行、累積 ${COIN_WIN} 金幣，或攻下對手首都。</p>
+  <div class="sec">選擇你的文明</div><div class="civs">${CIVS.map(c=>`<button class="civb${s.civ===c.k?' on':''}" data-act="civ:${c.k}"><b>${c.e} ${c.n}</b><span>起始科技：${TK[c.tech].n}</span><span>${c.d}</span></button>`).join('')}</div>
+  <div class="sec">電腦對手</div><div class="seg">${[1,2,3].map(n=>btn(n+' 個','opp:'+n,s.opp===n?'p':'')).join('')}</div>
+  ${btn('開始遊戲','start','g')}${btn('看規則','rules')}`}
+function endHTML(){
+  const w=S.players[S.over.p],p=me();const tx={culture:'文化勝利：走到文化軌終點',tech:'科技勝利：研究出太空飛行',econ:`經濟勝利：累積 ${COIN_WIN} 金幣`,military:'軍事勝利：攻下對手首都',time:'回合上限：文化與科技最領先'}[S.over.type];
+  return `<div class="end"><h2>${w===p?'🎉 你贏了！':'😔 '+w.name+' 獲勝'}</h2></div><p><b>${w.name}</b>・${tx}（第 ${S.round} 回合）</p>
+  <table class="t"><tr><th>文明</th><th>文化軌</th><th>科技</th><th>金幣</th><th>城市</th></tr>${S.players.map(q=>`<tr><td><span class="dot" style="display:inline-block;background:${q.color}"></span> ${q.name}${q.human?'（你）':''}</td><td>${q.step}</td><td>${q.techs.length}</td><td>${coins(q)}</td><td>${q.cities.length}</td></tr>`).join('')}</table>
+  ${btn('再玩一局','again','g')}`}
+function rulesHTML(){return `<h2>📖 規則</h2><p class="sub">非官方練習版，數值經過簡化。</p>
+<div class="sec">勝利</div><ul><li>文化：文化軌走到第 ${CULT_MAX} 格。</li><li>科技：研究出第 5 級「太空飛行」。</li><li>經濟：金幣達到 ${COIN_WIN}。金幣＝科技上的金幣＋城市外圍的金幣圖示＋金幣代幣。</li><li>軍事：攻下任何對手的首都。</li></ul>
+<div class="sec">每回合 5 個階段</div><ul>
+<li><b>回合開始</b>：起始玩家輪替。斥候可以就地建城（周圍 8 格都要已探索，離其他城市至少 3 格）。剛學會的政體可以免費換。</li>
+<li><b>貿易</b>：每座城市收集外圍 8 格的貿易（上限 ${TRADE_MAX}）。</li>
+<li><b>城市管理</b>：每座城市選一件事：生產（軍隊、斥候、單位卡、建築、奇觀）、奉獻藝術（拿文化）、採集資源。也可以花文化代幣推進文化軌：第 1～6 格 5 文化；7～12 格 8 文化＋5 貿易；13～18 格 12 文化＋10 貿易。每 3 格得到偉人，其他格抽文化事件。</li>
+<li><b>移動</b>：每個部隊走 2 格（騎馬 3、鐵路 4），不能斜走；同一格最多 ${2} 個（石工 3）。走進小屋拿獎勵；軍隊走進村落或對手格子會戰鬥。</li>
+<li><b>研究</b>：花貿易學 1 項科技（6/11/16/21/26）。每一層張數要比下一層少。研究後貿易只保留到金幣數。</li></ul>
+<div class="sec">戰鬥</div><ul><li>雙方從常備軍（單位卡）隨機抽 3 張，同格每多 1 個軍隊多抽 2 張；守城方再多抽 2 張。</li><li>防守方先，輪流出牌：開新戰線，或攻擊對方沒有被擋住的卡。</li><li>步兵剋騎兵、騎兵剋砲兵、砲兵剋步兵，剋制者先打；傷害＝強度，累積到強度就陣亡（陣亡的卡永久失去）。</li><li>最後加總存活強度＋加成（首都 +10、城市 +3、城牆 +4、鐵 +3），高者贏，平手防守方贏。</li></ul>
+<div class="sec">資源</div><ul>${Object.values(RES).map(r=>`<li>${r.e}${r.n}：${r.u}</li>`).join('')}</ul>
+${btn('關閉','close','p')}`}
+function civInfoHTML(p){return `<h2>${p.civ.e} ${p.name}${p.human?'（你）':''}</h2><p class="sub">${p.civ.d}${p.human?'':'<br>電腦傾向：'+STRATN[p.civ.strat]}</p>
+<div class="kv"><span>政體 <b>${GOV[p.gov].n}</b></span><span>貿易 <b>${p.trade}</b></span><span>金幣 <b>${coins(p)}</b></span><span>文化代幣 <b>${p.cu}</b></span><span>文化軌 <b>${p.step}</b>/${CULT_MAX}</span><span>單位卡 <b>${p.units.length}</b></span></div>
+<div class="sec">科技金字塔</div>${pyramid(p)}${p.wonders.length?`<div class="sec">奇觀</div><div class="chips">${p.wonders.map(w=>`<span class="chip n">${WON[w].n}：${WON[w].d}</span>`).join('')}</div>`:''}
+${btn('關閉','close','p')}`}
+
+/* ===== 事件 ===== */
+function scrollToCell(x,y){const mb=$('#mapbox');const cs=UI.zoom?26:34;mb.scrollLeft=Math.max(0,x*cs-mb.clientWidth/2);mb.scrollTop=Math.max(0,y*cs-mb.clientHeight/2)}
+$('#grid').addEventListener('click',e=>{
+  const b=e.target.closest('.cell');if(!b||!S)return;const x=+b.dataset.x,y=+b.dataset.y;UI.cell=[x,y];
+  if(P&&P.type==='place'){if(P.squares.some(s=>s[0]===x&&s[1]===y))return answer([x,y])}
+  if(P&&P.type==='move'){
+    const p=me();
+    if(UI.sel){const r=reachFor(p,selFigs());if(r.has(x+','+y)){const ids=selFigs().map(f=>f.id);return answer({ids,to:[x,y]})}}
+    if(p.figs.some(f=>f.x===x&&f.y===y&&!f.moved)){UI.sel=[x,y];UI.grp='all'}else UI.sel=null;
+  }
+  render();
+});
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(b){const a=b.dataset.act;act(a);return}
+  const r=e.target.closest('.riv');if(r&&S){const p=S.players[+r.dataset.pl];UI.info=()=>civInfoHTML(p);render()}
+});
+function act(a){
+  if(a==='close'){UI.info=null;if(!S){renderSheet();return}render();return}
+  if(a==='rules'){UI.info=rulesHTML;if(!S){$('#ov').hidden=false;$('#sheet').innerHTML=rulesHTML();UI.info=null;return}render();return}
+  if(a.startsWith('civ:')){UI.setup.civ=a.slice(4);renderSheet();return}
+  if(a.startsWith('opp:')){UI.setup.opp=+a.slice(4);renderSheet();return}
+  if(a==='start'){newGame(UI.setup.civ,UI.setup.opp);return}
+  if(a==='again'){S=null;P=null;R=null;UI.info=null;render0();return}
+  if(!P)return;
+  const t=P.type;
+  if(t==='found'){answer(a==='f:none'?null:+a.slice(2));return}
+  if(t==='gov'){answer(a==='g:none'?null:a.slice(2));return}
+  if(t==='city'||t==='cultonly'){answer(a);return}
+  if(t==='prod'){if(a==='i:none')return answer(null);const p=me();answer(prodItems(p,p.cities[P.ci])[+a.slice(2)]);return}
+  if(t==='place'){if(a==='cancel')answer(null);return}
+  if(t==='harvest'){answer(a==='r:none'?null:a.slice(2));return}
+  if(t==='research'){if(a==='silk')return answer('silk');answer(a==='t:none'?null:a.slice(2));return}
+  if(t==='iron'){answer(a==='y');return}
+  if(t==='loot'){answer(a.slice(2));return}
+  if(t==='battleEnd'){if(a==='ok')answer(true);return}
+  if(t==='battle'){if(a.startsWith('bs:')){UI.bsel=+a.slice(3);renderSheet();return}if(a.startsWith('bt:')&&UI.bsel!=null){const tg=a.slice(3);answer({ci:UI.bsel,tgt:tg==='new'?'new':+tg})}return}
+  if(t==='move'){if(a==='done'){UI.sel=null;return answer('done')}if(a==='unsel'){UI.sel=null;render();return}if(a.startsWith('g:')){UI.grp=a.slice(2);render();return}}
+}
+$('#bRules').onclick=()=>act('rules');
+$('#bNew').onclick=()=>{if(S&&!S.over&&!confirm('放棄目前這局，重新開始？'))return;if(S)S.gid++;S=null;P=null;R=null;UI.info=null;render0()};
+$('#bZoom').onclick=()=>{UI.zoom=UI.zoom?0:1;if(S)render()};
+function render0(){$('#bar').hidden=true;$('#grid').innerHTML='';$('#rivals').innerHTML='';$('#me').innerHTML='';$('#log').innerHTML='';$('#phases').innerHTML='';renderSheet()}
+let GID=0;
+function newGame(civK,nOpp,allBots){
+  GID++;const n=nOpp+1;
+  S={gid:GID,round:0,phase:'',first:0,cur:0,players:[],log:[],over:null,wonderOwner:{},cev:[],tw:4,th:n===2?2:n===3?3:4,W:16,battle:null};S.H=S.th*4;
+  const civs=[CIVS.find(c=>c.k===civK),...shuffle(CIVS.filter(c=>c.k!==civK)).slice(0,nOpp)];
+  civs.forEach((c,i)=>S.players.push(mkPlayer(i,c,i===0&&!allBots)));
+  genMap();S.players.forEach(setupPlayer);
+  S.first=rnd(n);P=null;R=null;UI.sel=null;UI.info=null;UI.cell=null;UI.focus=null;
+  log(`遊戲開始！你是 ${S.players[0].name}。`);
+  render();if(me()){const cap=me().cities[0];scrollToCell(cap.x,cap.y)}
+  run();
+}
+window.__civ=()=>S;window.__civApi={answer,act,newGame,get P(){return P},setSleep:v=>SLEEP=v,botMove,botCities,botResearch};
+render0();
+</script>
+</html>

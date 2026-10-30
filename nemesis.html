@@ -1,0 +1,796 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>異形巢穴</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&display=swap">
+<style>
+/* Layout: a tactical HUD — status strip, the hive map, the squad, the active marine's hand and actions, log; fixed action bar. Single deliberate dark theme (alien base at night). */
+:root {
+  color-scheme: dark;
+  --bg: #0a0f0d; --bg2: #121a17; --bg3: #1a2621; --line: #2c3f37;
+  --fg: #d9e8df; --muted: #7f978b; --hud: #6ef0b1; --warn: #ffb547; --danger: #ff5a4f; --o2: #59c3ff; --ammo: #ffd166;
+  --room: #16211d; --room-hi: #1f2f29;
+  --hud-font: "Chakra Petch", ui-monospace, monospace;
+  --ui: system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; color: var(--fg); font-family: var(--ui); font-size: 14px; min-height: 100vh; -webkit-tap-highlight-color: transparent;
+  background: radial-gradient(80% 50% at 50% 0%, #11221b, var(--bg) 70%); }
+body::after { content: ""; position: fixed; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, #ffffff05 0 1px, transparent 1px 3px); }
+.wrap { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 14px 190px; }
+h1, h2, h3 { margin: 0; font-weight: 800; text-wrap: balance; }
+button { font: inherit; cursor: pointer; color: inherit; }
+button:focus-visible { outline: 2px solid var(--hud); outline-offset: 2px; }
+.top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.top h1 { font-family: var(--hud-font); font-size: 1.5rem; color: var(--hud); letter-spacing: .12em; text-shadow: 0 0 12px #6ef0b155; }
+.top h1 small { display: block; font-family: var(--ui); font-size: .72rem; color: var(--muted); letter-spacing: .02em; text-shadow: none; font-weight: 400; }
+.pill { border: 1px solid var(--line); background: var(--bg2); border-radius: 999px; padding: 5px 12px; font-size: .82rem; }
+.hudrow { display: flex; gap: 6px; flex-wrap: wrap; }
+.st { background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; font-size: .78rem; color: var(--muted); }
+.st b { font-family: var(--hud-font); color: var(--fg); font-size: .9rem; }
+.st.warn b { color: var(--warn); } .st.bad { border-color: var(--danger); } .st.bad b { color: var(--danger); } .st.ok b { color: var(--hud); }
+
+.map { position: relative; width: 100%; max-width: 420px; margin: 0 auto; aspect-ratio: 5 / 5.4; background: #0d1512; border: 1px solid var(--line); border-radius: 14px;
+  background-image: linear-gradient(#ffffff06 1px, transparent 1px), linear-gradient(90deg, #ffffff06 1px, transparent 1px); background-size: 20px 20px; }
+.map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.room { position: absolute; width: 18%; height: 15.5%; transform: translate(-50%, -50%); border-radius: 9px; border: 1.5px solid var(--line); background: var(--room); padding: 3px 4px; display: flex; flex-direction: column; gap: 2px; overflow: hidden; font-size: .62rem; line-height: 1.15; text-align: left; }
+.room.unex { background: repeating-linear-gradient(45deg, #121a17 0 5px, #0f1714 5px 10px); color: var(--muted); }
+.room .rn { font-weight: 700; font-size: .66rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.room .ic { display: flex; flex-wrap: wrap; gap: 2px; }
+.room .ic i { font-style: normal; border-radius: 4px; padding: 0 3px; font-size: .58rem; font-weight: 700; }
+.room.here { border-color: var(--hud); box-shadow: 0 0 10px #6ef0b155; }
+.room.tgt { border-color: var(--warn); box-shadow: 0 0 0 2px var(--warn); cursor: pointer; animation: pulse 1.1s infinite; }
+.room.fire { background: linear-gradient(#ff5a4f33, #ff5a4f11), var(--room); }
+@keyframes pulse { 50% { box-shadow: 0 0 0 2px #ffb54755; } }
+.i-ali { background: var(--danger); color: #fff; } .i-noise { background: var(--warn); color: #241600; } .i-fire { background: #ff7b2e; color: #fff; } .i-o2 { background: var(--o2); color: #062233; } .i-mar { color: #0a0f0d; } .i-misc { background: #ffffff22; color: var(--fg); }
+
+.squad { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.mar { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 4px; font-size: .78rem; text-align: left; }
+.mar.act { border-color: var(--hud); box-shadow: 0 0 12px #6ef0b133; }
+.mar.out { opacity: .5; }
+.mar .nm { font-weight: 800; display: flex; gap: 6px; align-items: center; font-size: .85rem; }
+.dot { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; }
+.bars { display: flex; flex-direction: column; gap: 3px; }
+.barl { display: flex; align-items: center; gap: 5px; font-family: var(--hud-font); font-size: .72rem; }
+.barl span { width: 26px; color: var(--muted); }
+.pips { display: flex; gap: 2px; }
+.pips i { width: 9px; height: 7px; border-radius: 2px; background: #ffffff18; }
+.pips.hp i.on { background: var(--hud); } .pips.ammo i.on { background: var(--ammo); } .pips.o2 i.on { background: var(--o2); }
+.obj { color: var(--muted); font-size: .72rem; line-height: 1.35; }
+.obj b { color: var(--fg); }
+.obj .done { color: var(--hud); }
+
+.panel { background: var(--bg2); border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.panel h3 { font-size: .95rem; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.panel h3 small { font-weight: 400; color: var(--muted); font-size: .76rem; }
+.hand { display: flex; gap: 6px; overflow-x: auto; padding: 4px 2px; }
+.card { flex: 0 0 auto; width: 96px; min-height: 112px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg3); padding: 6px; display: flex; flex-direction: column; gap: 3px; text-align: left; font-size: .68rem; line-height: 1.3; position: relative; }
+.card b { font-size: .78rem; }
+.card .cost { position: absolute; top: 4px; right: 5px; font-family: var(--hud-font); background: var(--hud); color: #04120b; border-radius: 5px; padding: 0 5px; font-size: .7rem; }
+.card.basic { background: #17211d; } .card.basic b { color: var(--muted); }
+.card.special { border-color: #3b6b57; }
+.card.contam { background: repeating-linear-gradient(45deg, #2b1416 0 6px, #22100f 6px 12px); border-color: #6b2a27; color: #ff9b93; }
+.card.sel { box-shadow: 0 0 0 2px var(--warn); transform: translateY(-3px); }
+.card .play { margin-top: auto; border: 0; border-radius: 6px; background: var(--hud); color: #04120b; font-weight: 800; padding: 3px 0; font-size: .7rem; }
+.card .play:disabled { background: #2c3f37; color: var(--muted); }
+.acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.ab { border: 1px solid var(--line); background: var(--bg3); border-radius: 9px; padding: 8px 10px; font-size: .8rem; font-weight: 700; }
+.ab:disabled { opacity: .35; cursor: default; }
+.ab.hot { border-color: var(--hud); color: var(--hud); }
+.items { display: flex; gap: 6px; flex-wrap: wrap; }
+.item { border: 1px solid var(--line); background: var(--bg3); border-radius: 8px; padding: 5px 8px; font-size: .74rem; display: flex; gap: 6px; align-items: center; }
+.item.g { border-color: #2f7a52; } .item.y { border-color: #8a7a2a; } .item.r { border-color: #8a3a32; }
+.item button { border: 0; background: var(--hud); color: #04120b; border-radius: 5px; padding: 2px 6px; font-weight: 800; font-size: .7rem; }
+.item button:disabled { background: #2c3f37; color: var(--muted); }
+.log { display: flex; flex-direction: column; gap: 3px; font-size: .78rem; color: var(--muted); max-height: 220px; overflow-y: auto; font-family: var(--ui); }
+.log div:first-child { color: var(--fg); }
+
+.bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: #070b09f2; backdrop-filter: blur(6px); border-top: 1px solid var(--line);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-top: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+.bar .in { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+.bar .t { font-size: .9rem; line-height: 1.45; }
+.bar .t b { color: var(--hud); }
+.bar .hint { font-size: .78rem; color: var(--muted); line-height: 1.4; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border: 0; border-radius: 9px; padding: 10px 15px; font-weight: 800; background: var(--hud); color: #04120b; }
+.btn.alt { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+.btn.warn { background: var(--warn); color: #241600; }
+.btn:disabled { opacity: .35; cursor: default; }
+
+.modal { position: fixed; inset: 0; z-index: 30; background: #030605e6; display: flex; align-items: center; justify-content: center; padding: 16px; animation: fade .2s; }
+.sheet { background: var(--bg2); border: 1px solid var(--line); width: 100%; max-width: 480px; max-height: 88vh; overflow-y: auto; border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+.sheet h2 { font-family: var(--hud-font); color: var(--hud); font-size: 1.25rem; letter-spacing: .04em; }
+.sheet p { margin: 0; line-height: 1.6; }
+.sheet ul { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px; line-height: 1.5; font-size: .86rem; }
+.choice { border: 1px solid var(--line); background: var(--bg3); border-radius: 10px; padding: 10px; text-align: left; display: flex; flex-direction: column; gap: 3px; }
+.choice:hover { border-color: var(--hud); }
+.choice b { color: var(--hud); }
+@keyframes fade { from { opacity: 0; } }
+.dice { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 5px; background: var(--fg); color: var(--bg); font-family: var(--hud-font); font-weight: 700; margin: 0 2px; }
+.rules h3 { color: var(--hud); font-size: 1rem; margin-top: 6px; }
+.rules p { font-size: .88rem; }
+.tablewrap { overflow-x: auto; }
+table.t { width: 100%; border-collapse: collapse; font-size: .8rem; }
+table.t th, table.t td { padding: 5px 4px; border-bottom: 1px solid var(--line); text-align: left; }
+.setup { display: flex; flex-direction: column; gap: 14px; background: var(--bg2); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+.seg { display: inline-flex; border-radius: 9px; overflow: hidden; border: 1px solid var(--line); flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; padding: 7px 12px; font-size: .86rem; }
+.seg button.on { background: var(--hud); color: #04120b; font-weight: 800; }
+.classes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.cls { border: 1px solid var(--line); background: var(--bg3); border-radius: 10px; padding: 9px; text-align: left; display: flex; flex-direction: column; gap: 3px; font-size: .78rem; }
+.cls.on { border-color: var(--hud); box-shadow: 0 0 0 1px var(--hud); }
+.muted { color: var(--muted); } .small { font-size: .78rem; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
+</style>
+
+<div class="wrap" id="app"></div>
+<div class="bar" id="bar" hidden><div class="in" id="barIn"></div></div>
+
+<script>
+(() => {
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const rint = (n) => Math.floor(Math.random() * n);
+const pick = (a) => a[rint(a.length)];
+const d6 = () => rint(6) + 1;
+const dice = (n) => `<span class="dice">${n}</span>`;
+
+// ---------- data (self-designed where the rulebook gives no numbers) ----------
+const LAYOUT = [
+  { n: '降落區', x: 2, y: 4, fixed: 'land' },
+  { x: 1, y: 3 }, { x: 2, y: 3 }, { x: 3, y: 3 },
+  { x: 0, y: 2 }, { x: 1, y: 2 }, { x: 3, y: 2 }, { x: 4, y: 2 },
+  { x: 0, y: 1 }, { x: 2, y: 1 }, { x: 4, y: 1 },
+  { x: 0, y: 0, fixed: 'pod' }, { x: 4, y: 0, fixed: 'nest' }, { x: 2, y: 0 }, { x: 2, y: 2 },
+];
+const EDGES = [[0, 1], [0, 2], [0, 3], [1, 2], [2, 3], [1, 4], [1, 5], [2, 14], [3, 6], [3, 7], [4, 5], [5, 14], [14, 6], [6, 7], [4, 8], [5, 9], [14, 9], [6, 10], [7, 10], [8, 11], [9, 13], [8, 9], [11, 13], [13, 12], [10, 12]];
+const ROOMS = {
+  land: { n: '降落區', lv: 1, d: '小隊降落的地方。' },
+  pod: { n: '撤離艙', lv: 2, d: '第 6 回合起（或發出求救訊號後）可以在這裡撤離。', act: '撤離' },
+  nest: { n: '巢穴', lv: 2, d: '外星生物的巢穴，有 5 顆蛋。異形從這裡出現。', act: '破壞外星蛋' },
+  armory: { n: '彈藥庫', lv: 1, d: '把彈藥補滿。', act: '補滿彈藥' },
+  med: { n: '醫療站', lv: 1, d: '回復 2 生命，並移除手上所有污染卡（會顯示是否已被寄生）。', act: '治療與掃描' },
+  lab: { n: '實驗室', lv: 1, d: '交出組織樣本，每份解鎖一張弱點卡。', act: '分析樣本' },
+  store: { n: '倉庫', lv: 1, d: '搜索時拿 2 張物品。' },
+  comms: { n: '通訊中樞', lv: 2, d: '發送求救訊號：撤離艙立刻開放。', act: '發送訊號' },
+  boom: { n: '自爆控制室', lv: 2, d: '第 5 回合起可以啟動基地自爆：剩餘時間最多只剩 4 回合。', act: '啟動自爆' },
+  o2: { n: '氧氣站', lv: 1, d: '把氧氣補滿。', act: '補充氧氣' },
+  cam: { n: '監控室', lv: 1, d: '揭露 3 個還沒探索的房間。', act: '查看監視器' },
+  empty: { n: '空房間', lv: 1, d: '什麼都沒有。' },
+};
+const RANDOM_ROOMS = ['armory', 'med', 'lab', 'store', 'store', 'comms', 'boom', 'o2', 'cam', 'empty', 'empty', 'empty'];
+const ALIEN = {
+  larva: { n: '幼體', s: '幼', hp: 1, atk: [['寄生', 0, 1]] },
+  creeper: { n: '蠕行者', s: '蠕', hp: 2, atk: [['抓傷', 1, 0], ['毒刺', 1, 1], ['撲空', 0, 0]] },
+  adult: { n: '成體', s: '成', hp: 3, atk: [['撕咬', 2, 0], ['抓傷', 1, 0], ['毒刺', 1, 1], ['尖嘯', 0, 0, 'scream']] },
+  breeder: { n: '育種者', s: '育', hp: 4, atk: [['撕咬', 2, 0], ['毒刺', 1, 1], ['產卵', 0, 0, 'larva']] },
+  queen: { n: '暗夜女王', s: '后', hp: 7, atk: [['重擊', 3, 0], ['撕咬', 2, 1], ['召喚', 0, 0, 'creeper']] },
+};
+const CLASSES = {
+  sgt: { n: '中士', c: '#e0a23a', hp: 6, armor: 0, ammo: 4, maxAmmo: 6, d: '均衡的隊長，能指揮隊友。',
+    sp: [['精準射擊', 1, 'aim', '射擊一次，傷害 +2'], ['戰術指揮', 1, 'order', '另一名隊員抽 2 張牌'], ['腎上腺素', 1, 'adren', '這次啟動多 1 個行動'], ['鼓舞士氣', 2, 'rally', '所有隊員回復 1 生命']] },
+  heavy: { n: '重裝兵', c: '#d0503a', hp: 7, armor: 1, ammo: 5, maxAmmo: 8, d: '護甲 1，火力最強。',
+    sp: [['壓制火力', 1, 'double', '連續射擊 2 次'], ['火焰噴射', 2, 'flame', '房間內每隻異形受 2 傷，房間起火'], ['堅守陣地', 0, 'brace', '這回合護甲 +1'], ['戰地包紮', 1, 'patch', '回復 2 生命']] },
+  comms: { n: '通訊兵', c: '#3fa7d6', hp: 5, armor: 0, ammo: 3, maxAmmo: 5, d: '支援與修復專家。',
+    sp: [['遙控無人機', 1, 'drone', '對相鄰房間一隻異形造成 2 傷'], ['修復系統', 1, 'repair', '撲滅所在房間的火，基地毀損 -1'], ['補給分配', 1, 'supply', '同房間所有隊員彈藥 +2'], ['掃描', 0, 'scan', '揭露所有相鄰的未探索房間']] },
+  scout: { n: '偵察兵', c: '#5bbf7a', hp: 5, armor: 0, ammo: 3, maxAmmo: 5, d: '安靜又靈活。',
+    sp: [['潛行', 0, 'sneak', '移動到相鄰房間，不擲噪音、離開時不被攻擊'], ['快速搜索', 1, 'fsearch', '搜索（已搜過也可以），拿 2 張物品'], ['閃避', 1, 'dodge', '這回合下一次受到的攻擊無效'], ['偵察', 0, 'recon', '移除相鄰房間的噪音並揭露它們']] },
+};
+const ITEMS = [
+  ['醫療包', 'g', 'heal2', '回復 2 生命', 3], ['抗毒血清', 'g', 'serum', '移除 1 張污染卡', 2], ['氧氣罐', 'g', 'o2', '氧氣 +3', 3],
+  ['彈藥箱', 'y', 'ammo3', '彈藥 +3', 3], ['動作感測器', 'y', 'sensor', '揭露相鄰房間，下一次噪音擲骰無效', 2], ['滅火器', 'y', 'ext', '撲滅所在房間的火', 2],
+  ['手雷', 'r', 'grenade', '房間內每隻異形受 2 傷', 2], ['穿甲彈', 'r', 'ap', '下一次射擊傷害 +2', 2], ['興奮劑', 'r', 'stim', '這次啟動多 1 個行動', 2],
+];
+const OBJECTIVES = [
+  { k: 'eggs', n: '摧毀巢穴', d: '破壞 3 顆外星蛋', need: 3, val: (m) => m.eggs },
+  { k: 'sample', n: '樣本研究', d: '在實驗室交出 2 份組織樣本', need: 2, val: (m) => m.delivered },
+  { k: 'kill', n: '清剿行動', d: '親手擊殺 5 隻異形', need: 5, val: (m) => m.kills },
+  { k: 'signal', n: '求救訊號', d: '在通訊中樞發送求救訊號', need: 1, val: (m) => m.signal ? 1 : 0 },
+  { k: 'boom', n: '公司任務：抹除', d: '啟動基地自爆程序（第 5 回合起；之後全隊只剩 4 回合）', need: 1, val: (m) => m.boom ? 1 : 0 },
+  { k: 'queen', n: '女王獵殺', d: '擊殺暗夜女王，或擊殺 1 隻育種者並交 1 份樣本', need: 1, val: (m) => (m.killedQueen || (m.killedBreeder && m.delivered >= 1)) ? 1 : 0 },
+];
+const WEAK = [
+  { k: 'nerve', n: '神經中樞', d: '射擊傷害 +1' },
+  { k: 'fire', n: '怕火', d: '火焰、手雷、火災傷害 +1' },
+  { k: 'shell', n: '外殼裂縫', d: '近戰也能造成 +1 傷害，失手不會受傷' },
+];
+const EVENTS = [
+  ['電力中斷', '下回合每人手牌上限 4 張', 'power'], ['警報大作', '2 個已探索房間出現噪音', 'alarm'], ['通風管異響', '所有異形朝最近的隊員移動 1 步', 'hunt1'],
+  ['管線起火', '一個已探索房間起火', 'fire'], ['氧氣外洩', '一個房間變成缺氧', 'leak'], ['巢穴騷動', '巢穴出現 1 隻幼體', 'spawnLarva'],
+  ['短暫寂靜', '什麼都沒發生', 'calm'], ['獵殺本能', '所有異形朝最近的隊員移動 2 步', 'hunt2'], ['結構損傷', '基地毀損 +1', 'damage'], ['補給空投', '隨機一名隊員彈藥 +2', 'drop'],
+];
+const DIFF = { easy: { n: '簡單', time: 16, blank: 4 }, normal: { n: '普通', time: 14, blank: 3 }, hard: { n: '困難', time: 12, blank: 2 } };
+
+let S = null, UI = {}, setupCfg = null, uid = 1;
+const M = (i) => S.marines[i];
+const alive = (m) => !m.dead && !m.escaped;
+function log(t) { S.log.unshift(t); if (S.log.length > 150) S.log.pop(); }
+const neighbors = (r) => EDGES.filter(e => e.includes(r)).map(e => e[0] === r ? e[1] : e[0]);
+const aliensIn = (r) => S.aliens.filter(a => a.room === r);
+const marinesIn = (r) => S.marines.filter(m => alive(m) && m.room === r);
+const hasWeak = (k) => S.weak.includes(k);
+
+// ---------- setup ----------
+function mkCard(name, kind, cost = 0, fx = null, text = '') { return { id: uid++, name, kind, cost, fx, text }; }
+function newGame(cfg) {
+  const types = shuffle(RANDOM_ROOMS.slice());
+  const rooms = LAYOUT.map((l, i) => ({ id: i, x: l.x, y: l.y, type: l.fixed || null, explored: l.fixed === 'land', searched: false, fire: false, noise: false, o2low: false, eggs: 0, carcass: 0, known: l.fixed === 'land' || l.fixed === 'pod' }));
+  rooms.forEach(r => { if (!r.type) r.type = types.pop(); });
+  rooms.find(r => r.type === 'nest').eggs = 5;
+  shuffle(rooms.filter(r => !['land', 'pod', 'o2'].includes(r.type))).slice(0, 3).forEach(r => r.o2low = true);
+  const D = DIFF[cfg.diff];
+  S = { rooms, aliens: [], round: 0, time: D.time, diff: cfg.diff, destruction: 0, weak: [], weakDeck: shuffle(WEAK.slice()), boom: false, signal: false, power: false,
+    bag: [...Array(D.blank).fill('blank'), 'larva', 'larva', 'larva', 'creeper', 'creeper', 'creeper', 'adult', 'adult', 'breeder', ...(cfg.diff === 'hard' ? ['adult'] : [])],
+    items: shuffle(ITEMS.flatMap(([n, c, fx, d, k]) => Array.from({ length: k }, () => ({ id: uid++, n, c, fx, d })))),
+    log: [], phase: 'obj', active: 0, acts: 0, over: false, objIdx: 0, queenAdded: false,
+    marines: cfg.classes.map((k, i) => { const C = CLASSES[k];
+      const deck = shuffle([...Array(6)].map(() => mkCard('戰術動作', 'basic', 0, null, '可以拿來支付行動')).concat(C.sp.map(([n, c, fx, t]) => mkCard(n, 'special', c, fx, t))));
+      return { idx: i, k, name: C.n, color: C.c, hp: C.hp, maxHp: C.hp, armor: C.armor, ammo: C.ammo, maxAmmo: C.maxAmmo, o2: 6, maxO2: 6, room: 0, deck, hand: [], discard: [], items: [],
+        samples: 0, delivered: 0, kills: 0, eggs: 0, signal: false, boom: false, killedQueen: false, killedBreeder: false, objective: null, objChoices: [], passed: false, dead: false, escaped: false, brace: 0, dodge: false, ap: 0, sensor: false, bonusActs: 0, cause: '' }; }),
+  };
+  const objs = shuffle(OBJECTIVES.slice());
+  S.marines.forEach((m, i) => { m.objChoices = [objs[(i * 2) % objs.length], objs[(i * 2 + 1) % objs.length]]; });
+  log(`作戰開始：${S.marines.length} 名陸戰隊員降落在外星基地。難度「${D.n}」，剩餘時間 ${S.time} 回合。`);
+}
+
+// ---------- core helpers ----------
+function drawTo(m, n) {
+  while (m.hand.length < n) {
+    if (!m.deck.length) { if (!m.discard.length) break; m.deck = shuffle(m.discard); m.discard = []; }
+    m.hand.push(m.deck.pop());
+  }
+}
+function contaminate(m) { m.discard.push({ ...mkCard('污染', 'contam', 0, null, '無法使用'), infected: Math.random() < 0.35 }); }
+function damage(m, n, why) {
+  if (n <= 0 || !alive(m)) return;
+  m.hp -= n;
+  if (m.hp <= 0) { m.hp = 0; m.dead = true; m.cause = why; log(`💀 ${m.name} 陣亡（${why}）`); }
+}
+function spawn(type, room) { const a = { id: uid++, type, hp: ALIEN[type].hp, room }; S.aliens.push(a); return a; }
+function explore(r) {
+  const room = S.rooms[r];
+  if (room.explored) return;
+  room.explored = true; room.known = true;
+  log(`探索了「${ROOMS[room.type].n}」${room.o2low ? '（缺氧！）' : ''}`);
+  if (room.type === 'nest' && !aliensIn(r).length) { spawn('larva', r); log('巢穴裡爬出一隻幼體！'); }
+}
+function encounter(r, m) {
+  const t = pick(S.bag);
+  if (t === 'blank') { log('虛驚一場，什麼都沒出現。'); return; }
+  const a = spawn(t, r);
+  log(`⚠ 遭遇！${ALIEN[t].n} 從陰影中衝出來！`);
+  if (m && t !== 'larva' && Math.random() < 0.5) { attack(a, m, '突襲'); }
+}
+function noiseRoll(r, m) {
+  if (m && m.sensor) { m.sensor = false; log('動作感測器：這次沒有發出噪音。'); return; }
+  const room = S.rooms[r], v = d6();
+  if (v <= 3) { log(`噪音擲骰 ${v}：安靜。`); return; }
+  if (v <= 5) {
+    if (room.noise) { room.noise = false; log(`噪音擲骰 ${v}：這裡已經有噪音……`); encounter(r, m); }
+    else { room.noise = true; log(`噪音擲骰 ${v}：發出了噪音。`); }
+    return;
+  }
+  const near = S.aliens.filter(a => neighbors(r).includes(a.room) && !marinesIn(a.room).length);
+  if (near.length) { near.forEach(a => a.room = r); log(`噪音擲骰 ${v}：危險！附近的異形被吸引過來（${near.length} 隻）。`); }
+  else { room.noise = true; log(`噪音擲骰 ${v}：危險！但附近沒有異形，留下噪音。`); }
+}
+function attack(a, m, label = '') {
+  if (!alive(m)) return;
+  if (m.dodge) { m.dodge = false; log(`${m.name} 閃過了${ALIEN[a.type].n}的攻擊！`); return; }
+  const [nme, dmg, con, sp] = pick(ALIEN[a.type].atk);
+  const real = Math.max(0, dmg - m.armor - m.brace);
+  let t = `${label}${ALIEN[a.type].n}「${nme}」${m.name}`;
+  if (dmg) t += `：${real} 傷害`;
+  if (con) { contaminate(m); t += '，加 1 張污染卡'; }
+  if (sp === 'scream') { neighbors(a.room).forEach(r => { if (S.rooms[r].explored) S.rooms[r].noise = true; }); t += '，附近房間出現噪音'; }
+  if (sp === 'larva') { spawn('larva', a.room); t += '，產下一隻幼體'; }
+  if (sp === 'creeper') { spawn('creeper', a.room); t += '，召喚了蠕行者'; }
+  log(t);
+  damage(m, real, ALIEN[a.type].n);
+}
+function hit(m, a, dmg, how) {
+  a.hp -= dmg;
+  if (a.hp <= 0) {
+    S.aliens = S.aliens.filter(x => x !== a);
+    S.rooms[a.room].carcass++;
+    if (m) { m.kills++; if (a.type === 'queen') m.killedQueen = true; if (a.type === 'breeder') m.killedBreeder = true; }
+    log(`${how}：擊殺了${ALIEN[a.type].n}！（留下屍體，可以採集樣本）`);
+  } else log(`${how}：${ALIEN[a.type].n}受到 ${dmg} 傷害（剩 ${a.hp}）`);
+}
+const targetIn = (r) => aliensIn(r).sort((x, y) => x.hp - y.hp)[0];
+function shoot(m, bonus = 0) {
+  const a = targetIn(m.room); if (!a || m.ammo <= 0) return;
+  m.ammo--;
+  const v = d6();
+  let dmg = v <= 2 ? 0 : v <= 4 ? 1 : 2;
+  if (dmg) dmg += bonus + (hasWeak('nerve') ? 1 : 0) + (m.ap ? 2 : 0);
+  if (m.ap) m.ap = 0;
+  if (!dmg) { log(`${m.name} 射擊 ${v}：沒打中。`); return; }
+  hit(m, a, dmg, `${m.name} 射擊 ${v}`);
+}
+function melee(m) {
+  const a = targetIn(m.room); if (!a) return;
+  const v = d6();
+  if (v <= 2) {
+    log(`${m.name} 近戰 ${v}：失手！`);
+    if (!hasWeak('shell')) { damage(m, 1, '近戰失手'); contaminate(m); log(`${m.name} 被反擊：1 傷害並加 1 張污染卡`); }
+    return;
+  }
+  hit(m, a, (v <= 4 ? 1 : 2) + (hasWeak('shell') ? 1 : 0), `${m.name} 近戰 ${v}`);
+}
+function leaveRoom(m, sneak) {
+  const as = aliensIn(m.room);
+  if (as.length && !sneak) { const a = as.sort((x, y) => ALIEN[y.type].hp - ALIEN[x.type].hp)[0]; attack(a, m, '撤退時被'); }
+}
+function moveTo(m, r, sneak) {
+  leaveRoom(m, sneak);
+  if (!alive(m)) return;
+  m.room = r;
+  const room = S.rooms[r];
+  log(`${m.name} 移動到「${room.explored ? ROOMS[room.type].n : '未知房間'}」`);
+  explore(r);
+  if (!sneak) noiseRoll(r, m);
+}
+const podsOpen = () => S.round >= 6 || S.signal;
+function drawItems(m, k) {
+  for (let i = 0; i < k; i++) {
+    if (!S.items.length) { log('物品堆已經被搜光了。'); return; }
+    const it = S.items.pop();
+    if (m.items.length >= 4) { log(`${m.name} 找到「${it.n}」，但背包滿了，只好放下。`); continue; }
+    m.items.push(it); log(`${m.name} 找到「${it.n}」`);
+  }
+}
+function revealAround(r, n = 99) { neighbors(r).filter(x => !S.rooms[x].known).slice(0, n).forEach(x => { S.rooms[x].known = true; }); }
+
+// ---------- actions ----------
+function payable(m) { return m.hand.filter(c => c.kind !== 'contam'); }
+function canAct(m) { return alive(m) && !m.passed && (payable(m).length > 0 || m.items.length > 0); }
+const BASIC = {
+  move: { n: '移動', ok: (m) => true, target: 'adj' },
+  shoot: { n: '射擊', ok: (m) => m.ammo > 0 && aliensIn(m.room).length > 0 },
+  melee: { n: '近戰', ok: (m) => aliensIn(m.room).length > 0 },
+  search: { n: '搜索', ok: (m) => !S.rooms[m.room].searched && !aliensIn(m.room).length && S.items.length > 0 },
+  reload: { n: '裝填', ok: (m) => m.ammo < m.maxAmmo },
+  sample: { n: '採集樣本', ok: (m) => S.rooms[m.room].carcass > 0 },
+  room: { n: '房間行動', ok: (m) => roomActOk(m) },
+};
+function roomActOk(m) {
+  const r = S.rooms[m.room];
+  switch (r.type) {
+    case 'pod': return podsOpen();
+    case 'nest': return r.eggs > 0;
+    case 'armory': return m.ammo < m.maxAmmo;
+    case 'med': return m.hp < m.maxHp || m.hand.some(c => c.kind === 'contam');
+    case 'lab': return m.samples > 0;
+    case 'comms': return !S.signal;
+    case 'boom': return !S.boom && S.round >= 5;
+    case 'o2': return m.o2 < m.maxO2;
+    case 'cam': return S.rooms.some(x => !x.known);
+  }
+  return false;
+}
+function roomAct(m) {
+  const r = S.rooms[m.room];
+  switch (r.type) {
+    case 'pod': {
+      m.escaped = true;
+      const infected = [...m.hand, ...m.deck, ...m.discard].filter(c => c.kind === 'contam');
+      const bad = infected.filter(c => c.infected).length;
+      if (bad) { m.escaped = false; m.dead = true; m.hp = 0; m.cause = '撤離後被幼體破胸'; log(`🚀 ${m.name} 登上撤離艙……但體內的幼體破胸而出！（${infected.length} 張污染卡中有 ${bad} 張被寄生）`); }
+      else log(`🚀 ${m.name} 成功撤離！${infected.length ? `（${infected.length} 張污染卡都沒有被寄生）` : ''}`);
+      break;
+    }
+    case 'nest': r.eggs--; m.eggs++; log(`${m.name} 破壞了一顆外星蛋（剩 ${r.eggs} 顆）`); noiseRoll(m.room, null); break;
+    case 'armory': m.ammo = m.maxAmmo; log(`${m.name} 在彈藥庫補滿彈藥`); break;
+    case 'med': {
+      m.hp = Math.min(m.maxHp, m.hp + 2);
+      const cs = m.hand.filter(c => c.kind === 'contam'); m.hand = m.hand.filter(c => c.kind !== 'contam');
+      log(`${m.name} 在醫療站治療 +2${cs.length ? `，掃描移除 ${cs.length} 張污染卡（${cs.filter(c => c.infected).length} 張已被寄生，幸好及時處理）` : ''}`);
+      break;
+    }
+    case 'lab': {
+      const k = m.samples; m.samples = 0; m.delivered += k;
+      for (let i = 0; i < k; i++) { const w = S.weakDeck.pop(); if (w) { S.weak.push(w.k); log(`🔬 解鎖弱點：「${w.n}」—${w.d}`); } }
+      log(`${m.name} 交出 ${k} 份樣本`);
+      break;
+    }
+    case 'comms': S.signal = true; m.signal = true; log(`📡 ${m.name} 發出求救訊號！撤離艙開放。`); break;
+    case 'boom': S.boom = true; m.boom = true; S.time = Math.min(S.time, 4); log(`💣 ${m.name} 啟動了基地自爆！剩下 ${S.time} 回合！`); break;
+    case 'o2': m.o2 = m.maxO2; log(`${m.name} 補滿氧氣`); break;
+    case 'cam': shuffle(S.rooms.filter(x => !x.known)).slice(0, 3).forEach(x => x.known = true); log(`${m.name} 從監視器看到了 3 個房間`); break;
+  }
+}
+function spend(m, idx) { const c = m.hand.splice(idx, 1)[0]; if (c) m.discard.push(c); }
+function autoPay(m, n, exclude) {
+  const order = m.hand.map((c, k) => [c, k]).filter(([c, k]) => k !== exclude && c.kind !== 'contam').sort((a, b) => (a[0].kind === 'basic' ? 0 : 1) - (b[0].kind === 'basic' ? 0 : 1));
+  return order.length >= n ? order.slice(0, n).map(x => x[1]) : null;
+}
+function afterAction(m) {
+  m.bonusActs = m.bonusActs || 0;
+  S.acts++;
+  UI = {};
+  checkEnd();
+  if (S.over) return;
+  if (!alive(m) || S.acts >= 2 + m.bonusActs || !canAct(m)) endActivation();
+}
+function doBasic(key, target) {
+  const m = M(S.active), k = UI.pay;
+  if (k == null || !m.hand[k] || m.hand[k].kind === 'contam') return;
+  spend(m, k);
+  switch (key) {
+    case 'move': moveTo(m, target, false); break;
+    case 'shoot': shoot(m); break;
+    case 'melee': melee(m); break;
+    case 'search': { const r = S.rooms[m.room]; r.searched = true; drawItems(m, r.type === 'store' ? 2 : 1); break; }
+    case 'reload': m.ammo = Math.min(m.maxAmmo, m.ammo + 2); log(`${m.name} 裝填彈藥（${m.ammo}）`); break;
+    case 'sample': S.rooms[m.room].carcass--; m.samples++; log(`${m.name} 採集了一份組織樣本`); break;
+    case 'room': roomAct(m); break;
+  }
+  afterAction(m);
+}
+function specialOk(m, c) {
+  switch (c.fx) {
+    case 'aim': case 'double': return m.ammo > (c.fx === 'double' ? 0 : 0) && aliensIn(m.room).length > 0;
+    case 'flame': return aliensIn(m.room).length > 0;
+    case 'order': return S.marines.some(x => x !== m && alive(x));
+    case 'patch': return m.hp < m.maxHp;
+    case 'rally': return S.marines.some(x => alive(x) && x.hp < x.maxHp);
+    case 'drone': return neighbors(m.room).some(r => aliensIn(r).length);
+    case 'repair': return S.rooms[m.room].fire || S.destruction > 0;
+    case 'supply': return marinesIn(m.room).some(x => x.ammo < x.maxAmmo);
+    case 'scan': case 'recon': return neighbors(m.room).some(r => !S.rooms[r].known || S.rooms[r].noise);
+    case 'fsearch': return !aliensIn(m.room).length && S.items.length > 0;
+    default: return true;
+  }
+}
+function playSpecial(idx, target) {
+  const m = M(S.active), c = m.hand[idx];
+  const pay = autoPay(m, c.cost, idx);
+  if (!pay) return;
+  const all = [idx, ...pay].sort((a, b) => b - a);
+  all.forEach(k => spend(m, k));
+  log(`${m.name} 使用「${c.name}」`);
+  switch (c.fx) {
+    case 'aim': shoot(m, 2); break;
+    case 'double': shoot(m); if (aliensIn(m.room).length && m.ammo > 0) shoot(m); break;
+    case 'flame': aliensIn(m.room).slice().forEach(a => hit(m, a, 2 + (hasWeak('fire') ? 1 : 0), '火焰噴射')); S.rooms[m.room].fire = true; log('房間起火了！'); break;
+    case 'brace': m.brace = 1; log(`${m.name} 護甲 +1（本回合）`); break;
+    case 'patch': m.hp = Math.min(m.maxHp, m.hp + 2); break;
+    case 'order': { const o = S.marines.filter(x => x !== m && alive(x)).sort((a, b) => a.hand.length - b.hand.length)[0]; drawTo(o, o.hand.length + 2); log(`${o.name} 抽了 2 張牌`); break; }
+    case 'adren': m.bonusActs = (m.bonusActs || 0) + 1; break;
+    case 'rally': S.marines.filter(alive).forEach(x => x.hp = Math.min(x.maxHp, x.hp + 1)); break;
+    case 'drone': { const a = target != null ? targetIn(target) : null; if (a) hit(m, a, 2, '無人機'); break; }
+    case 'repair': S.rooms[m.room].fire = false; S.destruction = Math.max(0, S.destruction - 1); log('火被撲滅，基地毀損 -1'); break;
+    case 'supply': marinesIn(m.room).forEach(x => x.ammo = Math.min(x.maxAmmo, x.ammo + 2)); break;
+    case 'scan': revealAround(m.room); log('揭露了相鄰房間'); break;
+    case 'recon': neighbors(m.room).forEach(r => { S.rooms[r].noise = false; S.rooms[r].known = true; }); log('清除了附近的噪音，並看清相鄰房間'); break;
+    case 'sneak': moveTo(m, target, true); break;
+    case 'fsearch': S.rooms[m.room].searched = true; drawItems(m, 2); break;
+    case 'dodge': m.dodge = true; log(`${m.name} 準備閃避`); break;
+  }
+  afterAction(m);
+}
+function itemOk(m, it) {
+  switch (it.fx) {
+    case 'heal2': return m.hp < m.maxHp;
+    case 'serum': return [...m.hand, ...m.deck, ...m.discard].some(c => c.kind === 'contam');
+    case 'o2': return m.o2 < m.maxO2;
+    case 'ammo3': return m.ammo < m.maxAmmo;
+    case 'ext': return S.rooms[m.room].fire;
+    case 'grenade': return aliensIn(m.room).length > 0;
+    case 'ap': return !m.ap;
+    default: return true;
+  }
+}
+function useItem(id) {
+  const m = M(S.active), k = m.items.findIndex(x => x.id === id), it = m.items[k];
+  if (!it || !itemOk(m, it)) return;
+  m.items.splice(k, 1);
+  log(`${m.name} 使用「${it.n}」`);
+  switch (it.fx) {
+    case 'heal2': m.hp = Math.min(m.maxHp, m.hp + 2); break;
+    case 'serum': { for (const pile of [m.hand, m.discard, m.deck]) { const j = pile.findIndex(c => c.kind === 'contam'); if (j >= 0) { pile.splice(j, 1); break; } } log('移除了 1 張污染卡'); break; }
+    case 'o2': m.o2 = Math.min(m.maxO2, m.o2 + 3); break;
+    case 'ammo3': m.ammo = Math.min(m.maxAmmo, m.ammo + 3); break;
+    case 'sensor': revealAround(m.room); m.sensor = true; break;
+    case 'ext': S.rooms[m.room].fire = false; break;
+    case 'grenade': aliensIn(m.room).slice().forEach(a => hit(m, a, 2 + (hasWeak('fire') ? 1 : 0), '手雷')); break;
+    case 'ap': m.ap = 1; break;
+    case 'stim': m.bonusActs = (m.bonusActs || 0) + 1; break;
+  }
+  afterAction(m);
+}
+
+// ---------- flow ----------
+function startRound() {
+  S.round++;
+  const lim = S.power ? 4 : 5; S.power = false;
+  if (S.round === 6 && !S.queenAdded) { S.bag.push('queen'); S.queenAdded = true; log('外星袋中多了女王的氣息……'); }
+  S.marines.forEach(m => {
+    if (!alive(m)) return;
+    m.passed = false; m.brace = 0; m.dodge = false; m.bonusActs = 0;
+    drawTo(m, lim);
+    if (S.rooms[m.room].o2low) {
+      if (m.o2 > 0) { m.o2--; log(`${m.name} 在缺氧房間：氧氣 -1（剩 ${m.o2}）`); }
+      else { log(`${m.name} 氧氣耗盡！`); damage(m, 1, '窒息'); }
+    }
+  });
+  S.phase = 'player'; S.acts = 0;
+  S.active = S.marines.findIndex(canAct);
+  log(`—— 第 ${S.round} 回合・玩家階段（剩 ${S.time} 回合）——`);
+  if (S.active < 0) envPhase();
+  checkEnd();
+}
+function endActivation() {
+  S.acts = 0; UI = {};
+  const n = S.marines.length;
+  for (let k = 1; k <= n; k++) {
+    const j = (S.active + k) % n, m = M(j);
+    if (!alive(m) || m.passed) continue;
+    if (!canAct(m)) { m.passed = true; continue; }
+    S.active = j; M(j).bonusActs = 0; render(); return;
+  }
+  envPhase();
+}
+function passMarine() { const m = M(S.active); m.passed = true; log(`${m.name} 這回合不再行動`); endActivation(); }
+function stepToward(a, steps) {
+  for (let s = 0; s < steps; s++) {
+    if (marinesIn(a.room).length) return;
+    const targets = new Set(S.marines.filter(alive).map(m => m.room));
+    const prev = { [a.room]: null }, q = [a.room]; let found = null;
+    while (q.length && found == null) { const r = q.shift(); for (const n of neighbors(r)) if (!(n in prev)) { prev[n] = r; if (targets.has(n)) { found = n; break; } q.push(n); } }
+    if (found == null) return;
+    let r = found; while (prev[r] !== a.room) r = prev[r];
+    a.room = r;
+  }
+}
+function envPhase() {
+  S.phase = 'env';
+  const before = S.log.length;
+  log(`—— 第 ${S.round} 回合・遭遇與環境階段 ——`);
+  S.time--;
+  log(`⏱ 時間推進：剩 ${S.time} 回合`);
+  // attacks
+  S.aliens.slice().forEach(a => { const ms = marinesIn(a.room); if (ms.length) attack(a, pick(ms)); });
+  // fire
+  S.rooms.filter(r => r.fire).forEach(r => {
+    marinesIn(r.id).forEach(m => { log(`🔥 ${m.name} 被火燒傷`); damage(m, 1, '火災'); });
+    aliensIn(r.id).slice().forEach(a => hit(null, a, 1 + (hasWeak('fire') ? 1 : 0), `🔥 火災`));
+    if (Math.random() < 0.3) { const n = pick(neighbors(r.id).filter(x => S.rooms[x].explored)); if (n != null && !S.rooms[n].fire) { S.rooms[n].fire = true; log(`🔥 火勢蔓延到「${ROOMS[S.rooms[n].type].n}」`); } }
+  });
+  // event
+  const [en, ed, ek] = pick(EVENTS);
+  log(`📋 事件「${en}」：${ed}`);
+  const explored = S.rooms.filter(r => r.explored);
+  switch (ek) {
+    case 'power': S.power = true; break;
+    case 'alarm': shuffle(explored.slice()).slice(0, 2).forEach(r => r.noise = true); break;
+    case 'hunt1': S.aliens.forEach(a => stepToward(a, 1)); break;
+    case 'hunt2': S.aliens.forEach(a => stepToward(a, 2)); break;
+    case 'fire': { const r = pick(explored.filter(r => r.type !== 'pod')); if (r) r.fire = true; break; }
+    case 'leak': { const r = pick(S.rooms.filter(r => !r.o2low && !['o2', 'pod'].includes(r.type))); if (r) r.o2low = true; break; }
+    case 'spawnLarva': spawn('larva', S.rooms.find(r => r.type === 'nest').id); break;
+    case 'damage': S.destruction++; break;
+    case 'drop': { const m = pick(S.marines.filter(alive)); if (m) m.ammo = Math.min(m.maxAmmo, m.ammo + 2); break; }
+  }
+  // roaming: aliens not fighting drift toward marines
+  S.aliens.forEach(a => { if (!marinesIn(a.room).length && Math.random() < 0.5) stepToward(a, 1); });
+  // bag development
+  const nest = S.rooms.find(r => r.type === 'nest').id;
+  const t = pick(S.bag);
+  if (t === 'blank') { S.bag.push('adult'); log('👾 外星袋：巢穴的警戒升高（袋中多了一個成體）'); }
+  else if (t === 'larva') { S.bag.splice(S.bag.indexOf('larva'), 1); S.bag.push('adult'); log('👾 外星袋：一隻幼體長大了（袋中幼體變成成體）'); }
+  else if (t === 'creeper') { spawn('creeper', nest); log('👾 外星袋：巢穴爬出一隻蠕行者'); }
+  else if (t === 'adult') { shuffle(explored.slice()).slice(0, 2).forEach(r => r.noise = true); log('👾 外星袋：基地各處傳來聲響（2 個房間出現噪音）'); }
+  else if (t === 'breeder') { if (!S.aliens.some(a => a.type === 'breeder')) { spawn('breeder', nest); log('👾 外星袋：育種者出現在巢穴！'); } else log('👾 外星袋：育種者在巢穴深處蠕動'); }
+  else if (t === 'queen') { if (!S.aliens.some(a => a.type === 'queen')) { spawn('queen', nest); log('👾 外星袋：暗夜女王現身了！'); } else log('👾 外星袋：女王在怒吼'); }
+  S.aliens.filter(a => a.type === 'breeder' || a.type === 'queen').forEach(a => { if (Math.random() < 0.5) { spawn('larva', a.room); log(`${ALIEN[a.type].n}產下了一隻幼體`); } });
+  S.destruction = Math.max(S.destruction, 0);
+  const fires = S.rooms.filter(r => r.fire).length;
+  S.envLines = S.log.slice(0, S.log.length - before).reverse();
+  if (S.destruction + fires >= 8) { S.collapse = true; }
+  checkEnd();
+  render();
+}
+function checkEnd() {
+  if (S.over) return;
+  let why = null;
+  if (S.collapse) why = '基地崩塌！太多火災和結構毀損';
+  else if (S.time <= 0) why = S.boom ? '基地自爆了！' : '時間耗盡，基地大門永久鎖死';
+  if (why) S.marines.forEach(m => { if (alive(m)) { m.dead = true; m.cause = why; } });
+  if (why || S.marines.every(m => !alive(m))) { S.over = true; S.endWhy = why || (S.marines.some(m => m.escaped) ? '所有存活的隊員都已撤離' : '全隊陣亡'); S.phase = 'over'; log(`作戰結束：${S.endWhy}`); }
+}
+const objDone = (m) => m.objective && m.objective.val(m) >= m.objective.need;
+
+// ---------- rendering ----------
+function pips(n, max, cls) { return `<span class="pips ${cls}">${Array.from({ length: max }, (_, k) => `<i class="${k < n ? 'on' : ''}"></i>`).join('')}</span>`; }
+function roomLabel(r) { return r.explored || r.known ? ROOMS[r.type].n : '？未探索'; }
+function render() {
+  if (!S) return renderSetup();
+  const app = $('#app');
+  const m = S.phase === 'player' && S.active >= 0 ? M(S.active) : null;
+  const tgtMode = UI.mode; // 'move' | 'sneak' | 'drone'
+  const tgts = new Set();
+  if (m && tgtMode) neighbors(m.room).forEach(r => { if (tgtMode !== 'drone' || aliensIn(r).length) tgts.add(r); });
+  const fires = S.rooms.filter(r => r.fire).length;
+  const W = 5, H = 5;
+  const px = (x) => 10 + x * 20, py = (y) => 9 + y * 20.5;
+  app.innerHTML = `
+  <div class="top"><h1>異形巢穴<small>復仇女神號：反擊 規則・自製版</small></h1><div style="display:flex;gap:6px"><button class="pill" id="rulesBtn">規則</button><button class="pill" id="quitBtn">重新開始</button></div></div>
+  <div class="hudrow">
+    <span class="st">回合 <b>${S.round}</b></span>
+    <span class="st ${S.time <= 3 ? 'bad' : S.time <= 5 ? 'warn' : ''}">剩餘時間 <b>${S.time}</b></span>
+    <span class="st ${S.destruction + fires >= 6 ? 'bad' : ''}">基地毀損 <b>${S.destruction + fires}</b>/8</span>
+    <span class="st ${podsOpen() ? 'ok' : ''}">撤離艙 <b>${podsOpen() ? '開放' : '第6回合'}</b></span>
+    ${S.boom ? '<span class="st bad">自爆 <b>啟動</b></span>' : ''}
+    <span class="st">弱點 <b>${S.weak.length}</b>${S.weak.length ? '：' + S.weak.map(k => WEAK.find(w => w.k === k).n).join('、') : ''}</span>
+  </div>
+  <div class="map" id="map">
+    <svg viewBox="0 0 100 108" preserveAspectRatio="none">${EDGES.map(([a, b]) => { const A = S.rooms[a], B = S.rooms[b]; return `<line x1="${px(A.x)}" y1="${py(A.y) * 108 / 108}" x2="${px(B.x)}" y2="${py(B.y)}" stroke="#2c3f37" stroke-width="1.6"/>`; }).join('')}</svg>
+    ${S.rooms.map(r => {
+      const as = aliensIn(r.id), ms = marinesIn(r.id);
+      const counts = {}; as.forEach(a => counts[a.type] = (counts[a.type] || 0) + 1);
+      const ic = [];
+      Object.entries(counts).forEach(([t, k]) => ic.push(`<i class="i-ali">${ALIEN[t].s}${k > 1 ? k : ''}</i>`));
+      ms.forEach(x => ic.push(`<i class="i-mar" style="background:${x.color}">${x.name[0]}</i>`));
+      if (r.noise) ic.push('<i class="i-noise">噪</i>');
+      if (r.fire) ic.push('<i class="i-fire">火</i>');
+      if (r.o2low && (r.explored || r.known)) ic.push('<i class="i-o2">缺氧</i>');
+      if (r.type === 'nest' && r.explored) ic.push(`<i class="i-misc">蛋${r.eggs}</i>`);
+      if (r.carcass) ic.push(`<i class="i-misc">屍${r.carcass}</i>`);
+      if (r.searched) ic.push('<i class="i-misc">已搜</i>');
+      const here = m && m.room === r.id;
+      return `<div class="room ${r.explored ? '' : 'unex'} ${here ? 'here' : ''} ${tgts.has(r.id) ? 'tgt' : ''} ${r.fire ? 'fire' : ''}" style="left:${px(r.x)}%;top:${py(r.y) / 1.08}%" data-room="${r.id}" ${tgts.has(r.id) ? 'role="button" tabindex="0"' : ''}><span class="rn">${esc(roomLabel(r))}</span><span class="ic">${ic.join('')}</span></div>`;
+    }).join('')}
+  </div>
+  <div class="squad">${S.marines.map((x, i) => `<div class="mar ${m === x ? 'act' : ''} ${alive(x) ? '' : 'out'}">
+    <span class="nm"><span class="dot" style="background:${x.color}"></span>${x.name}${x.dead ? ' 💀' : x.escaped ? ' 🚀' : x.passed && S.phase === 'player' ? ' <span class="small muted">已過</span>' : ''}</span>
+    <div class="bars"><span class="barl"><span>HP</span>${pips(x.hp, x.maxHp, 'hp')}</span><span class="barl"><span>彈</span>${pips(x.ammo, x.maxAmmo, 'ammo')}</span><span class="barl"><span>O₂</span>${pips(x.o2, x.maxO2, 'o2')}</span></div>
+    <span class="small muted">手牌 ${x.hand.length}・污染 ${[...x.hand, ...x.deck, ...x.discard].filter(c => c.kind === 'contam').length}・樣本 ${x.samples}・物品 ${x.items.length}${x.armor ? '・護甲 ' + x.armor : ''}</span>
+    ${x.objective ? `<span class="obj">目標：<b>${x.objective.n}</b> ${Math.min(x.objective.val(x), x.objective.need)}/${x.objective.need} ${objDone(x) ? '<span class="done">✓</span>' : ''}</span>` : ''}
+  </div>`).join('')}</div>
+  ${m ? activePanel(m) : ''}
+  <div class="panel"><h3>作戰紀錄</h3><div class="log">${S.log.map(l => `<div>${esc(l)}</div>`).join('')}</div></div>`;
+  $('#rulesBtn').onclick = showRules; $('#quitBtn').onclick = confirmQuit;
+  app.querySelectorAll('.room.tgt').forEach(el => el.onclick = () => {
+    const r = +el.dataset.room;
+    if (UI.mode === 'move') doBasic('move', r);
+    else playSpecial(UI.specialIdx, r);
+    render();
+  });
+  app.querySelectorAll('[data-card]').forEach(b => b.onclick = () => { const k = +b.dataset.card; UI.pay = UI.pay === k ? null : k; UI.mode = null; render(); });
+  app.querySelectorAll('[data-play]').forEach(b => b.onclick = (e) => {
+    e.stopPropagation(); const k = +b.dataset.play, c = M(S.active).hand[k];
+    if (['drone', 'sneak'].includes(c.fx)) { UI.mode = c.fx; UI.specialIdx = k; render(); return; }
+    playSpecial(k); render();
+  });
+  app.querySelectorAll('[data-act]').forEach(b => b.onclick = () => {
+    const k = b.dataset.act;
+    if (k === 'move') { UI.mode = UI.mode === 'move' ? null : 'move'; render(); return; }
+    doBasic(k); render();
+  });
+  app.querySelectorAll('[data-item]').forEach(b => b.onclick = () => { useItem(+b.dataset.item); render(); });
+  renderBar(); renderSheet();
+  if (UI.mode && !UI.scrolled) { UI.scrolled = true; $('#map').scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+}
+function activePanel(m) {
+  const room = S.rooms[m.room];
+  const payOk = UI.pay != null && m.hand[UI.pay] && m.hand[UI.pay].kind !== 'contam';
+  const rt = ROOMS[room.type];
+  return `<div class="panel"><h3><span class="dot" style="background:${m.color}"></span>${m.name} 行動中 <small>本次啟動已做 ${S.acts}/${2 + (m.bonusActs || 0)} 個行動・在「${rt.n}」${rt.act ? '（' + rt.act + '）' : ''}</small></h3>
+    <div class="hand">${m.hand.map((c, k) => {
+      const ok = c.kind === 'special' && specialOk(m, c) && autoPay(m, c.cost, k);
+      return `<button class="card ${c.kind} ${UI.pay === k ? 'sel' : ''}" data-card="${k}">${c.kind === 'special' ? `<span class="cost">${c.cost}</span>` : ''}<b>${esc(c.name)}</b><span>${esc(c.text)}</span>${c.kind === 'special' ? `<span class="play" data-play="${k}" role="button" ${ok ? '' : 'aria-disabled="true" style="opacity:.35;pointer-events:none"'}>打出</span>` : ''}</button>`; }).join('') || '<span class="small muted">沒有手牌</span>'}</div>
+    <div class="acts">${Object.entries(BASIC).map(([k, b]) => `<button class="ab ${UI.mode === k ? 'hot' : ''}" data-act="${k}" ${payOk && b.ok(m) ? '' : 'disabled'}>${k === 'room' && rt.act ? rt.act : b.n}</button>`).join('')}</div>
+    ${m.items.length ? `<div class="items">${m.items.map(it => `<span class="item ${it.c}">${esc(it.n)}<span class="small muted">${esc(it.d)}</span><button data-item="${it.id}" ${itemOk(m, it) ? '' : 'disabled'}>用</button></span>`).join('')}</div>` : ''}
+  </div>`;
+}
+function renderBar() {
+  const bar = $('#bar'), inn = $('#barIn'); bar.hidden = false;
+  if (S.phase === 'over') { inn.innerHTML = `<div class="t"><b>作戰結束</b>：${esc(S.endWhy)}</div><div class="btns"><button class="btn" id="bRes">看結果</button><button class="btn alt" id="bAgain">再玩一次</button></div>`; $('#bRes').onclick = () => { UI.showEnd = true; renderSheet(); }; $('#bAgain').onclick = () => { S = null; render(); }; return; }
+  if (S.phase !== 'player') { inn.innerHTML = '<div class="t">…</div>'; return; }
+  const m = M(S.active);
+  let t;
+  if (UI.mode === 'move' || UI.mode === 'sneak') t = '點地圖上<b>發光的相鄰房間</b>移動過去。';
+  else if (UI.mode === 'drone') t = '點一個<b>有異形的相鄰房間</b>，無人機攻擊血最少的那隻。';
+  else if (UI.pay == null) t = `<b>${m.name}</b>：點一張手牌當作支付，再選行動；或直接「打出」特技卡（費用 = 再棄幾張牌）。`;
+  else t = `已選支付卡。選一個行動（射擊／近戰會攻擊房間裡血最少的異形）。`;
+  inn.innerHTML = `<div class="t">${t}</div><div class="hint">每次啟動最多 2 個行動，隊員輪流行動，直到所有人都「過」。使用物品也算一個行動，但不用棄牌。</div>
+    <div class="btns">${UI.mode ? '<button class="btn alt" id="bCancel">取消</button>' : ''}<button class="btn alt" id="bNext" ${S.acts ? '' : 'disabled'}>換下一位隊員</button><button class="btn warn" id="bPass">這名隊員本回合「過」</button></div>`;
+  const on = (id, f) => { const b = $('#' + id); if (b) b.onclick = f; };
+  on('bCancel', () => { UI.mode = null; render(); });
+  on('bNext', () => { endActivation(); render(); });
+  on('bPass', () => { passMarine(); render(); });
+}
+
+// ---------- sheets ----------
+function closeSheet() { const m = $('#modal'); if (m) m.remove(); }
+function openSheet(html, key) { closeSheet(); const m = document.createElement('div'); m.className = 'modal'; m.id = 'modal'; m.dataset.key = key || ''; m.innerHTML = `<div class="sheet">${html}</div>`; document.body.appendChild(m); return m; }
+function renderSheet() {
+  const open = $('#modal');
+  if (open && open.dataset.key === 'manual') return;
+  if (S.phase === 'obj') {
+    const m = S.marines[S.objIdx];
+    if (open && open.dataset.key === 'obj' + S.objIdx) return;
+    const sh = openSheet(`<h2>${m.name}：選擇秘密目標</h2><p class="small muted">每名隊員要完成自己的目標，並活著撤離，才算勝利。</p>
+      ${m.objChoices.map((o, k) => `<button class="choice" data-o="${k}"><b>${o.n}</b><span>${o.d}</span></button>`).join('')}`, 'obj' + S.objIdx);
+    sh.querySelectorAll('[data-o]').forEach(b => b.onclick = () => {
+      m.objective = m.objChoices[+b.dataset.o]; log(`${m.name} 的目標：${m.objective.n}`);
+      S.objIdx++;
+      if (S.objIdx >= S.marines.length) { closeSheet(); startRound(); }
+      render();
+    });
+    return;
+  }
+  if (S.phase === 'env' && !S.over) {
+    if (open && open.dataset.key === 'env' + S.round) return;
+    const sh = openSheet(`<h2>遭遇與環境階段</h2><ul>${S.envLines.slice(1).map(l => `<li>${esc(l)}</li>`).join('')}</ul><button class="btn" id="ok">進入下一回合</button>`, 'env' + S.round);
+    $('#ok', sh).onclick = () => { closeSheet(); startRound(); render(); };
+    return;
+  }
+  if (S.phase === 'over' && (UI.showEnd || !open)) {
+    if (open && open.dataset.key === 'end') return;
+    UI.showEnd = false;
+    const rows = S.marines.map(m => { const win = m.escaped && objDone(m); return `<li><b>${m.name}</b>：${m.escaped ? '成功撤離' : '未能撤離（' + esc(m.cause || '陣亡') + '）'}；目標「${m.objective.n}」${objDone(m) ? '完成' : '未完成'} → <b style="color:${win ? 'var(--hud)' : 'var(--danger)'}">${win ? '勝利' : '失敗'}</b></li>`; }).join('');
+    const wins = S.marines.filter(m => m.escaped && objDone(m)).length;
+    const sh = openSheet(`<h2>${wins ? `任務報告：${wins} 名隊員勝利` : '任務失敗'}</h2><p>${esc(S.endWhy)}。共 ${S.round} 回合。</p><ul>${rows}</ul><div class="btns"><button class="btn" id="again">再玩一次</button><button class="btn alt" id="close">看地圖</button></div>`, 'end');
+    $('#again', sh).onclick = () => { closeSheet(); S = null; render(); };
+    $('#close', sh).onclick = () => { closeSheet(); $('#modal') || null; S.endSeen = true; };
+    return;
+  }
+  if (open && !['manual'].includes(open.dataset.key) && S.phase === 'player') closeSheet();
+}
+function confirmQuit() {
+  const m = openSheet(`<h2>重新開始？</h2><p>這一局的進度會消失。</p><div class="btns"><button class="btn" id="y">重新開始</button><button class="btn alt" id="n">繼續</button></div>`, 'manual');
+  $('#y', m).onclick = () => { closeSheet(); S = null; render(); };
+  $('#n', m).onclick = () => { closeSheet(); render(); };
+}
+const RULES = `<div class="rules" style="display:flex;flex-direction:column;gap:6px">
+  <h2>作戰手冊</h2>
+  <p>你帶領 1～4 名陸戰隊員攻入外星巢穴。每名隊員都要<b>完成自己的秘密目標</b>，而且要<b>活著抵達撤離艙撤離</b>（撤離時體內的污染卡不能有被寄生的），才算勝利。</p>
+  <h3>每回合</h3>
+  <p><b>玩家階段</b>：每人補滿到 5 張手牌；待在缺氧房間的人氧氣 -1（沒氧氣就扣血）。接著隊員輪流行動，每次最多 2 個行動，直到大家都「過」。</p>
+  <ul><li><b>基本行動</b>：棄 1 張手牌（任何一張，污染卡除外），可以移動、射擊（耗 1 彈藥）、近戰、搜索、裝填、採集樣本、使用房間功能。</li>
+    <li><b>特技卡</b>：打出角色專屬卡，再棄掉卡片左上角數字那麼多張牌。</li>
+    <li><b>物品</b>：使用物品也算一個行動，不用棄牌。</li>
+    <li><b>噪音</b>：移動進房間後擲骰。1～3 安靜；4～5 留下噪音，房間已經有噪音就會遭遇異形；6 附近的異形被吸引過來。</li>
+    <li>離開有異形的房間時，會被最強的那隻攻擊一次。</li></ul>
+  <p><b>遭遇與環境階段</b>：時間 -1 → 和隊員同房間的異形攻擊 → 火災燒傷並可能蔓延 → 抽事件卡、異形游獵移動 → 從外星袋抽一個標記，巢穴發展。</p>
+  <h3>戰鬥</h3>
+  <p>射擊擲骰：1～2 沒中、3～4 傷 1、5～6 傷 2。近戰：1～2 失手（自己受 1 傷並加污染卡）、3～4 傷 1、5～6 傷 2。擊殺會留下屍體，可以採集組織樣本，帶去實驗室解鎖<b>弱點卡</b>讓攻擊更強。</p>
+  <div class="tablewrap"><table class="t"><tr><th>異形</th><th>血量</th><th>攻擊</th></tr>${Object.values(ALIEN).map(a => `<tr><td>${a.n}</td><td>${a.hp}</td><td>${a.atk.map(x => x[0]).join('、')}</td></tr>`).join('')}</table></div>
+  <h3>失敗條件</h3>
+  <p>隊員血量歸零；時間用完（或自爆倒數結束）時還沒撤離；基地毀損（結構損傷＋起火房間）達到 8，基地崩塌。</p>
+  <h3>這個電腦版</h3>
+  <p class="small muted">依你提供的規則書概述製作。規則書沒有地圖、怪物數值和卡片內容，所以地圖、房間、角色特技、物品、事件、目標和所有數字都是自己設計的，和實體遊戲不同。所有隊員由你（或朋友輪流）操控，是合作遊戲。</p>
+</div>`;
+function showRules() { const m = openSheet(RULES + '<button class="btn" id="ok">知道了</button>', 'manual'); $('#ok', m).onclick = () => { closeSheet(); if (S) render(); }; }
+
+// ---------- setup ----------
+function renderSetup() {
+  $('#bar').hidden = true;
+  if (!setupCfg) setupCfg = { classes: ['sgt', 'heavy', 'scout'], diff: 'normal' };
+  const c = setupCfg;
+  $('#app').innerHTML = `
+  <div class="top"><h1>異形巢穴<small>復仇女神號：反擊 規則・自製版</small></h1><button class="pill" id="rulesBtn">作戰手冊</button></div>
+  <p style="margin:0;line-height:1.6;color:var(--muted)">陸戰隊攻入外星秘密基地。探索房間、清剿異形、完成各自的秘密目標，然後在基地毀滅前撤離。</p>
+  <div class="setup">
+    <div><h3>選擇隊員（1～4 名，全部由你操控）</h3>
+      <div class="classes" style="margin-top:8px">${Object.entries(CLASSES).map(([k, C]) => `<button class="cls ${c.classes.includes(k) ? 'on' : ''}" data-cls="${k}"><b style="color:${C.c}">${C.n}</b><span>${C.d}</span><span class="muted">生命 ${C.hp}・彈藥 ${C.ammo}/${C.maxAmmo}${C.armor ? '・護甲 ' + C.armor : ''}</span><span class="muted">特技：${C.sp.map(s => s[0]).join('、')}</span></button>`).join('')}</div></div>
+    <div><h3>難度</h3><div class="seg" style="margin-top:6px">${Object.entries(DIFF).map(([k, d]) => `<button data-diff="${k}" class="${c.diff === k ? 'on' : ''}">${d.n}（${d.time} 回合）</button>`).join('')}</div></div>
+    <button class="btn" id="start" ${c.classes.length ? '' : 'disabled'} style="align-self:flex-start">開始作戰（${c.classes.length} 名隊員）</button>
+  </div>
+  <div class="setup">${RULES}</div>`;
+  $('#rulesBtn').onclick = showRules;
+  document.querySelectorAll('[data-cls]').forEach(b => b.onclick = () => { const k = b.dataset.cls; c.classes = c.classes.includes(k) ? c.classes.filter(x => x !== k) : [...c.classes, k]; renderSetup(); });
+  document.querySelectorAll('[data-diff]').forEach(b => b.onclick = () => { c.diff = b.dataset.diff; renderSetup(); });
+  $('#start').onclick = () => { if (!c.classes.length) return; newGame({ classes: c.classes.slice(), diff: c.diff }); render(); };
+}
+window.__nm = () => S;
+window.__nmApi = { doBasic, playSpecial, useItem, endActivation, passMarine, render, M, neighbors, aliensIn, BASIC, specialOk, autoPay, itemOk, roomActOk, podsOpen, startRound, UI: () => UI, setUI: (u) => { UI = u; } };
+render();
+})();
+</script>
+</html>

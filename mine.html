@@ -1,0 +1,941 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>礦坑淘金</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&display=swap">
+<style>
+/* Layout: one-screen-ish mine — header and players on top, a scrollable tunnel board in the middle, your hand in a fixed tray at the bottom. Single deliberate dark theme (underground). */
+:root {
+  color-scheme: dark;
+  --rock: #1d1612; --rock2: #2a201a; --rock3: #3a2c22;
+  --dirt: #6b4a32; --tunnel: #e6c88d; --tunnel2: #c9a466;
+  --fg: #f2e6d2; --muted: #ad9a82; --gold: #f5c542; --lamp: #ffcf6b;
+  --red: #d9543a; --green: #5fb26a; --blue: #5aa0d8;
+  --line: #ffffff1c;
+  --hand: "LXGW WenKai TC", "Kaiti TC", serif;
+  --ui: system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; color: var(--fg); font-family: var(--ui); font-size: 15px;
+  background: radial-gradient(120% 60% at 50% 30%, #2c2119, var(--rock) 70%);
+  min-height: 100vh; -webkit-tap-highlight-color: transparent;
+}
+.wrap { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 14px 240px; }
+h1, h2, h3 { margin: 0; font-family: var(--hand); font-weight: 700; text-wrap: balance; }
+button { font: inherit; cursor: pointer; }
+button:focus-visible { outline: 3px solid var(--lamp); outline-offset: 2px; }
+.top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.top h1 { font-size: 1.7rem; color: var(--gold); text-shadow: 0 0 18px #f5c54255; }
+.top h1 small { font-size: .85rem; color: var(--muted); margin-left: 6px; text-shadow: none; }
+.pill { border: 1.5px solid #ffffff33; background: transparent; color: var(--fg); border-radius: 999px; padding: 5px 12px; font-size: .85rem; }
+.stats { display: flex; gap: 6px; flex-wrap: wrap; font-size: .82rem; }
+.stat { background: var(--rock2); border-radius: 8px; padding: 4px 9px; color: var(--muted); }
+.stat b { color: var(--fg); font-variant-numeric: tabular-nums; }
+.role { border-radius: 8px; padding: 4px 9px; font-weight: 700; font-size: .82rem; }
+.role.dig { background: #5fb26a33; color: #9be0a2; } .role.sab { background: #d9543a33; color: #ff9a85; }
+
+.players { display: flex; gap: 6px; flex-wrap: wrap; }
+.pchip { display: flex; align-items: center; gap: 6px; background: var(--rock2); color: var(--fg); border: 0; border-radius: 10px; padding: 6px 9px; font-size: .82rem; box-shadow: inset 0 0 0 1.5px transparent; }
+.pchip.active { box-shadow: inset 0 0 0 2px var(--lamp); background: #3b2c1c; }
+.pchip.target { box-shadow: inset 0 0 0 2.5px var(--red); cursor: pointer; animation: pulse 1.2s infinite; }
+.pchip.target.fix { box-shadow: inset 0 0 0 2.5px var(--green); }
+.pchip .tools { display: flex; gap: 2px; }
+.pchip .gold { color: var(--gold); font-weight: 700; font-variant-numeric: tabular-nums; }
+.tico { width: 16px; height: 16px; display: block; }
+.broken { position: relative; }
+.broken::after { content: ""; position: absolute; left: -1px; right: -1px; top: 50%; height: 2px; background: var(--red); transform: rotate(-35deg); }
+@keyframes pulse { 50% { filter: brightness(1.25); } }
+
+.boardwrap { overflow: auto; border-radius: 12px; background: #120d0a; box-shadow: inset 0 0 30px #000; max-height: 56vh; }
+.board { display: grid; gap: 2px; padding: 10px; width: max-content; }
+.cell { width: var(--cs, 42px); height: var(--cs, 42px); border-radius: 5px; position: relative; }
+.cell.empty { background: #ffffff05; }
+.cell.cand { background: #f5c54233; box-shadow: inset 0 0 0 2px var(--lamp); cursor: pointer; animation: pulse 1.2s infinite; }
+.cell.rocktarget { cursor: pointer; }
+.cell.rocktarget svg { outline: 2.5px solid var(--red); outline-offset: -2px; border-radius: 5px; }
+.cell.maptarget { cursor: pointer; }
+.cell.maptarget svg { outline: 2.5px solid var(--blue); outline-offset: -2px; border-radius: 5px; }
+.cell.last svg { box-shadow: 0 0 0 2px var(--lamp); border-radius: 5px; }
+.cell svg { display: block; width: 100%; height: 100%; border-radius: 5px; }
+.know { position: absolute; right: -2px; top: -2px; z-index: 1; font: 700 .62rem var(--ui); background: var(--blue); color: #fff; border-radius: 6px; padding: 1px 4px; }
+
+.log { display: flex; flex-direction: column; gap: 4px; font-size: .82rem; color: var(--muted); max-height: 200px; overflow-y: auto; }
+.log div:first-child { color: var(--fg); }
+
+.tray { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: #140e0bf2; backdrop-filter: blur(6px); border-top: 1.5px solid var(--line);
+  padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px));
+  padding-top: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+.tray .in { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+.tray .t { font-size: .92rem; line-height: 1.4; }
+.tray .t b { color: var(--lamp); }
+.handrow { display: flex; gap: 6px; overflow-x: auto; padding: 6px 2px 4px; }
+.hcard { flex: 0 0 auto; width: 58px; height: 80px; border-radius: 8px; border: 0; padding: 4px; background: #2e231b; color: var(--fg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: .68rem; line-height: 1.15; box-shadow: inset 0 0 0 1.5px var(--line); position: relative; transition: transform .15s; }
+.hcard svg.path { width: 48px; height: 48px; border-radius: 5px; }
+.hcard.on { transform: translateY(-6px); box-shadow: inset 0 0 0 2.5px var(--lamp), 0 6px 12px #0008; }
+.hcard.off { opacity: .45; }
+.hcard.act-break { background: #4a1f18; } .hcard.act-fix { background: #1e3b22; } .hcard.act-map { background: #1d3147; } .hcard.act-rock { background: #3b3330; }
+.hcard .ics { display: flex; gap: 2px; }
+.hcard .ics .tico { width: 18px; height: 18px; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border: 0; border-radius: 10px; padding: 9px 14px; font-weight: 700; background: var(--lamp); color: #2a1a0c; }
+.btn.alt { background: transparent; color: var(--fg); box-shadow: inset 0 0 0 1.5px #ffffff44; }
+.btn.warn { background: var(--red); color: #fff; }
+.btn:disabled { opacity: .35; cursor: default; }
+
+.modal { position: fixed; inset: 0; z-index: 30; background: #070403e0; display: flex; align-items: flex-end; justify-content: center; animation: fade .2s; }
+.modal.center { align-items: center; padding: 16px; }
+.sheet { background: #2a1f18; color: var(--fg); width: 100%; max-width: 620px; max-height: 90vh; overflow-y: auto; border-radius: 16px 16px 0 0; display: flex; flex-direction: column; gap: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-top: 18px; padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -2px 0 var(--line); }
+.modal.center .sheet { border-radius: 16px; max-width: 420px; text-align: center; align-items: center; padding: 22px; }
+.sheet h2 { font-size: 1.4rem; }
+.sheet p { margin: 0; line-height: 1.55; }
+.sheet .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: inherit; }
+@keyframes fade { from { opacity: 0; } }
+.rolecard { width: 130px; height: 170px; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font: 700 1.3rem var(--hand); }
+.rolecard.dig { background: linear-gradient(160deg, #3d7a45, #1f4a27); box-shadow: 0 0 30px #5fb26a55; }
+.rolecard.sab { background: linear-gradient(160deg, #a33a28, #5a1a10); box-shadow: 0 0 30px #d9543a55; }
+.rolecard svg { width: 70px; height: 70px; }
+.goalpeek { width: 90px; height: 90px; }
+.rules h3 { font-size: 1.05rem; margin-top: 6px; color: var(--lamp); }
+.rules ol, .rules ul { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 4px; line-height: 1.55; font-size: .9rem; }
+.rules p { font-size: .9rem; }
+.tablewrap { overflow-x: auto; width: 100%; }
+table.res { width: 100%; border-collapse: collapse; font-size: .86rem; font-variant-numeric: tabular-nums; }
+table.res th, table.res td { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+table.res th:first-child, table.res td:first-child { text-align: left; }
+.setup { display: flex; flex-direction: column; gap: 14px; background: #2a1f18; border-radius: 14px; padding: 14px; }
+.seatrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.seatrow input { font: inherit; border: 1.5px solid #ffffff2a; border-radius: 8px; padding: 6px 8px; background: #1a1310; color: var(--fg); width: 110px; min-width: 0; }
+.seg { display: inline-flex; border-radius: 9px; overflow: hidden; box-shadow: inset 0 0 0 1.5px #ffffff44; flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; color: var(--fg); padding: 6px 11px; font-size: .88rem; }
+.seg button.on { background: var(--lamp); color: #2a1a0c; }
+.muted { color: var(--muted); } .small { font-size: .8rem; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+.hcard sup { font-size: .55rem; color: var(--lamp); margin-left: 1px; }
+.pchip.target.good { box-shadow: inset 0 0 0 2.5px var(--green); }
+.pchip.target.info { box-shadow: inset 0 0 0 2.5px var(--blue); }
+.pchip.target.bad { box-shadow: inset 0 0 0 2.5px var(--red); }
+.rolecard { text-align: center; color: #fff; text-shadow: 0 1px 2px #0008; }
+</style>
+
+<div class="wrap" id="app"></div>
+<div class="tray" id="tray" hidden><div class="in" id="trayIn"></div></div>
+
+<script>
+(() => {
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const rint = (n) => Math.floor(Math.random() * n);
+const DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];
+const opp = (d) => (d + 2) % 4;
+const rot = (o) => [o[2], o[3], o[0], o[1]];
+const K = (x, y) => x + ',' + y;
+const PK = (k) => k.split(',').map(Number);
+const TOOLS = { pick: '礦鎬', lamp: '礦燈', cart: '礦車' };
+const ROLES_BY_N = { 3: [1, 3], 4: [1, 4], 5: [2, 4], 6: [2, 5], 7: [3, 5], 8: [3, 6], 9: [3, 7], 10: [4, 7] };
+const HAND_BY_N = (n) => n <= 5 ? 6 : n <= 7 ? 5 : 4;
+const GOALS = [[8, -2], [8, 0], [8, 2]];
+const GOLD_BY_WINNERS = [0, 5, 4, 3, 2, 1];
+const ROLE = {
+  dig: { n: '淘金者', c: '#5fb26a', hat: '#2d5a33', d: '和其他淘金者一起，把通道從起點挖到藏著金礦的目標卡。小心藏在隊伍裡的破壞者！' },
+  sab: { n: '破壞者', c: '#d9543a', hat: '#7a1f14', d: '偷偷阻止大家挖到金礦！用死路、落石、弄壞工具搗亂，但別太明顯。所有牌用完還沒挖到金礦，破壞者就贏了。' },
+  green: { n: '綠隊淘金客', c: '#5fb26a', hat: '#2d6a33', d: '把通道挖到金礦，而且路上不能有藍色的門。藍色的門只有藍隊能過，綠色的門只有綠隊能過。' },
+  blue: { n: '藍隊淘金客', c: '#5aa0d8', hat: '#1f4f86', d: '把通道挖到金礦，而且路上不能有綠色的門。藍色的門只有藍隊能過，綠色的門只有綠隊能過。' },
+  boss: { n: '工頭', c: '#f5c542', hat: '#9a7410', d: '綠隊或藍隊贏，你就跟著贏，但分金塊時比別人少 1 個。' },
+  geo: { n: '地質學家', c: '#b48ee8', hat: '#5a3a8a', d: '你不在乎金礦。回合結束時，坑道裡看得到幾個水晶，你就拿幾個金塊（兩位地質學家平分，無條件捨去）。' },
+  prof: { n: '奸商', c: '#f0954a', hat: '#9a4a14', d: '不管淘金客還是破壞者贏，你都跟著贏，但分金塊時比別人少 2 個。' },
+};
+const ACTN = { break: '破壞', fix: '修復', map: '藏寶圖', rock: '落石', trap: '監牢', free: '終於自由', theft: '竊盜', handsoff: '別碰', swaphand: '交換手牌', inspect: '臨檢', swaphat: '交換帽子' };
+const ACTD = {
+  trap: '關住一位玩家：不能挖通道；回合結束時還被關著就不算贏家，拿不到金塊。',
+  free: '移除任何一位玩家面前的監牢。',
+  theft: '放在自己面前。分完金塊後，可以從任一玩家偷 1 個金塊。',
+  handsoff: '移除任何一位玩家面前的竊盜卡。',
+  swaphand: '和另一位玩家交換全部手牌，對方再抽 1 張。',
+  inspect: '偷看另一位玩家的身分。',
+  swaphat: '指定一位玩家（可以是自己）換掉身分，從沒用到的身分卡抽一張新的。',
+};
+
+// ---------- art ----------
+const TUN = '#e6c88d';
+function cardSVG(c, extra = '', cls = '') {
+  const W = 12, m = 20;
+  let body = '';
+  if (c.sub === 'bridge') {
+    const vert = c.groups.find(g => g.includes(0));
+    body = `<rect x="14" y="0" width="12" height="40" fill="${TUN}"/><rect x="0" y="13" width="40" height="14" fill="#3a2a20"/><rect x="0" y="14" width="40" height="12" fill="${TUN}"/><g stroke="#8a6a44" stroke-width="1"><line x1="4" y1="14" x2="4" y2="26"/><line x1="10" y1="14" x2="10" y2="26"/><line x1="30" y1="14" x2="30" y2="26"/><line x1="36" y1="14" x2="36" y2="26"/></g>`;
+    void vert;
+  } else if (c.sub === 'dcurve') {
+    const ne = c.groups.some(g => g.includes(0) && g.includes(1));
+    const a1 = ne ? 'M20 0 A20 20 0 0 0 40 20' : 'M20 0 A20 20 0 0 1 0 20';
+    const a2 = ne ? 'M20 40 A20 20 0 0 0 0 20' : 'M20 40 A20 20 0 0 1 40 20';
+    body = `<path d="${a1}" fill="none" stroke="${TUN}" stroke-width="${W}"/><path d="${a2}" fill="none" stroke="${TUN}" stroke-width="${W}"/>`;
+  } else {
+    const dead = c.groups.every(g => g.length === 1) && c.o.filter(Boolean).length > 0 && c.kind === 'path' && c.dead;
+    const s = [];
+    if (c.o[0]) s.push(`<rect x="${m - W / 2}" y="0" width="${W}" height="${dead ? 13 : m}"/>`);
+    if (c.o[2]) s.push(`<rect x="${m - W / 2}" y="${dead ? 27 : m}" width="${W}" height="${dead ? 13 : m}"/>`);
+    if (c.o[1]) s.push(`<rect x="${dead ? 27 : m}" y="${m - W / 2}" width="${dead ? 13 : m}" height="${W}"/>`);
+    if (c.o[3]) s.push(`<rect x="0" y="${m - W / 2}" width="${dead ? 13 : m}" height="${W}"/>`);
+    const hub = !dead && c.o.some(Boolean) ? `<rect x="${m - W / 2}" y="${m - W / 2}" width="${W}" height="${W}"/>` : '';
+    body = `<g fill="${TUN}">${s.join('')}${hub}</g>` + (dead ? `<circle cx="20" cy="20" r="7.5" fill="#3a2a20" stroke="#1b120d" stroke-width="1.5"/><circle cx="17.5" cy="17.5" r="2" fill="#5b4535"/>` : '');
+  }
+  let deco = '';
+  if (c.kind === 'start' || c.sub === 'ladder') deco += `<g stroke="#5a3d28" stroke-width="1.6"><line x1="16" y1="13" x2="16" y2="27"/><line x1="24" y1="13" x2="24" y2="27"/><line x1="16" y1="16" x2="24" y2="16"/><line x1="16" y1="20" x2="24" y2="20"/><line x1="16" y1="24" x2="24" y2="24"/></g>`;
+  if (c.door) deco += `<rect x="13" y="12" width="14" height="16" rx="3" fill="${c.door === 'green' ? '#3f9a4c' : '#3b7cc4'}" stroke="#1b120d" stroke-width="1.6"/><line x1="20" y1="12" x2="20" y2="28" stroke="#0005" stroke-width="1"/><circle cx="24" cy="20.5" r="1.3" fill="#fff"/>`;
+  if (c.crystal) deco += `<path d="M33 2.5l4 4-4 6.5-4-6.5z" fill="#9fe0ff" stroke="#1f6f9e" stroke-width=".9"/>`;
+  return `<svg class="${cls}" viewBox="0 0 40 40"><rect width="40" height="40" fill="#6b4a32"/><circle cx="7" cy="33" r="2" fill="#5a3d28"/><circle cx="31" cy="31" r="1.2" fill="#7b5a40"/>${body}${deco}${extra}</svg>`;
+}
+const GOLD_EXTRA = `<path d="M12 25l4-9 7-3 6 5-2 8-8 3z" fill="#f5c542" stroke="#8a6410" stroke-width="1.3"/><path d="M17 17l4-2 1 3-4 2z" fill="#fff8"/>`;
+const COAL_EXTRA = `<g fill="#2b2522" stroke="#111" stroke-width="1"><circle cx="16" cy="22" r="5"/><circle cx="24" cy="19" r="4.5"/><circle cx="21" cy="26" r="3.5"/></g>`;
+const BACK_SVG = () => `<svg viewBox="0 0 40 40"><rect width="40" height="40" fill="#2a3b4a"/><rect x="3" y="3" width="34" height="34" rx="3" fill="none" stroke="#f5c54288" stroke-width="1.5"/><text x="20" y="27" text-anchor="middle" font-size="18" font-weight="700" fill="#f5c542" font-family="system-ui">?</text></svg>`;
+const TICO = {
+  pick: `<svg class="tico" viewBox="0 0 20 20"><path d="M3 6c4-4 10-4 14 0-4-1.5-10-1.5-14 0z" fill="#cfd6dc" stroke="#555" stroke-width=".8"/><rect x="9" y="5" width="2.4" height="13" rx="1" fill="#b07a43"/></svg>`,
+  lamp: `<svg class="tico" viewBox="0 0 20 20"><rect x="6" y="5" width="8" height="10" rx="2" fill="#ffcf6b" stroke="#6b4a12" stroke-width="1"/><rect x="5" y="15" width="10" height="2.5" rx="1" fill="#6b4a12"/><path d="M7.5 5a2.5 2.5 0 0 1 5 0" fill="none" stroke="#6b4a12" stroke-width="1.4"/></svg>`,
+  cart: `<svg class="tico" viewBox="0 0 20 20"><path d="M2 6h16l-2 7H4z" fill="#8b9aa6" stroke="#3c464e" stroke-width="1"/><circle cx="6" cy="15.5" r="2" fill="#333"/><circle cx="14" cy="15.5" r="2" fill="#333"/></svg>`,
+  map: `<svg class="tico" viewBox="0 0 20 20"><path d="M2 4l5-2 6 2 5-2v14l-5 2-6-2-5 2z" fill="#e8dcb8" stroke="#6b5a3a" stroke-width="1"/><path d="M10 9l3 3m0-3l-3 3" stroke="#c0392b" stroke-width="1.5"/></svg>`,
+  rock: `<svg class="tico" viewBox="0 0 20 20"><g fill="#8d8178" stroke="#3a322d" stroke-width="1"><circle cx="7" cy="13" r="4"/><circle cx="13" cy="12" r="3.5"/><circle cx="10" cy="7" r="3"/></g></svg>`,
+  trap: `<svg class="tico" viewBox="0 0 20 20"><rect x="2" y="2" width="16" height="16" rx="2" fill="#3a3a44" stroke="#aaa" stroke-width="1"/><g stroke="#cfd6dc" stroke-width="1.8"><line x1="6" y1="3" x2="6" y2="17"/><line x1="10" y1="3" x2="10" y2="17"/><line x1="14" y1="3" x2="14" y2="17"/></g></svg>`,
+  free: `<svg class="tico" viewBox="0 0 20 20"><circle cx="6.5" cy="10" r="4" fill="none" stroke="#f5c542" stroke-width="2"/><path d="M10 10h8m-3 0v3m2-3v2" stroke="#f5c542" stroke-width="2" fill="none"/></svg>`,
+  theft: `<svg class="tico" viewBox="0 0 20 20"><path d="M6 6h8l3 10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="#a8743a" stroke="#4a2c10" stroke-width="1"/><path d="M7 6l1-3h4l1 3" fill="none" stroke="#4a2c10" stroke-width="1.2"/><text x="10" y="15.5" text-anchor="middle" font-size="7" font-weight="700" fill="#f5c542" font-family="system-ui">$</text></svg>`,
+  handsoff: `<svg class="tico" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="#d9543a" stroke-width="2"/><line x1="4.5" y1="15.5" x2="15.5" y2="4.5" stroke="#d9543a" stroke-width="2"/></svg>`,
+  swaphand: `<svg class="tico" viewBox="0 0 20 20"><path d="M3 7h12l-3-3M17 13H5l3 3" fill="none" stroke="#9fd3ff" stroke-width="2"/></svg>`,
+  inspect: `<svg class="tico" viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5" fill="#9fd3ff55" stroke="#9fd3ff" stroke-width="2"/><line x1="12" y1="12" x2="17" y2="17" stroke="#9fd3ff" stroke-width="2.4"/></svg>`,
+  swaphat: `<svg class="tico" viewBox="0 0 20 20"><path d="M3 15c0-6 3-11 7-12 4 1 7 6 7 12z" fill="#c0392b"/><rect x="2" y="14" width="16" height="3" rx="1.5" fill="#7a1f14"/></svg>`,
+  dwarf: (c) => `<svg viewBox="0 0 40 40"><path d="M10 16c0-6 4.5-10 10-10s10 4 10 10z" fill="${c}"/><circle cx="20" cy="19" r="7" fill="#f1c9a0"/><path d="M12 21c0 9 4 14 8 14s8-5 8-14c-2 3-5 4-8 4s-6-1-8-4z" fill="#e8e1d5"/><circle cx="17" cy="18" r="1.2" fill="#222"/><circle cx="23" cy="18" r="1.2" fill="#222"/></svg>`,
+};
+
+// ---------- decks ----------
+let uid = 1;
+const dirsOf = (o) => [0, 1, 2, 3].filter(d => o[d]);
+function mkPath(o, opt = {}) {
+  const groups = opt.groups || (opt.dead ? dirsOf(o).map(d => [d]) : [dirsOf(o)]);
+  return { id: uid++, k: 'path', kind: 'path', o, groups, dead: !!opt.dead, sub: opt.sub || null, door: opt.door || null, crystal: opt.crystal || 0, exp: !!opt.exp };
+}
+function orient(c, r) { return r ? { ...c, o: rot(c.o), groups: c.groups.map(g => g.map(d => (d + 2) % 4)) } : c; }
+function basePaths() {
+  const d = [];
+  const add = (o, k, dead) => { for (let i = 0; i < k; i++) d.push(mkPath(o, { dead })); };
+  add([1, 1, 1, 1], 5); add([1, 1, 1, 0], 5); add([0, 1, 1, 1], 5); add([1, 0, 1, 0], 4); add([0, 1, 0, 1], 3); add([0, 1, 1, 0], 4); add([0, 0, 1, 1], 5);
+  [[1, 1, 1, 1], [1, 1, 1, 0], [0, 1, 1, 1], [1, 0, 1, 0], [0, 1, 0, 1], [0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 1, 0], [0, 1, 0, 0]].forEach(o => add(o, 1, true));
+  return d;
+}
+function baseActions() {
+  const d = [];
+  for (let i = 0; i < 6; i++) d.push({ id: uid++, k: 'map' });
+  for (let i = 0; i < 3; i++) d.push({ id: uid++, k: 'rock' });
+  for (const t of ['pick', 'lamp', 'cart']) for (let i = 0; i < 3; i++) d.push({ id: uid++, k: 'break', tool: t });
+  for (const t of ['pick', 'lamp', 'cart']) for (let i = 0; i < 2; i++) d.push({ id: uid++, k: 'fix', tools: [t] });
+  [['pick', 'lamp'], ['pick', 'cart'], ['lamp', 'cart']].forEach(ts => d.push({ id: uid++, k: 'fix', tools: ts }));
+  return d;
+}
+function expPaths() {
+  const d = [];
+  for (let i = 0; i < 2; i++) d.push(mkPath([1, 1, 1, 1], { groups: [[0, 2], [1, 3]], sub: 'bridge', exp: true }));
+  for (let i = 0; i < 2; i++) d.push(mkPath([1, 1, 1, 1], { groups: [[0, 1], [2, 3]], sub: 'dcurve', exp: true }));
+  [[1, 0, 1, 0], [0, 1, 0, 1], [1, 1, 1, 0], [1, 1, 1, 1]].forEach(o => d.push(mkPath(o, { sub: 'ladder', exp: true })));
+  for (const door of ['green', 'blue']) [[0, 1, 0, 1], [1, 0, 1, 0], [0, 1, 1, 1]].forEach(o => d.push(mkPath(o, { door, exp: true })));
+  const cry = [[1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 0], [1, 1, 1, 0], [0, 1, 1, 1], [0, 1, 1, 1], [1, 0, 1, 0], [1, 0, 1, 0], [0, 1, 0, 1], [0, 1, 0, 1], [0, 1, 1, 0], [0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 1, 1]];
+  cry.forEach(o => d.push(mkPath(o, { crystal: 1, exp: true })));
+  d.push(mkPath([0, 1, 0, 1], { dead: true, crystal: 1, exp: true })); d.push(mkPath([1, 1, 1, 1], { dead: true, crystal: 1, exp: true }));
+  return d;
+}
+function expActions() {
+  const d = [];
+  [['theft', 4], ['handsoff', 3], ['swaphand', 2], ['inspect', 2], ['swaphat', 2], ['trap', 3], ['free', 4]].forEach(([k, n]) => { for (let i = 0; i < n; i++) d.push({ id: uid++, k, exp: true }); });
+  return d;
+}
+function goldDeck() { const g = []; for (let i = 0; i < 16; i++) g.push(1); for (let i = 0; i < 8; i++) g.push(2); for (let i = 0; i < 4; i++) g.push(3); return shuffle(g); }
+
+let S = null, resolver = null, UI = {}, setupCfg = null;
+const P = (i) => S.players[i];
+const nm = (i) => P(i).name;
+const combo = () => S.mode === 'combo';
+function log(t) { S.log.unshift(t); if (S.log.length > 100) S.log.pop(); }
+async function nap(ms) { const g = S && S.gid; await sleep(ms); if (!S || S.gid !== g) throw 'stop'; }
+function ask(pr) { UI = {}; S.prompt = pr; render(); return new Promise(r => { resolver = r; }); }
+function answer(v) { const r = resolver; resolver = null; S.prompt = null; UI = {}; if (r) r(v); }
+const humans = () => S.players.filter(p => p.human).length;
+const blocked = (pl) => Object.values(pl.broken).some(Boolean) || pl.trapped;
+
+// ---------- board logic (each card has tunnel groups; a bridge has two separate groups) ----------
+const at = (x, y) => S.board.get(K(x, y));
+const isCard = (c) => c && (c.kind !== 'goal' || c.revealed);
+const gOf = (c, d) => c.groups.findIndex(g => g.includes(d));
+function reach(team) {
+  const seen = new Set(), st = [];
+  const push = (k, g) => { const key = k + '|' + g; if (seen.has(key)) return; seen.add(key); st.push([k, g]); };
+  push(K(0, 0), 0);
+  for (const [k, c] of S.board) if (c.sub === 'ladder') c.groups.forEach((_, g) => push(k, g));
+  while (st.length) {
+    const [k, g] = st.pop(); const c = S.board.get(k); const [x, y] = PK(k);
+    for (const d of c.groups[g]) {
+      const nk = K(x + DX[d], y + DY[d]), n = S.board.get(nk);
+      if (!isCard(n) || !n.o[opp(d)]) continue;
+      if (team && n.door && n.door !== team) continue;
+      const h = gOf(n, opp(d)); if (h >= 0) push(nk, h);
+    }
+  }
+  return seen;
+}
+function canPlace(c, x, y, R) {
+  if (S.board.has(K(x, y))) return false;
+  let touches = false, conn = false;
+  for (let d = 0; d < 4; d++) {
+    const nk = K(x + DX[d], y + DY[d]), n = S.board.get(nk);
+    if (!n) continue;
+    if (n.kind === 'goal') { if (c.sub === 'ladder') return false; if (!n.revealed) continue; }
+    touches = true;
+    if (!!c.o[d] !== !!n.o[opp(d)]) return false;
+    if (c.o[d]) { const h = gOf(n, opp(d)); if (h >= 0 && R.has(nk + '|' + h)) conn = true; }
+  }
+  return touches && (conn || c.sub === 'ladder');
+}
+function emptyAround() {
+  const out = new Set();
+  for (const k of S.board.keys()) { const [x, y] = PK(k); for (let d = 0; d < 4; d++) { const nk = K(x + DX[d], y + DY[d]); if (!S.board.has(nk)) out.add(nk); } }
+  return [...out].map(PK);
+}
+function placements(card, R) {
+  const out = [];
+  for (const [x, y] of emptyAround()) for (const r of [0, 1]) if (canPlace(orient(card, r), x, y, R)) out.push({ x, y, r });
+  return out;
+}
+function distTo(goals) {
+  const R = reach(); let best = 99;
+  for (const key of R) {
+    const [k, g] = key.split('|'); const [x, y] = PK(k); const c = S.board.get(k);
+    for (const d of c.groups[+g]) {
+      const n = at(x + DX[d], y + DY[d]);
+      if (n && isCard(n)) continue;
+      for (const [gx, gy] of goals) best = Math.min(best, Math.abs(x + DX[d] - gx) + Math.abs(y + DY[d] - gy));
+    }
+  }
+  return best;
+}
+const hiddenGoals = () => GOALS.filter(([x, y]) => !at(x, y).revealed);
+function withTemp(x, y, card, fn) { const k = K(x, y), old = S.board.get(k); if (card) S.board.set(k, card); else S.board.delete(k); try { return fn(); } finally { if (old) S.board.set(k, old); else S.board.delete(k); } }
+function checkReveal(i) {
+  const R = reach(); let gold = false;
+  for (const [gx, gy] of GOALS) {
+    const g = at(gx, gy); if (g.revealed) continue;
+    for (let d = 0; d < 4; d++) {
+      const nk = K(gx + DX[d], gy + DY[d]), n = S.board.get(nk);
+      if (!isCard(n) || !n.o[opp(d)]) continue;
+      const h = gOf(n, opp(d)); if (h < 0 || !R.has(nk + '|' + h)) continue;
+      g.revealed = true;
+      if (g.gold) { g.o = [1, 1, 1, 1]; g.groups = [[0, 1, 2, 3]]; gold = true; log(`${nm(i)} 挖到了目標卡：是金礦！`); }
+      else { g.o = g.shape[d] ? g.shape : rot(g.shape); g.groups = [dirsOf(g.o)]; log(`${nm(i)} 挖到了目標卡：只是煤炭。`); }
+      break;
+    }
+  }
+  return gold;
+}
+const goldKey = () => { const g = GOALS.find(([x, y]) => at(x, y).gold); return K(g[0], g[1]); };
+const teamPathOK = (team) => reach(team).has(goldKey() + '|0');
+const crystals = () => { let n = 0; for (const c of S.board.values()) n += c.crystal || 0; return n; };
+
+function publicDist() { const h = hiddenGoals(); return h.length ? distTo(h) : 99; }
+function suspect(i, delta) { S.susp[i] = (S.susp[i] || 0) + delta; }
+
+// ---------- rounds ----------
+function newGame(cfg) {
+  const n = cfg.seats.length;
+  S = { n, mode: cfg.mode, players: cfg.seats.map(s => ({ name: s.name, human: s.human, gold: 0, role: null, hand: [], broken: {}, trapped: false, theft: false, know: {}, roleKnow: {} })),
+    round: 0, gold: goldDeck(), log: [], prompt: null, gid: Math.random(), board: new Map(), deck: [], turn: null, over: false, susp: [], last: null, seen: {}, leftRoles: [] };
+  log(`新遊戲：${n} 位矮人，${cfg.mode === 'combo' ? '一代＋二代合併' : '一代'}，玩 3 輪，金塊最多的人贏。`);
+}
+function setupRound() {
+  S.round++;
+  if (combo()) {
+    const pool = shuffle([...Array(4).fill('green'), ...Array(4).fill('blue'), 'boss', 'geo', 'geo', 'prof', 'sab', 'sab', 'sab']);
+    S.players.forEach((p, i) => p.role = pool[i]);
+    S.leftRoles = pool.slice(S.n);
+  } else {
+    const [sab, dig] = ROLES_BY_N[S.n];
+    const roles = shuffle([...Array(sab).fill('sab'), ...Array(dig).fill('dig')]);
+    S.players.forEach((p, i) => p.role = roles[i]);
+    S.leftRoles = roles.slice(S.n);
+  }
+  S.players.forEach(p => { p.hand = []; p.broken = {}; p.trapped = false; p.theft = false; p.know = {}; p.roleKnow = {}; p.newRole = false; });
+  S.board = new Map();
+  S.board.set(K(0, 0), { kind: 'start', o: [1, 1, 1, 1], groups: [[0, 1, 2, 3]] });
+  const goldAt = rint(3), shapes = shuffle([[0, 0, 1, 1], [1, 0, 0, 1]]);
+  GOALS.forEach(([x, y], k) => S.board.set(K(x, y), { kind: 'goal', gold: k === goldAt, revealed: false, o: [1, 1, 1, 1], groups: [[0, 1, 2, 3]], shape: k === goldAt ? [1, 1, 1, 1] : shapes.pop() }));
+  S.deck = shuffle(combo() ? [...basePaths(), ...baseActions(), ...expPaths(), ...expActions()] : [...basePaths(), ...baseActions()]);
+  if (combo()) S.deck.splice(-10);
+  const h = combo() ? 6 : HAND_BY_N(S.n);
+  S.players.forEach(p => { for (let k = 0; k < h; k++) p.hand.push(S.deck.pop()); });
+  S.susp = S.players.map(() => 0); S.last = null; S.seen = {};
+  log(`— 第 ${S.round} 輪開始！身分重新抽，每人 ${h} 張手牌${combo() ? '（牌堆先蓋掉 10 張）' : ''} —`);
+}
+
+async function run() { try { await runInner(); } catch (e) { if (e !== 'stop') throw e; } }
+async function runInner() {
+  let start = S.players.findIndex(p => p.human); if (start < 0) start = rint(S.n);
+  for (let rd = 0; rd < 3; rd++) {
+    setupRound();
+    if (humans() === 1) { const i = S.players.findIndex(p => p.human); S.seen[i] = true; await ask({ type: 'role', p: i }); }
+    let i = start, finder = null, lastActor = start, done = false;
+    while (!done) {
+      const pl = P(i);
+      if (pl.hand.length) {
+        S.turn = i;
+        let act;
+        if (pl.human) {
+          if (humans() > 1) { await ask({ type: 'handoff', p: i }); if (!S.seen[i] || pl.newRole) { S.seen[i] = true; pl.newRole = false; await ask({ type: 'role', p: i }); } }
+          act = await ask({ type: 'turn', p: i });
+        } else { render(); await nap(750); act = botTurn(i); }
+        const r = await apply(i, act);
+        lastActor = i;
+        for (let k = 0; k < r.draw && S.deck.length; k++) pl.hand.push(S.deck.pop());
+        render();
+        if (r.gold) { finder = i; done = true; }
+        if (!pl.human) await nap(200);
+      }
+      if (!done && S.players.every(p => !p.hand.length)) done = true;
+      i = (i + 1) % S.n;
+    }
+    const result = combo() ? resultCombo(finder) : resultBase(finder);
+    S.turn = null;
+    await ask({ type: 'roundEnd', result });
+    start = (lastActor + 1) % S.n;
+  }
+  S.over = true;
+  ask({ type: 'end' });
+}
+
+function resultBase(finder) {
+  const res = { gains: S.players.map(() => 0), notes: [] };
+  if (finder != null) {
+    res.title = '淘金者挖到金礦！';
+    const cards = S.gold.splice(-Math.min(S.n, S.gold.length)).sort((a, b) => b - a);
+    const order = [];
+    for (let k = 0; k < S.n; k++) { const j = ((finder - k) % S.n + S.n) % S.n; if (P(j).role === 'dig') order.push(j); }
+    let k = 0; while (cards.length && order.length) { res.gains[order[k % order.length]] += cards.shift(); k++; }
+    res.notes.push(`${nm(finder)} 挖通了金礦。抽 ${S.n} 張金塊卡，從他開始往回輪流挑（只有淘金者能拿，工具壞了也能分）。`);
+  } else {
+    const sabs = S.players.map((_, j) => j).filter(j => P(j).role === 'sab');
+    const each = sabs.length === 1 ? 4 : sabs.length <= 3 ? 3 : 2;
+    sabs.forEach(j => res.gains[j] += each);
+    res.title = '破壞者得逞！';
+    res.notes.push(sabs.length ? `牌用完了還沒挖到金礦。每位破壞者拿 ${each} 金。` : '牌用完了，但這輪沒有破壞者，沒人拿到金塊。');
+  }
+  res.gains.forEach((g, j) => P(j).gold += g);
+  log(res.title);
+  return res;
+}
+function resultCombo(finder) {
+  const res = { gains: S.players.map(() => 0), notes: [], steal: [] };
+  const roles = S.players.map(p => p.role);
+  const has = (r) => roles.includes(r);
+  let win = new Set();
+  if (finder != null) {
+    const ok = { green: teamPathOK('green'), blue: teamPathOK('blue') };
+    res.notes.push(`${nm(finder)}（${ROLE[roles[finder]].n}）挖通了金礦。綠隊的路${ok.green ? '暢通' : '被藍門擋住'}，藍隊的路${ok.blue ? '暢通' : '被綠門擋住'}。`);
+    let teams = [];
+    const fr = roles[finder];
+    if (fr === 'green' || fr === 'blue') { const o = fr === 'green' ? 'blue' : 'green'; if (ok[fr]) teams = [fr]; else if (ok[o]) teams = [o]; }
+    else teams = ['green', 'blue'].filter(t => ok[t]);
+    if (teams.length) {
+      teams.forEach(t => roles.forEach((r, j) => { if (r === t) win.add(j); }));
+      roles.forEach((r, j) => { if (r === 'boss' || r === 'prof') win.add(j); });
+      res.title = teams.map(t => ROLE[t].n.slice(0, 2)).join('和') + '贏了！';
+    } else if (has('boss') || has('prof')) {
+      roles.forEach((r, j) => { if (r === 'boss' || r === 'prof') win.add(j); });
+      res.title = '兩隊都被門擋住，工頭和奸商得利！';
+    } else { roles.forEach((r, j) => { if (r === 'sab') win.add(j); }); res.title = '兩隊都被門擋住，破壞者贏了！'; }
+  } else {
+    roles.forEach((r, j) => { if (r === 'sab' || r === 'prof') win.add(j); });
+    res.title = '牌用完了，破壞者得逞！';
+  }
+  const trappedOut = [...win].filter(j => P(j).trapped);
+  trappedOut.forEach(j => win.delete(j));
+  if (trappedOut.length) res.notes.push(`${trappedOut.map(nm).join('、')} 被關在監牢裡，不算贏家。`);
+  const per = GOLD_BY_WINNERS[Math.min(win.size, 5)];
+  if (win.size) res.notes.push(`贏家 ${win.size} 位，每人 ${per} 金（工頭少 1、奸商少 2）。`);
+  win.forEach(j => { res.gains[j] += Math.max(0, per - (roles[j] === 'boss' ? 1 : roles[j] === 'prof' ? 2 : 0)); });
+  const geos = roles.map((r, j) => j).filter(j => roles[j] === 'geo' && !P(j).trapped);
+  if (roles.includes('geo')) {
+    const cr = crystals();
+    const each = geos.length ? Math.floor(cr / geos.length) : 0;
+    geos.forEach(j => res.gains[j] += each);
+    res.notes.push(`坑道裡有 ${cr} 個水晶，${geos.length ? `地質學家每人拿 ${each} 金` : '但地質學家被關住了'}。`);
+  }
+  res.gains.forEach((g, j) => P(j).gold += g);
+  // thieves steal after the split
+  S.players.forEach((p, j) => {
+    if (!p.theft || p.trapped) return;
+    const others = S.players.map((_, x) => x).filter(x => x !== j && P(x).gold > 0).sort((a, b) => P(b).gold - P(a).gold);
+    if (!others.length) return;
+    const t = others[0]; P(t).gold--; p.gold++; res.gains[j]++; res.gains[t]--;
+    res.steal.push(`${p.name} 用竊盜卡從 ${nm(t)} 偷走 1 金`);
+  });
+  res.notes.push(...res.steal);
+  log(res.title);
+  return res;
+}
+
+// ---------- applying moves ----------
+async function apply(i, a) {
+  const pl = P(i);
+  const out = { draw: 1, gold: false };
+  if (a.k === 'pass' || a.k === 'remove') {
+    a.idxs.slice().sort((x, y) => y - x).forEach(k => pl.hand.splice(k, 1));
+    if (a.k === 'pass') { out.draw = a.idxs.length; log(`${nm(i)} 棄掉 ${a.idxs.length} 張牌，跳過`); }
+    else {
+      if (a.what === 'trap') pl.trapped = false; else if (a.what === 'theft') pl.theft = false; else pl.broken[a.what] = false;
+      log(`${nm(i)} 棄掉 2 張牌，拿掉自己面前的${a.what === 'trap' ? '監牢' : a.what === 'theft' ? '竊盜卡' : '壞掉的' + TOOLS[a.what]}`);
+    }
+    return out;
+  }
+  const card = pl.hand[a.idx];
+  pl.hand.splice(a.idx, 1);
+  const t = a.target;
+  switch (a.k) {
+    case 'path': {
+      const before = publicDist();
+      const c = orient(card, a.r);
+      S.board.set(K(a.x, a.y), { ...c, kind: 'path' });
+      S.last = K(a.x, a.y);
+      const after = publicDist();
+      if (card.dead) suspect(i, after > before ? 2.5 : 1); else if (after < before) suspect(i, -1); else if (after > before) suspect(i, 1.2);
+      const nmv = card.sub === 'bridge' ? '橋樑' : card.sub === 'dcurve' ? '雙重彎道' : card.sub === 'ladder' ? '梯子' : card.door ? (card.door === 'green' ? '綠門' : '藍門') : card.dead ? '死路' : '通道';
+      log(`${nm(i)} 挖了一段${nmv}`);
+      if (checkReveal(i)) out.gold = true;
+      break;
+    }
+    case 'break': P(t).broken[card.tool] = true; suspect(i, S.susp[t] >= 2 ? -1.5 : 1.5); log(`${nm(i)} 弄壞了 ${nm(t)} 的${TOOLS[card.tool]}！`); break;
+    case 'fix': P(t).broken[a.tool] = false; suspect(i, S.susp[t] >= 2.5 ? 1 : -0.5); log(`${nm(i)} 修好了${t === i ? '自己' : ' ' + nm(t) + ' '}的${TOOLS[a.tool]}`); break;
+    case 'trap': P(t).trapped = true; suspect(i, S.susp[t] >= 2 ? -1.5 : 1.5); log(`${nm(i)} 把 ${nm(t)} 關進監牢！`); break;
+    case 'free': P(t).trapped = false; suspect(i, S.susp[t] >= 2.5 ? 1 : -0.5); log(`${nm(i)} 把${t === i ? '自己' : ' ' + nm(t) + ' '}放出監牢`); break;
+    case 'theft': pl.theft = true; log(`${nm(i)} 在自己面前放了竊盜卡`); break;
+    case 'handsoff': P(t).theft = false; log(`${nm(i)} 拿掉了 ${nm(t)} 的竊盜卡`); break;
+    case 'swaphand': {
+      const o = P(t); [pl.hand, o.hand] = [o.hand, pl.hand];
+      if (S.deck.length) o.hand.push(S.deck.pop());
+      out.draw = 0;
+      log(`${nm(i)} 和 ${nm(t)} 交換了手牌`);
+      break;
+    }
+    case 'inspect':
+      pl.roleKnow[t] = P(t).role;
+      log(`${nm(i)} 偷看了 ${nm(t)} 的身分`);
+      if (pl.human) await ask({ type: 'peekRole', p: i, t });
+      break;
+    case 'swaphat': {
+      if (!S.leftRoles.length) { log('沒有多的身分卡可以換'); break; }
+      P(t).role = S.leftRoles.pop();
+      S.players.forEach(q => delete q.roleKnow[t]);
+      log(`${nm(i)} 讓${t === i ? '自己' : ' ' + nm(t) + ' '}換了一頂帽子（身分換了）`);
+      if (P(t).human) { if (humans() === 1) await ask({ type: 'role', p: t, changed: true }); else P(t).newRole = true; }
+      break;
+    }
+    case 'map': {
+      const g = at(...GOALS[a.g]);
+      pl.know[a.g] = g.gold ? 'gold' : 'coal';
+      if (g.gold) GOALS.forEach((_, k) => { if (k !== a.g) pl.know[k] = pl.know[k] || 'coal'; });
+      const coal = [0, 1, 2].filter(k => pl.know[k] === 'coal');
+      if (coal.length === 2) pl.know[[0, 1, 2].find(x => !coal.includes(x))] = 'gold';
+      log(`${nm(i)} 用藏寶圖偷看了${['上', '中', '下'][a.g]}方的目標卡`);
+      if (pl.human) await ask({ type: 'peek', p: i, g: a.g, gold: g.gold });
+      break;
+    }
+    case 'rock': {
+      const c = at(a.x, a.y), before = publicDist();
+      S.board.delete(K(a.x, a.y));
+      const after = publicDist();
+      suspect(i, c.dead ? -1.5 : after > before ? 2 : 0.3);
+      log(`${nm(i)} 用落石炸掉了一段${c.dead ? '死路' : '通道'}`);
+      break;
+    }
+  }
+  return out;
+}
+
+// ---------- computer players ----------
+function targetsFor(i) {
+  const pl = P(i);
+  const rg = GOALS.find(([x, y]) => at(x, y).revealed && at(x, y).gold);
+  if (rg) return [rg];
+  const k = [0, 1, 2].find(j => pl.know[j] === 'gold');
+  if (k != null) return [GOALS[k]];
+  const h = GOALS.filter(([x, y], j) => !at(x, y).revealed && pl.know[j] !== 'coal');
+  return h.length ? h : hiddenGoals();
+}
+function botSusp(i, j) {
+  const kr = P(i).roleKnow[j];
+  if (kr) return kr === 'sab' ? 10 : -5;
+  return S.susp[j] || 0;
+}
+function cardWorth(c, sab) {
+  if (c.k === 'path') return sab ? (c.dead ? 5 : 3 - c.o.filter(Boolean).length) : (c.dead ? -2 : c.o.filter(Boolean).length + (c.crystal ? .5 : 0));
+  return { map: 2, fix: 3, free: 3, rock: 2.5, theft: 2.2, handsoff: 1, swaphand: 0.2, inspect: 1.5, swaphat: 0.3, trap: sab ? 4 : 1, break: sab ? 4 : 1 }[c.k] ?? 1;
+}
+function botTurn(i) {
+  const pl = P(i), role = pl.role, sab = role === 'sab';
+  const myDoor = role === 'green' || role === 'blue' ? role : null;
+  const tg = targetsFor(i), d0 = distTo(tg), R = reach();
+  const others = S.players.map((_, j) => j).filter(j => j !== i);
+  const sus = (j) => botSusp(i, j);
+  const opts = [];
+  pl.hand.forEach((c, idx) => {
+    if (c.k === 'path') {
+      if (blocked(pl)) return;
+      for (const p of placements(c, R)) {
+        const oc = orient(c, p.r);
+        const d1 = withTemp(p.x, p.y, { ...oc, kind: 'path' }, () => distTo(tg));
+        const open = oc.o.filter(Boolean).length;
+        let v;
+        if (!sab) v = (d0 - d1) * 10 + (d1 === 0 ? 30 : 0) - (c.dead ? 25 : 0) + open * 0.3 - Math.abs(p.y) * 0.05;
+        else v = (d1 - d0) * 9 + (c.dead && d1 > d0 ? 4 : 0) + (d0 > 5 && Math.random() < 0.35 ? (d0 - d1) * 2 : 0) - (d1 === 0 ? 40 : 0);
+        if (c.door) v += !sab && myDoor ? (c.door === myDoor ? 3 : -15) : (sab ? 1 : -4);
+        if (role === 'geo') v += (c.crystal || 0) * 4;
+        if (c.sub === 'ladder' && !sab) v -= 1;
+        opts.push({ v, a: { k: 'path', idx, x: p.x, y: p.y, r: p.r } });
+      }
+    } else if (c.k === 'fix' || c.k === 'free') {
+      const fixes = c.k === 'fix' ? c.tools : ['trap'];
+      for (const t of fixes) {
+        const need = (q) => t === 'trap' ? q.trapped : q.broken[t];
+        if (need(pl)) opts.push({ v: 12, a: { k: c.k, idx, target: i, tool: t } });
+        for (const j of others) if (need(P(j))) opts.push({ v: sab ? (sus(j) >= 2.5 ? 3 : -2) : (sus(j) < 1 ? 5 - sus(j) : -3), a: { k: c.k, idx, target: j, tool: t } });
+      }
+    } else if (c.k === 'break' || c.k === 'trap') {
+      for (const j of others) {
+        if (c.k === 'break' ? P(j).broken[c.tool] : P(j).trapped) continue;
+        const v = !sab ? (sus(j) >= 2 ? 3 + sus(j) : -2) : 3 - sus(j) + (d0 <= 3 ? 4 : 0) + (j === (i + 1) % S.n ? 1 : 0);
+        opts.push({ v, a: { k: c.k, idx, target: j } });
+      }
+    } else if (c.k === 'map') {
+      const unknown = [0, 1, 2].filter(k => !pl.know[k] && !at(...GOALS[k]).revealed);
+      const knowsGold = [0, 1, 2].some(k => pl.know[k] === 'gold') || GOALS.some(([x, y]) => at(x, y).revealed && at(x, y).gold);
+      if (!knowsGold && unknown.length) opts.push({ v: (d0 <= 5 ? 9 : 5) - (sab ? 2 : 0), a: { k: 'map', idx, g: unknown.includes(1) ? 1 : unknown[0] } });
+    } else if (c.k === 'rock') {
+      for (const [k, cell] of [...S.board]) {
+        if (cell.kind !== 'path') continue;
+        const [x, y] = PK(k);
+        const d1 = withTemp(x, y, null, () => distTo(tg));
+        let v = sab ? (d1 - d0) * 9 - 1 : (cell.dead ? (d0 - d1) * 8 + (Math.abs(x - 8) + Math.abs(y) < 5 ? 3 : 0) : -10);
+        if (sab && d0 <= 2) v += 4;
+        if (!sab && myDoor && cell.door && cell.door !== myDoor) v = Math.max(v, 6);
+        opts.push({ v, a: { k: 'rock', idx, x, y } });
+      }
+    } else if (c.k === 'theft') {
+      if (!pl.theft && !pl.trapped) opts.push({ v: 4, a: { k: 'theft', idx, target: i } });
+    } else if (c.k === 'handsoff') {
+      const ts = others.filter(j => P(j).theft).sort((a, b) => P(b).gold - P(a).gold);
+      if (ts.length) opts.push({ v: 2.5, a: { k: 'handsoff', idx, target: ts[0] } });
+    } else if (c.k === 'inspect') {
+      const ts = others.filter(j => !pl.roleKnow[j]).sort((a, b) => (S.susp[b] || 0) - (S.susp[a] || 0));
+      if (ts.length) opts.push({ v: sab ? 1.5 : 3, a: { k: 'inspect', idx, target: ts[0] } });
+    }
+  });
+  if (combo() && blocked(pl) && pl.hand.length >= 4 && !pl.hand.some(c => (c.k === 'fix' && c.tools.some(t => pl.broken[t])) || (c.k === 'free' && pl.trapped))) {
+    const what = pl.trapped ? 'trap' : ['pick', 'lamp', 'cart'].find(t => pl.broken[t]);
+    const order = pl.hand.map((c, k) => [cardWorth(c, sab), k]).sort((a, b) => a[0] - b[0]);
+    opts.push({ v: 3.5, a: { k: 'remove', idxs: [order[0][1], order[1][1]], what } });
+  }
+  opts.sort((a, b) => b.v - a.v);
+  if (opts.length && opts[0].v > 0.5) return opts[0].a;
+  let w = 0; pl.hand.forEach((c, k) => { if (cardWorth(c, sab) < cardWorth(pl.hand[w], sab)) w = k; });
+  return { k: 'pass', idxs: [w] };
+}
+
+// ---------- rendering ----------
+function cardFace(c) {
+  if (c.k === 'path') {
+    const lbl = c.sub === 'bridge' ? '橋樑' : c.sub === 'dcurve' ? '雙彎道' : c.sub === 'ladder' ? '梯子' : c.door ? (c.door === 'green' ? '綠門' : '藍門') : c.dead ? '死路' : '通道';
+    return `${cardSVG(c, '', 'path')}<span>${lbl}${c.exp ? '<sup>2</sup>' : ''}</span>`;
+  }
+  if (c.k === 'break') return `<div class="ics">${TICO[c.tool]}</div><span>破壞<br>${TOOLS[c.tool]}</span>`;
+  if (c.k === 'fix') return `<div class="ics">${c.tools.map(t => TICO[t]).join('')}</div><span>修復<br>${c.tools.map(t => TOOLS[t]).join('/')}</span>`;
+  return `<div class="ics">${TICO[c.k]}</div><span>${ACTN[c.k]}${c.exp ? '<sup>2</sup>' : ''}</span>`;
+}
+function viewer() {
+  const pr = S.prompt;
+  if (humans() === 1) return S.players.findIndex(p => p.human);
+  if (pr && pr.p != null && P(pr.p).human && pr.type !== 'handoff') return pr.p;
+  return -1;
+}
+const PLAYER_ACTS = {
+  break: (me, j, c) => j !== me && !P(j).broken[c.tool] ? 'bad' : null,
+  fix: (me, j, c) => c.tools.some(t => P(j).broken[t]) ? 'good' : null,
+  trap: (me, j) => j !== me && !P(j).trapped ? 'bad' : null,
+  free: (me, j) => P(j).trapped ? 'good' : null,
+  theft: (me, j) => j === me && !P(j).theft && !P(j).trapped ? 'good' : null,
+  handsoff: (me, j) => P(j).theft ? 'bad' : null,
+  swaphand: (me, j) => j !== me ? 'info' : null,
+  inspect: (me, j) => j !== me ? 'info' : null,
+  swaphat: (me, j) => S.leftRoles.length ? 'info' : null,
+};
+function selectedTargets() {
+  const pr = S.prompt; const out = { cells: new Set(), rock: new Set(), maps: new Set(), players: new Map() };
+  if (!pr || pr.type !== 'turn' || UI.sel == null || UI.mode) return out;
+  const pl = P(pr.p), c = pl.hand[UI.sel];
+  if (!c) return out;
+  if (c.k === 'path') {
+    if (blocked(pl)) return out;
+    const R = reach(), oc = orient(c, UI.rot ? 1 : 0);
+    for (const [x, y] of emptyAround()) if (canPlace(oc, x, y, R)) out.cells.add(K(x, y));
+  } else if (c.k === 'rock') { for (const [k, cell] of S.board) if (cell.kind === 'path') out.rock.add(k); }
+  else if (c.k === 'map') GOALS.forEach(([x, y]) => { if (!at(x, y).revealed) out.maps.add(K(x, y)); });
+  else if (PLAYER_ACTS[c.k]) S.players.forEach((_, j) => { const t = PLAYER_ACTS[c.k](pr.p, j, c); if (t) out.players.set(j, t); });
+  return out;
+}
+function frontIcons(p) {
+  return ['pick', 'lamp', 'cart'].filter(x => p.broken[x]).map(x => `<span class="broken" title="${TOOLS[x]}壞了">${TICO[x]}</span>`).join('') + (p.trapped ? `<span title="被關在監牢">${TICO.trap}</span>` : '') + (p.theft ? `<span title="有竊盜卡">${TICO.theft}</span>` : '');
+}
+
+function render() {
+  if (!S) return renderSetup();
+  const app = $('#app'), pr = S.prompt, me = viewer();
+  const tg = selectedTargets();
+  let minX = -1, maxX = 9, minY = -3, maxY = 3;
+  for (const k of S.board.keys()) { const [x, y] = PK(k); minX = Math.min(minX, x - 1); maxX = Math.max(maxX, x + 1); minY = Math.min(minY, y - 1); maxY = Math.max(maxY, y + 1); }
+  const cols = maxX - minX + 1;
+  const cs = Math.max(26, Math.min(42, Math.floor((Math.min(window.innerWidth, 720) - 32 - 20) / cols) - 2));
+  let cells = '';
+  for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
+    const k = K(x, y), c = S.board.get(k);
+    if (!c) { cells += tg.cells.has(k) ? `<div class="cell cand" data-place="${k}" role="button" tabindex="0"></div>` : '<div class="cell empty"></div>'; continue; }
+    let svg, extra = '', cls = '';
+    if (c.kind === 'goal') {
+      const gi = GOALS.findIndex(([gx, gy]) => gx === x && gy === y);
+      if (c.revealed) svg = cardSVG(c, c.gold ? GOLD_EXTRA : COAL_EXTRA);
+      else { svg = BACK_SVG(); if (me >= 0 && P(me).know[gi]) extra = `<span class="know">${P(me).know[gi] === 'gold' ? '金' : '煤'}</span>`; }
+      if (tg.maps.has(k)) cls = ' maptarget';
+    } else { svg = cardSVG(c); if (tg.rock.has(k)) cls = ' rocktarget'; }
+    if (S.last === k) cls += ' last';
+    cells += `<div class="cell${cls}" ${cls.includes('target') ? `data-hit="${k}" role="button" tabindex="0"` : ''}>${svg}${extra}</div>`;
+  }
+  const myRole = me >= 0 ? P(me).role : null;
+  app.innerHTML = `
+  <div class="top"><h1>礦坑淘金<small>矮人礦坑${combo() ? ' 1＋2' : ''}規則</small></h1><div style="display:flex;gap:6px"><button class="pill" id="rulesBtn">規則</button><button class="pill" id="quitBtn">重新開始</button></div></div>
+  <div class="stats"><span class="stat">第 <b>${S.round}</b>/3 輪</span><span class="stat">牌庫 <b>${S.deck.length}</b> 張</span>
+    ${combo() ? `<span class="stat">水晶 <b>${crystals()}</b></span>` : `<span class="stat">金塊卡剩 <b>${S.gold.length}</b></span>`}
+    ${myRole ? `<span class="role" style="background:${ROLE[myRole].c}33;color:${ROLE[myRole].c}">${humans() > 1 ? esc(nm(me)) + '：' : '你是'}${ROLE[myRole].n}</span>` : ''}</div>
+  <div class="players">${S.players.map((p, j) => { const t = tg.players.get(j);
+    return `<button class="pchip ${S.turn === j ? 'active' : ''} ${t ? 'target ' + t : ''}" ${t ? `data-tgt="${j}"` : ''}>${esc(p.name)} · ${p.hand.length}張<span class="tools">${frontIcons(p)}</span><span class="gold">${p.gold}金</span></button>`; }).join('')}</div>
+  <div class="boardwrap"><div class="board" style="--cs:${cs}px;grid-template-columns:repeat(${cols},${cs}px)">${cells}</div></div>
+  <div style="display:flex;flex-direction:column;gap:6px"><h3 style="font-size:1rem">紀錄</h3><div class="log">${S.log.map(l => `<div>${esc(l)}</div>`).join('')}</div></div>`;
+  $('#rulesBtn').onclick = showRules;
+  $('#quitBtn').onclick = confirmQuit;
+  app.querySelectorAll('[data-place]').forEach(b => b.onclick = () => { const [x, y] = PK(b.dataset.place); answer({ k: 'path', idx: UI.sel, x, y, r: UI.rot ? 1 : 0 }); });
+  app.querySelectorAll('[data-hit]').forEach(b => b.onclick = () => {
+    const [x, y] = PK(b.dataset.hit), c = P(pr.p).hand[UI.sel];
+    if (c.k === 'rock') answer({ k: 'rock', idx: UI.sel, x, y });
+    else answer({ k: 'map', idx: UI.sel, g: GOALS.findIndex(([gx, gy]) => gx === x && gy === y) });
+  });
+  app.querySelectorAll('[data-tgt]').forEach(b => b.onclick = () => {
+    const j = +b.dataset.tgt, c = P(pr.p).hand[UI.sel];
+    if (c.k === 'fix') answer({ k: 'fix', idx: UI.sel, target: j, tool: c.tools.find(t => P(j).broken[t]) });
+    else answer({ k: c.k, idx: UI.sel, target: j });
+  });
+  renderTray(); renderSheet();
+}
+
+function renderTray() {
+  const tray = $('#tray'), inn = $('#trayIn'), pr = S.prompt;
+  tray.hidden = false;
+  const me = viewer();
+  if (S.over && (!pr || pr.type !== 'end')) { inn.innerHTML = `<div class="t">遊戲結束</div><div class="btns"><button class="btn" id="bShow">看結果</button><button class="btn alt" id="bAgain">再玩一次</button></div>`; $('#bShow').onclick = () => { S.prompt = { type: 'end' }; renderSheet(); }; $('#bAgain').onclick = () => { S = null; render(); }; return; }
+  const myTurn = pr && pr.type === 'turn';
+  const owner = myTurn ? pr.p : (humans() === 1 ? me : -1);
+  let html = '';
+  if (myTurn) {
+    const pl = P(pr.p), c = UI.sel != null ? pl.hand[UI.sel] : null;
+    let msg = `<b>${humans() > 1 ? esc(nm(pr.p)) + '，' : ''}輪到你了</b>：選一張牌來用，或棄牌跳過。`;
+    if (UI.mode === 'discard') msg = combo() ? '選 1～3 張要棄掉的牌，棄幾張就補幾張。' : '選 1 張要棄掉的牌。';
+    else if (UI.mode === 'remove') msg = '選 2 張手牌棄掉，再選要拿掉自己面前的哪張卡（之後手牌會少 1 張）。';
+    else if (c) {
+      if (c.k === 'path') msg = blocked(pl) ? '你的工具壞了或被關住，不能挖通道。' : '點棋盤上發光的格子放通道，可以先按「旋轉」。' + (c.sub === 'ladder' ? '梯子永遠算接到起點，但要貼著別的卡，也不能放在目標卡旁邊。' : c.door ? '門只有同顏色的隊伍能通過。' : '');
+      else if (c.k === 'map') msg = '點一張藍框的目標卡，偷看是金礦還是煤炭。';
+      else if (c.k === 'rock') msg = '點一段紅框的通道把它炸掉。';
+      else if (c.k === 'break') msg = `點上方紅框的玩家，弄壞他的${TOOLS[c.tool]}。`;
+      else if (c.k === 'fix') msg = '點上方綠框的玩家修好工具（可以修自己）。';
+      else msg = `${ACTN[c.k]}：${ACTD[c.k]}點上方發光的玩家。`;
+    }
+    html = `<div class="t">${msg}</div>`;
+  } else if (pr && pr.type !== 'turn') html = '<div class="t">…</div>';
+  else html = `<div class="t">${S.turn != null ? esc(nm(S.turn)) + ' 正在挖…' : '…'}</div><div class="small muted">${esc(S.log[0] || '')}</div>`;
+  if (owner >= 0) {
+    const pl = P(owner), multi = UI.multi || [];
+    html += `<div class="handrow">${pl.hand.map((c, k) => { const on = UI.mode ? multi.includes(k) : UI.sel === k;
+      return `<button class="hcard act-${c.k} ${on ? 'on' : ''} ${c.k === 'path' && blocked(pl) ? 'off' : ''}" data-h="${k}" ${myTurn ? '' : 'disabled'}>${cardFace(c.k === 'path' && UI.sel === k && UI.rot ? orient(c, 1) : c)}</button>`; }).join('') || '<span class="small muted">手上沒有牌了</span>'}</div>`;
+    if (myTurn) {
+      const pens = [...['pick', 'lamp', 'cart'].filter(t => pl.broken[t]), ...(pl.trapped ? ['trap'] : []), ...(pl.theft ? ['theft'] : [])];
+      if (UI.mode === 'discard') {
+        const n = multi.length, ok = combo() ? n >= 1 && n <= 3 : n === 1;
+        html += `<div class="btns"><button class="btn warn" id="bDo" ${ok ? '' : 'disabled'}>棄掉 ${n} 張</button><button class="btn alt" id="bCancel">取消</button></div>`;
+      } else if (UI.mode === 'remove') {
+        html += `<div class="btns">${pens.map(w => `<button class="btn" data-rm="${w}" ${multi.length === 2 ? '' : 'disabled'}>拿掉${w === 'trap' ? '監牢' : w === 'theft' ? '竊盜卡' : '壞' + TOOLS[w]}</button>`).join('')}<button class="btn alt" id="bCancel">取消</button></div>`;
+      } else {
+        html += `<div class="btns"><button class="btn alt" id="bRot" ${UI.sel != null && pl.hand[UI.sel] && pl.hand[UI.sel].k === 'path' ? '' : 'disabled'}>旋轉</button><button class="btn warn" id="bPass">棄牌跳過</button>
+          ${combo() && pens.length && pl.hand.length >= 2 ? '<button class="btn alt" id="bRemove">棄 2 張拿掉懲罰</button>' : ''}</div>`;
+      }
+    }
+  }
+  inn.innerHTML = html;
+  inn.querySelectorAll('[data-h]').forEach(b => b.onclick = () => {
+    const k = +b.dataset.h;
+    if (UI.mode) { const m = UI.multi || []; UI.multi = m.includes(k) ? m.filter(x => x !== k) : [...m, k]; const max = UI.mode === 'remove' ? 2 : combo() ? 3 : 1; if (UI.multi.length > max) UI.multi.shift(); }
+    else { UI.sel = UI.sel === k ? null : k; UI.rot = false; }
+    render();
+  });
+  const on = (id, f) => { const b = $('#' + id); if (b) b.onclick = f; };
+  on('bRot', () => { UI.rot = !UI.rot; render(); });
+  on('bPass', () => { UI.mode = 'discard'; UI.multi = UI.sel != null ? [UI.sel] : []; UI.sel = null; render(); });
+  on('bRemove', () => { UI.mode = 'remove'; UI.multi = []; UI.sel = null; render(); });
+  on('bCancel', () => { UI.mode = null; UI.multi = []; render(); });
+  on('bDo', () => answer({ k: 'pass', idxs: UI.multi }));
+  inn.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => answer({ k: 'remove', idxs: UI.multi, what: b.dataset.rm }));
+}
+
+// ---------- sheets ----------
+function closeSheet() { const m = $('#modal'); if (m) m.remove(); }
+function openSheet(html, o = {}) { closeSheet(); const m = document.createElement('div'); m.className = 'modal' + (o.center ? ' center' : ''); m.id = 'modal'; if (o.keep) m.dataset.keep = '1'; m.innerHTML = `<div class="sheet">${html}</div>`; document.body.appendChild(m); return m; }
+function renderSheet() {
+  const pr = S && S.prompt, open = $('#modal');
+  const T = { role: sheetRole, handoff: sheetHandoff, peek: sheetPeek, peekRole: sheetPeekRole, roundEnd: sheetRoundEnd, end: sheetEnd };
+  if (!pr || !T[pr.type]) { if (open && !open.dataset.keep) closeSheet(); return; }
+  if (open && open.dataset.for === pr.type + (pr.p ?? '')) return;
+  const m = T[pr.type](pr); if (m) m.dataset.for = pr.type + (pr.p ?? '');
+}
+const roleCard = (r) => `<div class="rolecard" style="background:linear-gradient(160deg, ${ROLE[r].c}, ${ROLE[r].hat});box-shadow:0 0 30px ${ROLE[r].c}55">${TICO.dwarf(ROLE[r].hat)}${ROLE[r].n}</div>`;
+function sheetRole(pr) {
+  const p = P(pr.p);
+  const note = combo() ? `這輪共有 15 張身分卡：綠隊、藍隊各 4，工頭 1、地質學家 2、奸商 1、破壞者 3，沒發完的蓋在一旁。` : `這輪有 ${ROLES_BY_N[S.n][0]} 張破壞者卡、${ROLES_BY_N[S.n][1]} 張淘金者卡，會多 1 張沒人拿。`;
+  const m = openSheet(`<h2>${pr.changed ? '你的帽子被換了！新身分' : `第 ${S.round} 輪：${humans() > 1 ? esc(p.name) + ' 的' : '你的'}身分`}</h2>
+    ${roleCard(p.role)}<p>${ROLE[p.role].d}</p><p class="small muted">${note}</p><button class="btn" id="ok">記住了</button>`, { center: true });
+  $('#ok', m).onclick = () => { closeSheet(); answer(true); };
+  return m;
+}
+function sheetHandoff(pr) {
+  const m = openSheet(`<h2>輪到 ${esc(nm(pr.p))}</h2><p>請把手機交給 ${esc(nm(pr.p))}，其他人別偷看！</p><button class="btn" id="ok">我是 ${esc(nm(pr.p))}，開始</button>`, { center: true });
+  $('#ok', m).onclick = () => { closeSheet(); answer(true); };
+  return m;
+}
+function sheetPeek(pr) {
+  const inner = (pr.gold ? cardSVG({ o: [1, 1, 1, 1], groups: [[0, 1, 2, 3]] }, GOLD_EXTRA) : cardSVG({ o: [0, 0, 1, 1], groups: [[2, 3]] }, COAL_EXTRA)).replace('<svg ', '<svg class="goalpeek" ');
+  const m = openSheet(`<h2>${['上', '中', '下'][pr.g]}方的目標卡是…</h2>${inner}<h2 style="color:${pr.gold ? 'var(--gold)' : 'var(--muted)'}">${pr.gold ? '金礦！' : '煤炭'}</h2>
+    <p class="small muted">只有你知道。棋盤上這張卡會幫你標「${pr.gold ? '金' : '煤'}」。</p><button class="btn" id="ok">知道了</button>`, { center: true });
+  $('#ok', m).onclick = () => { closeSheet(); answer(true); };
+  return m;
+}
+function sheetPeekRole(pr) {
+  const r = P(pr.t).role;
+  const m = openSheet(`<h2>${esc(nm(pr.t))} 的身分是…</h2>${roleCard(r)}<p class="small muted">只有你知道。他的身分之後還可能被「交換帽子」換掉。</p><button class="btn" id="ok">知道了</button>`, { center: true });
+  $('#ok', m).onclick = () => { closeSheet(); answer(true); };
+  return m;
+}
+function sheetRoundEnd(pr) {
+  const r = pr.result;
+  const m = openSheet(`<h2>第 ${S.round} 輪結束：${r.title}</h2>${r.notes.map(n => `<p class="small muted">${esc(n)}</p>`).join('')}
+    <div class="tablewrap"><table class="res"><tr><th>玩家</th><th>身分</th><th>這輪</th><th>總金塊</th></tr>
+    ${S.players.map((p, j) => `<tr><td>${esc(p.name)}${p.trapped ? '（監牢）' : ''}</td><td style="color:${ROLE[p.role].c}">${ROLE[p.role].n}</td><td>${r.gains[j] ? (r.gains[j] > 0 ? '+' : '') + r.gains[j] : '–'}</td><td>${p.gold}</td></tr>`).join('')}</table></div>
+    <button class="btn" id="ok">${S.round < 3 ? '下一輪' : '看最後結果'}</button>`);
+  $('#ok', m).onclick = () => { closeSheet(); answer(true); };
+  return m;
+}
+function sheetEnd() {
+  const top = Math.max(...S.players.map(p => p.gold));
+  const w = S.players.filter(p => p.gold === top).map(p => esc(p.name)).join('、');
+  const m = openSheet(`<h2>${w} 獲勝！</h2><p class="small muted">三輪結束，金塊最多的人贏。</p>
+    <div class="tablewrap"><table class="res"><tr><th>玩家</th><th>金塊</th></tr>${S.players.slice().sort((a, b) => b.gold - a.gold).map(p => `<tr><td>${esc(p.name)}</td><td>${p.gold}</td></tr>`).join('')}</table></div>
+    <div class="row"><button class="btn" id="again">再玩一次</button><button class="btn alt" id="close">看棋盤</button></div>`);
+  $('#again', m).onclick = () => { closeSheet(); S = null; render(); };
+  $('#close', m).onclick = () => { closeSheet(); S.prompt = null; render(); };
+  return m;
+}
+function confirmQuit() {
+  const m = openSheet(`<h2>重新開始？</h2><p>這一局的進度會消失。</p><div class="row"><button class="btn" id="y">重新開始</button><button class="btn alt" id="n">繼續玩</button></div>`, { keep: true });
+  $('#y', m).onclick = () => { closeSheet(); resolver = null; S = null; render(); };
+  $('#n', m).onclick = () => { closeSheet(); renderSheet(); };
+}
+const RULES = `<div class="rules" style="display:flex;flex-direction:column;gap:8px">
+  <h2>怎麼玩（一代）</h2>
+  <p>大家都是挖礦的矮人。起點右邊 8 格外有 3 張蓋著的目標卡，其中 1 張是金礦，2 張是煤炭。可是隊伍裡藏著<b>破壞者</b>！</p>
+  <h3>身分</h3>
+  <ul><li><b>淘金者</b>：把通道從起點挖到金礦。</li><li><b>破壞者</b>：牌全用完還沒挖到金礦，破壞者贏。</li>
+    <li>破壞者／淘金者卡數：3 人 1/3、4 人 1/4、5 人 2/4、6 人 2/5、7 人 3/5、8 人 3/6、9 人 3/7、10 人 4/7（會多 1 張沒人拿）。</li></ul>
+  <h3>每回合做一件事，然後補 1 張牌</h3>
+  <ol><li><b>挖通道</b>：要和旁邊的卡都對得上，而且接得回起點。工具壞了不能挖。</li>
+    <li><b>行動卡</b>：破壞工具、修復工具、藏寶圖（偷看目標卡）、落石（炸掉一段通道）。</li>
+    <li><b>跳過</b>：棄 1 張牌。</li></ol>
+  <h3>分金塊</h3>
+  <ul><li>淘金者贏：抽「玩家人數」張金塊卡（1～3 金），從挖到金礦的人往回輪流挑，只有淘金者能拿。</li>
+    <li>破壞者贏：1 位拿 4 金；2～3 位每人 3 金；4 位每人 2 金。</li></ul>
+  <p>手牌：3～5 人 6 張、6～7 人 5 張、8～10 人 4 張。玩 3 輪，金塊最多的人贏。</p>
+  <h2 style="margin-top:8px">一代＋二代合併</h2>
+  <p>二代是擴充，要和一代一起玩（2～12 人）。一代的身分卡和金塊卡不用，起點、目標卡照放。兩盒的路徑卡和行動卡全部混洗，每輪先蓋掉 10 張，<b>不管幾人每人都拿 6 張</b>。</p>
+  <h3>新身分（15 張，發完剩下的蓋著）</h3>
+  <ul><li><b>綠隊／藍隊淘金客</b>（各 4）：自己這隊挖到金礦、路上沒有別色的門就贏。自己的路被擋住但另一隊的路通，另一隊贏。</li>
+    <li><b>工頭</b>（1）：綠隊或藍隊贏他就贏，少拿 1 金。</li>
+    <li><b>奸商</b>（1）：誰贏他都贏，少拿 2 金。</li>
+    <li><b>地質學家</b>（2）：坑道裡看得到幾個水晶就拿幾金，兩人平分。</li>
+    <li><b>破壞者</b>（3）。</li>
+    <li>工頭、地質學家或奸商挖通金礦時，路沒被別色門擋住的隊伍都贏。兩隊都被擋住，工頭和奸商贏；他們都不在場，破壞者贏。</li></ul>
+  <h3>新路徑卡</h3>
+  <ul><li><b>橋樑</b>、<b>雙重彎道</b>：兩條互不相通的路，放的時候至少一條要接到起點。</li>
+    <li><b>梯子</b>：永遠算接到起點，但一定要貼著別的路徑卡，而且不能放在目標卡旁邊。</li>
+    <li><b>門</b>（綠、藍各 3）：只有同顏色的隊伍能通過。</li>
+    <li>有些路徑卡上有<b>水晶</b>，不影響通路。</li></ul>
+  <h3>新行動卡（每人面前同一種最多一張）</h3>
+  <ul>${['theft', 'handsoff', 'swaphand', 'inspect', 'swaphat', 'trap', 'free'].map(k => `<li><b>${ACTN[k]}</b>：${ACTD[k]}</li>`).join('')}</ul>
+  <h3>每回合多了這些選項</h3>
+  <ul><li><b>棄 2 張拿掉懲罰</b>：棄 2 張手牌，拿掉自己面前一張卡，只補 1 張（手牌從此少 1 張）。</li>
+    <li><b>跳過</b>：棄 1～3 張，補同樣張數。牌堆抽完後不再補牌，手牌用完就一直跳過。</li></ul>
+  <h3>分金塊</h3>
+  <p>看贏家人數：1 人 5 金、2 人各 4、3 人各 3、4 人各 2、5 人以上各 1（工頭少 1、奸商少 2）。被關在監牢的人不算贏家。分完後，有竊盜卡的人各偷 1 金。</p>
+  <h3>這個電腦版的說明</h3>
+  <ul><li>非官方練習版，依矮人礦坑一代規則和二代中英文說明書製作。</li>
+    <li>二代路徑卡中，說明書沒列出的 16 張一般路徑卡，這裡做成每張都有 1 個水晶。二代行動卡照說明書列的共 20 張。</li>
+    <li>分金塊時每人自動拿最大的；竊盜卡自動偷金塊最多的人。</li>
+    <li>電腦玩家會依大家的行為猜誰是破壞者。好幾個真人輪流玩時，換人前會跳出「交給下一位」的畫面。</li></ul>
+</div>`;
+function showRules() { const m = openSheet(RULES + '<button class="btn" id="ok">知道了</button>', { keep: true }); $('#ok', m).onclick = () => { closeSheet(); if (S) renderSheet(); }; }
+
+// ---------- setup ----------
+const BOTNAMES = ['電腦 鐵鎚', '電腦 小鬍子', '電腦 老礦工', '電腦 金牙', '電腦 燈籠', '電腦 石頭', '電腦 阿鑽', '電腦 大鍬', '電腦 煤球', '電腦 銀斧', '電腦 礦帽'];
+function renderSetup() {
+  $('#tray').hidden = true;
+  if (!setupCfg) setupCfg = { n: 5, mode: 'base', seats: [{ name: '你', human: true }, ...BOTNAMES.map(n => ({ name: n, human: false }))] };
+  const c = setupCfg;
+  const range = c.mode === 'combo' ? [2, 12] : [3, 10];
+  c.n = Math.min(range[1], Math.max(range[0], c.n));
+  const ns = []; for (let n = range[0]; n <= range[1]; n++) ns.push(n);
+  $('#app').innerHTML = `
+  <div class="top"><h1>礦坑淘金<small>矮人礦坑規則</small></h1><button class="pill" id="rulesBtn">規則</button></div>
+  <p style="margin:0;color:var(--muted);line-height:1.5">挖通道找金礦，小心藏在隊伍裡的破壞者。</p>
+  <div class="setup">
+    <div><h3>版本</h3><div class="seg"><button data-m="base" class="${c.mode === 'base' ? 'on' : ''}">只玩一代</button><button data-m="combo" class="${c.mode === 'combo' ? 'on' : ''}">一代＋二代合併</button></div>
+      <p class="small muted" style="margin:6px 0 0">${c.mode === 'combo' ? '綠隊藍隊、工頭、地質學家、奸商、門、梯子、監牢、竊盜…，2～12 人。' : '經典玩法：淘金者對破壞者，3～10 人。'}</p></div>
+    <div><h3>玩家人數</h3><div class="seg">${ns.map(n => `<button data-n="${n}" class="${c.n === n ? 'on' : ''}">${n}</button>`).join('')}</div></div>
+    <div style="display:flex;flex-direction:column;gap:8px"><h3>座位</h3>
+      ${c.seats.slice(0, c.n).map((s, i) => `<div class="seatrow"><input id="nm${i}" value="${esc(s.name)}" maxlength="8" aria-label="名字">
+        <div class="seg"><button data-h="${i}" class="${s.human ? 'on' : ''}">真人</button><button data-c="${i}" class="${s.human ? '' : 'on'}">電腦</button></div></div>`).join('')}
+      <span class="small muted">好幾個真人可以輪流用同一支手機玩，換人時會提醒其他人別偷看。</span></div>
+    <button class="btn" id="start" style="align-self:flex-start;font-size:1.05rem">開始挖礦</button>
+  </div>
+  <div class="setup">${RULES}</div>`;
+  const save = () => c.seats.slice(0, c.n).forEach((s, i) => { s.name = $('#nm' + i).value.trim() || `玩家${i + 1}`; });
+  $('#rulesBtn').onclick = showRules;
+  document.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { save(); c.mode = b.dataset.m; renderSetup(); });
+  document.querySelectorAll('[data-n]').forEach(b => b.onclick = () => { save(); c.n = +b.dataset.n; renderSetup(); });
+  document.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { save(); const s = c.seats[+b.dataset.h]; s.human = true; if (s.name.startsWith('電腦')) s.name = `玩家${+b.dataset.h + 1}`; renderSetup(); });
+  document.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { save(); const s = c.seats[+b.dataset.c]; s.human = false; if (!s.name.startsWith('電腦')) s.name = BOTNAMES[+b.dataset.c] || '電腦'; renderSetup(); });
+  $('#start').onclick = () => { save(); newGame({ seats: c.seats.slice(0, c.n).map(s => ({ ...s })), mode: c.mode }); render(); run(); };
+}
+
+window.__mine = () => S;
+window.addEventListener('resize', () => { if (S) render(); });
+render();
+})();
+</script>
+</html>
