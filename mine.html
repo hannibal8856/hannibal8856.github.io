@@ -118,6 +118,27 @@ table.res th:first-child, table.res td:first-child { text-align: left; }
 .pchip.target.info { box-shadow: inset 0 0 0 2.5px var(--blue); }
 .pchip.target.bad { box-shadow: inset 0 0 0 2.5px var(--red); }
 .rolecard { text-align: center; color: #fff; text-shadow: 0 1px 2px #0008; }
+.chatbtn { position: relative; }
+.chatbtn .badge { position: absolute; top: -5px; right: -5px; background: var(--red); color: #fff; border-radius: 999px; font-size: .66rem; padding: 0 5px; min-width: 17px; line-height: 17px; }
+.chat { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: #1d1511fa; border-top: 1.5px solid var(--lamp); box-shadow: 0 -10px 30px #000a;
+  padding: 12px max(12px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)); }
+.chat .cin { max-width: 620px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+.chat .chd { display: flex; justify-content: space-between; align-items: center; }
+.chat .msgs { overflow-y: auto; display: flex; flex-direction: column; gap: 4px; font-size: .9rem; min-height: 70px; max-height: 34vh; line-height: 1.45; }
+.chat .msgs b { color: var(--lamp); }
+.chat .msgs .sys { color: var(--muted); font-size: .8rem; }
+.emos { display: flex; gap: 4px; flex-wrap: wrap; }
+.emos button { font-size: 1.35rem; background: #2e231b; border: 0; border-radius: 8px; padding: 3px 6px; line-height: 1.2; }
+.chat form { display: flex; gap: 6px; }
+.chat input, .netin { flex: 1; font: inherit; border: 1.5px solid #ffffff2a; border-radius: 8px; padding: 8px 10px; background: #1a1310; color: var(--fg); min-width: 0; }
+.bubble { position: fixed; left: 50%; top: 76px; transform: translateX(-50%); z-index: 50; background: #2a1f18f5; border: 1.5px solid var(--lamp); border-radius: 14px; padding: 8px 16px; box-shadow: 0 8px 24px #000a; animation: pop .25s; pointer-events: none; text-align: center; max-width: 86vw; font-size: .9rem; }
+.bubble .e { font-size: 2.4rem; display: block; line-height: 1.15; }
+@keyframes pop { from { transform: translateX(-50%) scale(.6); opacity: 0; } }
+.code { font: 700 2.6rem var(--ui); letter-spacing: .3em; color: var(--gold); text-align: center; text-shadow: 0 0 18px #f5c54255; }
+.plist { display: flex; flex-direction: column; gap: 6px; }
+.plist div { background: #1a1310; border-radius: 8px; padding: 8px 10px; display: flex; justify-content: space-between; gap: 8px; }
+.err { background: #d9543a33; color: #ffb3a3; border-radius: 10px; padding: 9px 12px; font-size: .88rem; }
+.netrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 </style>
 
 <div class="wrap" id="app"></div>
@@ -258,8 +279,14 @@ const nm = (i) => P(i).name;
 const combo = () => S.mode === 'combo';
 function log(t) { S.log.unshift(t); if (S.log.length > 100) S.log.pop(); }
 async function nap(ms) { const g = S && S.gid; await sleep(ms); if (!S || S.gid !== g) throw 'stop'; }
-function ask(pr) { UI = {}; S.prompt = pr; render(); return new Promise(r => { resolver = r; }); }
-function answer(v) { const r = resolver; resolver = null; S.prompt = null; UI = {}; if (r) r(v); }
+function ask(pr) {
+  if (S.online && pr.p != null && P(pr.p).remote) { pr.pid = ++NET.pid; S.rprompts[pr.p] = pr; render(); return new Promise(r => { NET.waits[pr.pid] = { r, seat: pr.p, pr }; }); }
+  UI = {}; S.prompt = pr; render(); return new Promise(r => { resolver = r; });
+}
+function answer(v) {
+  if (NET.role === 'client') { clientAnswer(v); return; }
+  const r = resolver; resolver = null; S.prompt = null; UI = {}; if (r) r(v);
+}
 const humans = () => S.players.filter(p => p.human).length;
 const blocked = (pl) => Object.values(pl.broken).some(Boolean) || pl.trapped;
 
@@ -346,7 +373,7 @@ function suspect(i, delta) { S.susp[i] = (S.susp[i] || 0) + delta; }
 // ---------- rounds ----------
 function newGame(cfg) {
   const n = cfg.seats.length;
-  S = { n, mode: cfg.mode, players: cfg.seats.map(s => ({ name: s.name, human: s.human, gold: 0, role: null, hand: [], broken: {}, trapped: false, theft: false, know: {}, roleKnow: {} })),
+  S = { n, mode: cfg.mode, players: cfg.seats.map(s => ({ name: s.name, baseName: s.name, human: s.human, remote: !!s.remote, off: false, roleVer: 0, gold: 0, role: null, hand: [], broken: {}, trapped: false, theft: false, know: {}, roleKnow: {} })),
     round: 0, gold: goldDeck(), log: [], prompt: null, gid: Math.random(), board: new Map(), deck: [], turn: null, over: false, susp: [], last: null, seen: {}, leftRoles: [] };
   log(`新遊戲：${n} 位矮人，${cfg.mode === 'combo' ? '一代＋二代合併' : '一代'}，玩 3 輪，金塊最多的人贏。`);
 }
@@ -362,7 +389,8 @@ function setupRound() {
     S.players.forEach((p, i) => p.role = roles[i]);
     S.leftRoles = roles.slice(S.n);
   }
-  S.players.forEach(p => { p.hand = []; p.broken = {}; p.trapped = false; p.theft = false; p.know = {}; p.roleKnow = {}; p.newRole = false; });
+  S.players.forEach(p => { p.hand = []; p.broken = {}; p.trapped = false; p.theft = false; p.know = {}; p.roleKnow = {}; p.newRole = false; p.roleVer = (p.roleVer || 0) + 1; });
+  S.shared = null;
   S.board = new Map();
   S.board.set(K(0, 0), { kind: 'start', o: [1, 1, 1, 1], groups: [[0, 1, 2, 3]] });
   const goldAt = rint(3), shapes = shuffle([[0, 0, 1, 1], [1, 0, 0, 1]]);
@@ -380,7 +408,8 @@ async function runInner() {
   let start = S.players.findIndex(p => p.human); if (start < 0) start = rint(S.n);
   for (let rd = 0; rd < 3; rd++) {
     setupRound();
-    if (humans() === 1) { const i = S.players.findIndex(p => p.human); S.seen[i] = true; await ask({ type: 'role', p: i }); }
+    if (S.online) await ask({ type: 'role', p: S.me });
+    else if (humans() === 1) { const i = S.players.findIndex(p => p.human); S.seen[i] = true; await ask({ type: 'role', p: i }); }
     let i = start, finder = null, lastActor = start, done = false;
     while (!done) {
       const pl = P(i);
@@ -388,7 +417,7 @@ async function runInner() {
         S.turn = i;
         let act;
         if (pl.human) {
-          if (humans() > 1) { await ask({ type: 'handoff', p: i }); if (!S.seen[i] || pl.newRole) { S.seen[i] = true; pl.newRole = false; await ask({ type: 'role', p: i }); } }
+          if (!S.online && humans() > 1) { await ask({ type: 'handoff', p: i }); if (!S.seen[i] || pl.newRole) { S.seen[i] = true; pl.newRole = false; await ask({ type: 'role', p: i }); } }
           act = await ask({ type: 'turn', p: i });
         } else { render(); await nap(750); act = botTurn(i); }
         const r = await apply(i, act);
@@ -403,10 +432,12 @@ async function runInner() {
     }
     const result = combo() ? resultCombo(finder) : resultBase(finder);
     S.turn = null;
+    if (S.online) S.shared = { type: 'roundEnd', result, key: 'r' + S.round + ':' + S.gid };
     await ask({ type: 'roundEnd', result });
     start = (lastActor + 1) % S.n;
   }
   S.over = true;
+  if (S.online) S.shared = { type: 'end', key: 'end:' + S.gid };
   ask({ type: 'end' });
 }
 
@@ -526,14 +557,14 @@ async function apply(i, a) {
     case 'inspect':
       pl.roleKnow[t] = P(t).role;
       log(`${nm(i)} 偷看了 ${nm(t)} 的身分`);
-      if (pl.human) await ask({ type: 'peekRole', p: i, t });
+      if (pl.human) await ask({ type: 'peekRole', p: i, t, role: P(t).role });
       break;
     case 'swaphat': {
       if (!S.leftRoles.length) { log('沒有多的身分卡可以換'); break; }
-      P(t).role = S.leftRoles.pop();
+      P(t).role = S.leftRoles.pop(); P(t).roleVer = (P(t).roleVer || 0) + 1;
       S.players.forEach(q => delete q.roleKnow[t]);
       log(`${nm(i)} 讓${t === i ? '自己' : ' ' + nm(t) + ' '}換了一頂帽子（身分換了）`);
-      if (P(t).human) { if (humans() === 1) await ask({ type: 'role', p: t, changed: true }); else P(t).newRole = true; }
+      if (P(t).human) { if (S.online) { if (t === S.me) await ask({ type: 'role', p: t, changed: true }); } else if (humans() === 1) await ask({ type: 'role', p: t, changed: true }); else P(t).newRole = true; }
       break;
     }
     case 'map': {
@@ -659,6 +690,7 @@ function cardFace(c) {
 }
 function viewer() {
   const pr = S.prompt;
+  if (S.online) return S.me;
   if (humans() === 1) return S.players.findIndex(p => p.human);
   if (pr && pr.p != null && P(pr.p).human && pr.type !== 'handoff') return pr.p;
   return -1;
@@ -716,16 +748,18 @@ function render() {
   }
   const myRole = me >= 0 ? P(me).role : null;
   app.innerHTML = `
-  <div class="top"><h1>礦坑淘金<small>矮人礦坑${combo() ? ' 1＋2' : ''}規則</small></h1><div style="display:flex;gap:6px"><button class="pill" id="rulesBtn">規則</button><button class="pill" id="quitBtn">重新開始</button></div></div>
+  <div class="top"><h1>礦坑淘金<small>矮人礦坑${combo() ? ' 1＋2' : ''}規則</small></h1><div style="display:flex;gap:6px">${NET.role ? chatBtnHTML() : ''}<button class="pill" id="rulesBtn">規則</button><button class="pill" id="quitBtn">${S.online ? '離開' : '重新開始'}</button></div></div>
   <div class="stats"><span class="stat">第 <b>${S.round}</b>/3 輪</span><span class="stat">牌庫 <b>${S.deck.length}</b> 張</span>
     ${combo() ? `<span class="stat">水晶 <b>${crystals()}</b></span>` : `<span class="stat">金塊卡剩 <b>${S.gold.length}</b></span>`}
-    ${myRole ? `<span class="role" style="background:${ROLE[myRole].c}33;color:${ROLE[myRole].c}">${humans() > 1 ? esc(nm(me)) + '：' : '你是'}${ROLE[myRole].n}</span>` : ''}</div>
+    ${S.online ? `<span class="stat">房號 <b>${esc(NET.code)}</b></span>` : ''}
+    ${myRole ? `<span class="role" style="background:${ROLE[myRole].c}33;color:${ROLE[myRole].c}">${!S.online && humans() > 1 ? esc(nm(me)) + '：' : '你是'}${ROLE[myRole].n}</span>` : ''}</div>
   <div class="players">${S.players.map((p, j) => { const t = tg.players.get(j);
     return `<button class="pchip ${S.turn === j ? 'active' : ''} ${t ? 'target ' + t : ''}" ${t ? `data-tgt="${j}"` : ''}>${esc(p.name)} · ${p.hand.length}張<span class="tools">${frontIcons(p)}</span><span class="gold">${p.gold}金</span></button>`; }).join('')}</div>
   <div class="boardwrap"><div class="board" style="--cs:${cs}px;grid-template-columns:repeat(${cols},${cs}px)">${cells}</div></div>
   <div style="display:flex;flex-direction:column;gap:6px"><h3 style="font-size:1rem">紀錄</h3><div class="log">${S.log.map(l => `<div>${esc(l)}</div>`).join('')}</div></div>`;
   $('#rulesBtn').onclick = showRules;
   $('#quitBtn').onclick = confirmQuit;
+  bindChatBtn();
   app.querySelectorAll('[data-place]').forEach(b => b.onclick = () => { const [x, y] = PK(b.dataset.place); answer({ k: 'path', idx: UI.sel, x, y, r: UI.rot ? 1 : 0 }); });
   app.querySelectorAll('[data-hit]').forEach(b => b.onclick = () => {
     const [x, y] = PK(b.dataset.hit), c = P(pr.p).hand[UI.sel];
@@ -738,19 +772,20 @@ function render() {
     else answer({ k: c.k, idx: UI.sel, target: j });
   });
   renderTray(); renderSheet();
+  syncSoon();
 }
 
 function renderTray() {
   const tray = $('#tray'), inn = $('#trayIn'), pr = S.prompt;
   tray.hidden = false;
   const me = viewer();
-  if (S.over && (!pr || pr.type !== 'end')) { inn.innerHTML = `<div class="t">遊戲結束</div><div class="btns"><button class="btn" id="bShow">看結果</button><button class="btn alt" id="bAgain">再玩一次</button></div>`; $('#bShow').onclick = () => { S.prompt = { type: 'end' }; renderSheet(); }; $('#bAgain').onclick = () => { S = null; render(); }; return; }
+  if (S.over && (!pr || pr.type !== 'end')) { inn.innerHTML = `<div class="t">遊戲結束</div><div class="btns"><button class="btn" id="bShow">看結果</button>${NET.role === 'client' ? '<span class="small muted" style="align-self:center">等房主開下一局…</span>' : `<button class="btn alt" id="bAgain">${S.online ? '回到房間' : '再玩一次'}</button>`}</div>`; $('#bShow').onclick = () => { S.prompt = { type: 'end', local: true, key: 'end-view' }; renderSheet(); }; const ba = $('#bAgain'); if (ba) ba.onclick = backToLobbyOrSetup; return; }
   const myTurn = pr && pr.type === 'turn';
-  const owner = myTurn ? pr.p : (humans() === 1 ? me : -1);
+  const owner = myTurn ? pr.p : (S.online ? S.me : humans() === 1 ? me : -1);
   let html = '';
   if (myTurn) {
     const pl = P(pr.p), c = UI.sel != null ? pl.hand[UI.sel] : null;
-    let msg = `<b>${humans() > 1 ? esc(nm(pr.p)) + '，' : ''}輪到你了</b>：選一張牌來用，或棄牌跳過。`;
+    let msg = `<b>${!S.online && humans() > 1 ? esc(nm(pr.p)) + '，' : ''}輪到你了</b>：選一張牌來用，或棄牌跳過。`;
     if (UI.mode === 'discard') msg = combo() ? '選 1～3 張要棄掉的牌，棄幾張就補幾張。' : '選 1 張要棄掉的牌。';
     else if (UI.mode === 'remove') msg = '選 2 張手牌棄掉，再選要拿掉自己面前的哪張卡（之後手牌會少 1 張）。';
     else if (c) {
@@ -811,7 +846,7 @@ const roleCard = (r) => `<div class="rolecard" style="background:linear-gradient
 function sheetRole(pr) {
   const p = P(pr.p);
   const note = combo() ? `這輪共有 15 張身分卡：綠隊、藍隊各 4，工頭 1、地質學家 2、奸商 1、破壞者 3，沒發完的蓋在一旁。` : `這輪有 ${ROLES_BY_N[S.n][0]} 張破壞者卡、${ROLES_BY_N[S.n][1]} 張淘金者卡，會多 1 張沒人拿。`;
-  const m = openSheet(`<h2>${pr.changed ? '你的帽子被換了！新身分' : `第 ${S.round} 輪：${humans() > 1 ? esc(p.name) + ' 的' : '你的'}身分`}</h2>
+  const m = openSheet(`<h2>${pr.changed ? '你的帽子被換了！新身分' : `第 ${S.round} 輪：${!S.online && humans() > 1 ? esc(p.name) + ' 的' : '你的'}身分`}</h2>
     ${roleCard(p.role)}<p>${ROLE[p.role].d}</p><p class="small muted">${note}</p><button class="btn" id="ok">記住了</button>`, { center: true });
   $('#ok', m).onclick = () => { closeSheet(); answer(true); };
   return m;
@@ -829,7 +864,7 @@ function sheetPeek(pr) {
   return m;
 }
 function sheetPeekRole(pr) {
-  const r = P(pr.t).role;
+  const r = pr.role || P(pr.t).role;
   const m = openSheet(`<h2>${esc(nm(pr.t))} 的身分是…</h2>${roleCard(r)}<p class="small muted">只有你知道。他的身分之後還可能被「交換帽子」換掉。</p><button class="btn" id="ok">知道了</button>`, { center: true });
   $('#ok', m).onclick = () => { closeSheet(); answer(true); };
   return m;
@@ -839,7 +874,7 @@ function sheetRoundEnd(pr) {
   const m = openSheet(`<h2>第 ${S.round} 輪結束：${r.title}</h2>${r.notes.map(n => `<p class="small muted">${esc(n)}</p>`).join('')}
     <div class="tablewrap"><table class="res"><tr><th>玩家</th><th>身分</th><th>這輪</th><th>總金塊</th></tr>
     ${S.players.map((p, j) => `<tr><td>${esc(p.name)}${p.trapped ? '（監牢）' : ''}</td><td style="color:${ROLE[p.role].c}">${ROLE[p.role].n}</td><td>${r.gains[j] ? (r.gains[j] > 0 ? '+' : '') + r.gains[j] : '–'}</td><td>${p.gold}</td></tr>`).join('')}</table></div>
-    <button class="btn" id="ok">${S.round < 3 ? '下一輪' : '看最後結果'}</button>`);
+    <button class="btn" id="ok">${NET.role === 'client' ? '知道了' : S.round < 3 ? (S.online ? '大家開始下一輪' : '下一輪') : '看最後結果'}</button>`);
   $('#ok', m).onclick = () => { closeSheet(); answer(true); };
   return m;
 }
@@ -848,12 +883,18 @@ function sheetEnd() {
   const w = S.players.filter(p => p.gold === top).map(p => esc(p.name)).join('、');
   const m = openSheet(`<h2>${w} 獲勝！</h2><p class="small muted">三輪結束，金塊最多的人贏。</p>
     <div class="tablewrap"><table class="res"><tr><th>玩家</th><th>金塊</th></tr>${S.players.slice().sort((a, b) => b.gold - a.gold).map(p => `<tr><td>${esc(p.name)}</td><td>${p.gold}</td></tr>`).join('')}</table></div>
-    <div class="row"><button class="btn" id="again">再玩一次</button><button class="btn alt" id="close">看棋盤</button></div>`);
-  $('#again', m).onclick = () => { closeSheet(); S = null; render(); };
-  $('#close', m).onclick = () => { closeSheet(); S.prompt = null; render(); };
+    <div class="row">${NET.role === 'client' ? '' : `<button class="btn" id="again">${S.online ? '回到房間' : '再玩一次'}</button>`}<button class="btn alt" id="close">看棋盤</button></div>`);
+  const ag = $('#again', m); if (ag) ag.onclick = () => { closeSheet(); backToLobbyOrSetup(); };
+  $('#close', m).onclick = () => { closeSheet(); if (NET.role === 'client' && S.prompt && S.prompt.local) { answer(true); return; } S.prompt = null; render(); };
   return m;
 }
 function confirmQuit() {
+  if (S && S.online) {
+    const m = openSheet(`<h2>離開房間？</h2><p>${NET.role === 'host' ? '你是房主，離開後這一局會結束，所有人都會斷線。' : '離開後由電腦代打，用同一個名字重新加入可以接回座位。'}</p><div class="row"><button class="btn warn" id="y">離開</button><button class="btn alt" id="n">繼續玩</button></div>`, { keep: true });
+    $('#y', m).onclick = () => { closeSheet(); netLeave(); };
+    $('#n', m).onclick = () => { closeSheet(); renderSheet(); };
+    return;
+  }
   const m = openSheet(`<h2>重新開始？</h2><p>這一局的進度會消失。</p><div class="row"><button class="btn" id="y">重新開始</button><button class="btn alt" id="n">繼續玩</button></div>`, { keep: true });
   $('#y', m).onclick = () => { closeSheet(); resolver = null; S = null; render(); };
   $('#n', m).onclick = () => { closeSheet(); renderSheet(); };
@@ -905,14 +946,17 @@ function showRules() { const m = openSheet(RULES + '<button class="btn" id="ok">
 const BOTNAMES = ['電腦 鐵鎚', '電腦 小鬍子', '電腦 老礦工', '電腦 金牙', '電腦 燈籠', '電腦 石頭', '電腦 阿鑽', '電腦 大鍬', '電腦 煤球', '電腦 銀斧', '電腦 礦帽'];
 function renderSetup() {
   $('#tray').hidden = true;
-  if (!setupCfg) setupCfg = { n: 5, mode: 'base', seats: [{ name: '你', human: true }, ...BOTNAMES.map(n => ({ name: n, human: false }))] };
+  if (NET.role) return renderLobby();
+  if (!setupCfg) setupCfg = { n: 5, mode: 'base', play: qs.get('room') ? 'join' : 'local', code: (qs.get('room') || '').toUpperCase().slice(0, 4), seats: [{ name: '你', human: true }, ...BOTNAMES.map(n => ({ name: n, human: false }))] };
   const c = setupCfg;
+  if (c.play !== 'local') return renderNetSetup();
   const range = c.mode === 'combo' ? [2, 12] : [3, 10];
   c.n = Math.min(range[1], Math.max(range[0], c.n));
   const ns = []; for (let n = range[0]; n <= range[1]; n++) ns.push(n);
   $('#app').innerHTML = `
   <div class="top"><h1>礦坑淘金<small>矮人礦坑規則</small></h1><button class="pill" id="rulesBtn">規則</button></div>
   <p style="margin:0;color:var(--muted);line-height:1.5">挖通道找金礦，小心藏在隊伍裡的破壞者。</p>
+  ${playSegHTML()}
   <div class="setup">
     <div><h3>版本</h3><div class="seg"><button data-m="base" class="${c.mode === 'base' ? 'on' : ''}">只玩一代</button><button data-m="combo" class="${c.mode === 'combo' ? 'on' : ''}">一代＋二代合併</button></div>
       <p class="small muted" style="margin:6px 0 0">${c.mode === 'combo' ? '綠隊藍隊、工頭、地質學家、奸商、門、梯子、監牢、竊盜…，2～12 人。' : '經典玩法：淘金者對破壞者，3～10 人。'}</p></div>
@@ -926,6 +970,7 @@ function renderSetup() {
   <div class="setup">${RULES}</div>`;
   const save = () => c.seats.slice(0, c.n).forEach((s, i) => { s.name = $('#nm' + i).value.trim() || `玩家${i + 1}`; });
   $('#rulesBtn').onclick = showRules;
+  bindPlaySeg(save);
   document.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { save(); c.mode = b.dataset.m; renderSetup(); });
   document.querySelectorAll('[data-n]').forEach(b => b.onclick = () => { save(); c.n = +b.dataset.n; renderSetup(); });
   document.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { save(); const s = c.seats[+b.dataset.h]; s.human = true; if (s.name.startsWith('電腦')) s.name = `玩家${+b.dataset.h + 1}`; renderSetup(); });
@@ -933,7 +978,359 @@ function renderSetup() {
   $('#start').onclick = () => { save(); newGame({ seats: c.seats.slice(0, c.n).map(s => ({ ...s })), mode: c.mode }); render(); run(); };
 }
 
+// ---------- online play (PeerJS: the host's browser runs the game, others get only what they may see) ----------
+const NET = { role: null, code: '', peer: null, conns: [], host: null, waits: {}, pid: 0, chat: [], unread: 0, chatOpen: false, lobby: null, myName: '', status: '', err: '', dismissed: {}, answered: 0, lastView: null, roleKey: '' };
+const PEER_PREFIX = 'hannibal-mine-';
+const CODE_CH = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const EMOS = ['😂', '😡', '🤔', '😱', '👍', '🙏', '😏', '🤫', '💰', '⛏️', '🕵️', '💣'];
+const qs = new URLSearchParams(location.search);
+const store = { get(k) { try { return localStorage.getItem(k) || ''; } catch { return ''; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+function peerOpts() { const h = qs.get('peerhost'); if (!h) return { debug: 0 }; const [host, port] = h.split(':'); return { host, port: +port, path: '/', secure: false, debug: 0 }; }
+let peerLib = null;
+function loadPeer() {
+  if (window.Peer) return Promise.resolve(window.Peer);
+  if (peerLib) return peerLib;
+  const srcs = ['https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js', 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js'];
+  peerLib = new Promise((res, rej) => {
+    let i = 0;
+    const next = () => {
+      if (i >= srcs.length) { peerLib = null; rej(new Error('load')); return; }
+      const s = document.createElement('script'); s.src = srcs[i++];
+      s.onload = () => window.Peer ? res(window.Peer) : next();
+      s.onerror = () => { s.remove(); next(); };
+      document.head.appendChild(s);
+    };
+    next();
+  });
+  return peerLib;
+}
+function send(c, o) { try { if (c && c.open) c.send(o); } catch {} }
+function bcast(o) { NET.conns.forEach(r => send(r.c, o)); }
+const newCode = () => Array.from({ length: 4 }, () => CODE_CH[rint(CODE_CH.length)]).join('');
+
+function netReset() {
+  if (NET.peer) { try { NET.peer.destroy(); } catch {} }
+  Object.assign(NET, { role: null, code: '', peer: null, conns: [], host: null, waits: {}, chat: [], unread: 0, chatOpen: false, lobby: null, status: '', dismissed: {}, answered: 0, lastView: null, roleKey: '' });
+  renderChat();
+}
+function netFail(msg) {
+  const wasClient = NET.role === 'client';
+  netReset(); NET.err = msg;
+  if (wasClient || !S || S.online) { S = null; resolver = null; }
+  closeSheet(); render();
+}
+function netLeave() {
+  if (NET.role === 'host') bcast({ t: 'bye', reason: '房主關閉了房間。' });
+  const p = NET.peer; NET.peer = null;
+  setTimeout(() => { try { p && p.destroy(); } catch {} }, 300);
+  netReset(); NET.err = ''; S = null; resolver = null; closeSheet(); render();
+}
+function backToLobbyOrSetup() {
+  if (S) S.gid = Math.random();
+  resolver = null; S = null;
+  if (NET.role === 'host') { NET.waits = {}; NET.conns.forEach(r => r.seat = -1); }
+  render();
+}
+
+// ----- host -----
+async function hostRoom(name, mode) {
+  NET.role = 'host'; NET.myName = name; NET.err = ''; NET.status = '正在建立房間…'; NET.lobby = { mode, n: mode === 'combo' ? 4 : 5 };
+  render();
+  let Peer; try { Peer = await loadPeer(); } catch { return netFail('連線元件載入失敗，請確認網路後再試一次。'); }
+  if (NET.role !== 'host') return;
+  for (let tries = 0; tries < 6 && !NET.peer; tries++) {
+    const code = newCode();
+    const r = await new Promise(res => {
+      const p = new Peer(PEER_PREFIX + code, peerOpts());
+      let done = false;
+      p.on('open', () => { done = true; res({ p, code }); });
+      p.on('error', e => { if (!done) { done = true; try { p.destroy(); } catch {} res({ err: e }); } else hostPeerError(e); });
+      setTimeout(() => { if (!done) { done = true; try { p.destroy(); } catch {} res({ err: { type: 'timeout' } }); } }, 15000);
+    });
+    if (NET.role !== 'host') { if (r.p) r.p.destroy(); return; }
+    if (r.p) { NET.peer = r.p; NET.code = r.code; break; }
+    if (r.err && r.err.type !== 'unavailable-id') return netFail('無法建立房間（' + (r.err.type || '網路錯誤') + '），請確認網路後再試一次。');
+  }
+  if (!NET.peer) return netFail('無法建立房間，請再試一次。');
+  NET.peer.on('connection', hostConn);
+  NET.peer.on('disconnected', () => { try { NET.peer && NET.peer.reconnect(); } catch {} });
+  NET.status = ''; sysChat(`房間 ${NET.code} 建好了`); render();
+}
+function hostPeerError(e) { if (e && e.type === 'network') sysChat('連線伺服器暫時斷線，已經在房間裡的人不受影響。'); }
+function hostConn(c) {
+  const rec = { c, name: '', seat: -1, last: Date.now() };
+  c.on('data', d => { rec.last = Date.now(); hostRecv(rec, d); });
+  c.on('close', () => hostDrop(rec));
+  c.on('error', () => hostDrop(rec));
+}
+function hostRecv(rec, d) {
+  if (!d || typeof d !== 'object') return;
+  if (d.t === 'hello' && !rec.name) {
+    const name = String(d.name || '').trim().slice(0, 8) || '玩家';
+    if (S) {
+      const j = S.players.findIndex((p, k) => k !== S.me && (p.off || p.remote) && p.baseName === name);
+      const old = NET.conns.find(r => r.seat === j && j >= 0);
+      if (old) { NET.conns.splice(NET.conns.indexOf(old), 1); try { old.c.close(); } catch {} }
+      if (j < 0) { send(rec.c, { t: 'bye', reason: '這局已經開始了，等下一局再加入吧。（斷線的人用原本的名字可以接回座位）' }); return; }
+      const p = P(j); p.off = false; p.remote = true; p.human = true; p.name = p.baseName;
+      rec.name = name; rec.seat = j; NET.conns.push(rec);
+      sysChat(`${name} 重新連線，接回座位`); render(); return;
+    }
+    const max = NET.lobby.mode === 'combo' ? 12 : 10;
+    if (1 + NET.conns.length >= max) { send(rec.c, { t: 'bye', reason: '房間已滿。' }); return; }
+    let nm2 = name, k = 2; const taken = () => [NET.myName, ...NET.conns.map(r => r.name)];
+    while (taken().includes(nm2)) nm2 = name.slice(0, 6) + k++;
+    rec.name = nm2; NET.conns.push(rec);
+    sysChat(`${nm2} 加入了房間`); render(); return;
+  }
+  if (!rec.name) return;
+  if (d.t === 'pong') return;
+  if (d.t === 'chat') { const text = String(d.text || '').trim().slice(0, 120); if (text) addChat(rec.name, text); return; }
+  if (d.t === 'emo') { if (EMOS.includes(d.e)) addEmo(rec.name, d.e); return; }
+  if (d.t === 'ans' && S && rec.seat >= 0) {
+    const w = NET.waits[d.pid]; if (!w || w.seat !== rec.seat) return;
+    if (!validAns(w.pr, d.v)) { console.warn('invalid answer', JSON.stringify(d.v)); delete NET.waits[d.pid]; const pr = { ...w.pr, pid: ++NET.pid }; NET.waits[pr.pid] = { ...w, pr }; S.rprompts[rec.seat] = pr; syncSoon(); return; }
+    delete NET.waits[d.pid]; S.rprompts[rec.seat] = null; w.r(d.v);
+  }
+}
+function hostDrop(rec) {
+  const i = NET.conns.indexOf(rec); if (i < 0) return;
+  NET.conns.splice(i, 1);
+  if (!rec.name) return;
+  const inGame = S && rec.seat >= 0 && !S.over;
+  sysChat(`${rec.name} 離線了${inGame ? '，先由電腦代打' : ''}`);
+  if (S && rec.seat >= 0) {
+    const p = P(rec.seat); p.off = true; p.remote = false; p.human = false; p.name = p.baseName + '（離線）';
+    for (const [pid, w] of Object.entries(NET.waits)) if (w.seat === rec.seat) { delete NET.waits[pid]; S.rprompts[rec.seat] = null; w.r(w.pr.type === 'turn' ? botTurn(rec.seat) : true); }
+  }
+  render();
+}
+// heartbeat: WebRTC can take a long time to notice a closed phone, so ping everyone
+setInterval(() => {
+  if (NET.role === 'host') {
+    const now = Date.now();
+    NET.conns.slice().forEach(r => { if (now - r.last > 12000) { try { r.c.close(); } catch {} hostDrop(r); } });
+    bcast({ t: 'ping' });
+  } else if (NET.role === 'client' && NET.host && NET.host.open) {
+    if (Date.now() - (NET.hostLast || Date.now()) > 15000) netFail('和房主的連線中斷了。用同一個名字重新加入可以接回座位。');
+  }
+}, 3000);
+function validAns(pr, v) {
+  if (pr.type !== 'turn') return true;
+  const pl = P(pr.p); if (!v || typeof v !== 'object') return false;
+  const n = pl.hand.length, okI = (i) => Number.isInteger(i) && i >= 0 && i < n;
+  if (v.k === 'pass') return Array.isArray(v.idxs) && v.idxs.length >= 1 && v.idxs.length <= (combo() ? 3 : 1) && v.idxs.every(okI) && new Set(v.idxs).size === v.idxs.length;
+  if (v.k === 'remove') return combo() && Array.isArray(v.idxs) && v.idxs.length === 2 && v.idxs.every(okI) && v.idxs[0] !== v.idxs[1] && n >= 2 && ['pick', 'lamp', 'cart', 'trap', 'theft'].includes(v.what);
+  if (!okI(v.idx)) return false;
+  const c = pl.hand[v.idx]; if (c.k !== v.k) return false;
+  if (v.target !== undefined && !(Number.isInteger(v.target) && v.target >= 0 && v.target < S.n)) return false;
+  if (v.k === 'path') { v.r = v.r ? 1 : 0; return !blocked(pl) && Number.isInteger(v.x) && Number.isInteger(v.y) && canPlace(orient(c, v.r), v.x, v.y, reach()); }
+  if (v.k === 'map') return [0, 1, 2].includes(v.g);
+  if (v.k === 'rock') { const b = S.board.get(K(v.x, v.y)); return !!b && b.kind === 'path'; }
+  if (v.k === 'fix') return c.tools.includes(v.tool) && Number.isInteger(v.target);
+  if (['break', 'trap', 'free', 'handsoff', 'swaphand', 'inspect', 'swaphat'].includes(v.k)) return Number.isInteger(v.target);
+  return true;
+}
+let syncT = null;
+function syncSoon() { if (NET.role !== 'host' || syncT) return; syncT = setTimeout(() => { syncT = null; doSync(); }, 40); }
+function doSync() {
+  if (NET.role !== 'host') return;
+  if (!S) { bcast({ t: 'lobby', code: NET.code, players: [NET.myName, ...NET.conns.map(r => r.name)], mode: NET.lobby.mode, n: lobbyN() }); return; }
+  NET.conns.forEach(r => { if (r.seat >= 0) send(r.c, { t: 'view', v: viewFor(r.seat) }); });
+}
+function viewFor(j) {
+  const showAll = !!S.shared;
+  return {
+    me: j, n: S.n, mode: S.mode, round: S.round, deckN: S.deck.length, goldN: S.gold.length, log: S.log.slice(0, 50), turn: S.turn, over: S.over, last: S.last, leftN: S.leftRoles.length,
+    board: [...S.board].map(([k, c]) => [k, c.kind === 'goal' && !c.revealed ? { kind: 'goal', revealed: false, o: [1, 1, 1, 1], groups: [[0, 1, 2, 3]] } : c]),
+    players: S.players.map((p, i) => ({ name: p.name, human: p.human, remote: p.remote, off: p.off, gold: p.gold, broken: p.broken, trapped: p.trapped, theft: p.theft, roleVer: p.roleVer,
+      hand: i === j ? p.hand : p.hand.length, role: i === j || showAll ? p.role : null, know: i === j ? p.know : {}, roleKnow: i === j ? p.roleKnow : {} })),
+    prompt: S.rprompts[j] || null, shared: S.shared || null,
+  };
+}
+function lobbyN() { const L = NET.lobby, h = 1 + NET.conns.length, rg = L.mode === 'combo' ? [2, 12] : [3, 10]; return Math.min(rg[1], Math.max(rg[0], L.n, h)); }
+function startOnline() {
+  const L = NET.lobby, n = lobbyN();
+  if (1 + NET.conns.length > n) return;
+  const seats = [{ name: NET.myName, human: true }, ...NET.conns.map(r => ({ name: r.name, human: true, remote: true }))];
+  NET.conns.forEach((r, i) => r.seat = i + 1);
+  let b = 0; while (seats.length < n) seats.push({ name: BOTNAMES[b++], human: false });
+  NET.waits = {};
+  newGame({ seats, mode: L.mode });
+  S.online = true; S.me = 0; S.rprompts = {};
+  sysChat(`開始遊戲！${n} 位矮人（${L.mode === 'combo' ? '一＋二代' : '一代'}）`);
+  render(); run();
+}
+
+// ----- client -----
+async function joinRoom(code, name) {
+  NET.role = 'client'; NET.myName = name; NET.code = code; NET.err = ''; NET.status = '正在連線到房間 ' + code + '…';
+  render();
+  let Peer; try { Peer = await loadPeer(); } catch { return netFail('連線元件載入失敗，請確認網路後再試一次。'); }
+  if (NET.role !== 'client') return;
+  const p = new Peer(undefined, peerOpts()); NET.peer = p;
+  p.on('error', e => {
+    if (NET.role !== 'client') return;
+    if (e.type === 'peer-unavailable') netFail(`找不到房間 ${code}，請確認房號，或請房主重新開房。`);
+    else if (!NET.host || !NET.host.open) netFail('連線失敗（' + (e.type || '網路錯誤') + '），請再試一次。');
+  });
+  p.on('open', () => {
+    const c = p.connect(PEER_PREFIX + code, { reliable: true, serialization: 'json' }); NET.host = c;
+    c.on('open', () => { NET.hostLast = Date.now(); send(c, { t: 'hello', name }); NET.status = '已連線，等待房主…'; render(); });
+    c.on('data', clientRecv);
+    c.on('close', () => { if (NET.role === 'client') netFail(S && !S.over ? '和房主的連線中斷了。用同一個名字重新加入可以接回座位。' : '房間已經關閉了。'); });
+  });
+  setTimeout(() => { if (NET.role === 'client' && NET.code === code && !NET.lobby && !S) netFail('連線逾時。請確認房號，或請房主重新開房。'); }, 20000);
+}
+function clientRecv(d) {
+  if (!d || typeof d !== 'object') return;
+  NET.hostLast = Date.now();
+  if (d.t === 'ping') { send(NET.host, { t: 'pong' }); return; }
+  if (d.t === 'lobby') { NET.lobby = d; NET.status = ''; if (S) { S = null; NET.dismissed = {}; NET.answered = 0; NET.roleKey = ''; closeSheet(); } render(); }
+  else if (d.t === 'view') applyView(d.v);
+  else if (d.t === 'chat') addChat(d.from, d.text, d.sys);
+  else if (d.t === 'emo') addEmo(d.from, d.e);
+  else if (d.t === 'bye') { const r = d.reason; netFail(r); }
+}
+function applyView(v) {
+  NET.lastView = v;
+  const prevPid = S && S.prompt && S.prompt.pid;
+  S = { online: true, client: true, me: v.me, n: v.n, mode: v.mode, round: v.round, deck: Array(v.deckN), gold: Array(v.goldN), log: v.log, turn: v.turn, over: v.over, last: v.last,
+    leftRoles: Array(v.leftN), board: new Map(v.board), players: v.players.map(p => ({ ...p, hand: Array.isArray(p.hand) ? p.hand : Array(p.hand).fill(null) })),
+    prompt: null, gid: 1, susp: [], seen: {}, rprompts: {} };
+  const mine = S.players[v.me], rk = S.round + ':' + mine.roleVer;
+  if (mine.role && NET.roleKey !== rk && !v.shared) S.prompt = { type: 'role', p: v.me, local: true, key: rk, changed: NET.roleKey.split(':')[0] === String(S.round) };
+  else if (v.prompt && v.prompt.pid !== NET.answered) S.prompt = v.prompt;
+  else if (v.shared && !NET.dismissed[v.shared.key]) S.prompt = { ...v.shared, local: true };
+  if (!(S.prompt && S.prompt.pid && S.prompt.pid === prevPid)) UI = {};
+  render();
+}
+function clientAnswer(v) {
+  const pr = S && S.prompt; if (!pr) return;
+  S.prompt = null; UI = {};
+  if (pr.local) { if (pr.type === 'role') NET.roleKey = pr.key; else if (pr.key) NET.dismissed[pr.key] = true; if (NET.lastView) applyView(NET.lastView); else render(); return; }
+  NET.answered = pr.pid; send(NET.host, { t: 'ans', pid: pr.pid, v }); render();
+}
+
+// ----- chat & emotes -----
+function chatBtnHTML() { return `<button class="pill chatbtn" id="chatBtn" aria-label="聊天">💬 聊天${NET.unread ? `<span class="badge">${NET.unread}</span>` : ''}</button>`; }
+function bindChatBtn() { const b = $('#chatBtn'); if (b) b.onclick = () => { NET.chatOpen = !NET.chatOpen; NET.unread = 0; updateBadge(); renderChat(); }; }
+function updateBadge() { const b = $('#chatBtn'); if (b) b.innerHTML = `💬 聊天${NET.unread ? `<span class="badge">${NET.unread}</span>` : ''}`; }
+function addChat(from, text, sys) {
+  NET.chat.push({ from, text, sys: !!sys }); if (NET.chat.length > 120) NET.chat.shift();
+  if (NET.role === 'host') bcast({ t: 'chat', from, text, sys: !!sys });
+  if (!NET.chatOpen && !sys) { NET.unread++; updateBadge(); }
+  renderChat();
+}
+function sysChat(text) { addChat('', text, true); }
+function addEmo(from, e) {
+  if (NET.role === 'host') bcast({ t: 'emo', from, e });
+  NET.chat.push({ from, text: e, emo: true }); if (NET.chat.length > 120) NET.chat.shift();
+  renderChat();
+  const old = $('#bubble'); if (old) old.remove();
+  const b = document.createElement('div'); b.className = 'bubble'; b.id = 'bubble';
+  b.innerHTML = `<span class="e">${e}</span>${esc(from)}`;
+  document.body.appendChild(b); setTimeout(() => { if (b.isConnected) b.remove(); }, 2300);
+}
+function sendChat(text) {
+  text = text.trim().slice(0, 120); if (!text) return;
+  if (NET.role === 'host') addChat(NET.myName, text); else send(NET.host, { t: 'chat', text });
+}
+function sendEmo(e) { if (NET.role === 'host') addEmo(NET.myName, e); else send(NET.host, { t: 'emo', e }); }
+function renderChat() {
+  let el = $('#chat');
+  if (!NET.chatOpen || !NET.role) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement('div'); el.className = 'chat'; el.id = 'chat';
+    el.innerHTML = `<div class="cin"><div class="chd"><h3 style="font-size:1.05rem">💬 聊天</h3><button class="pill" id="chatX">關閉</button></div>
+      <div class="msgs" id="msgs" aria-live="polite"></div>
+      <div class="emos">${EMOS.map(e => `<button data-emo="${e}" aria-label="送出 ${e}">${e}</button>`).join('')}</div>
+      <form id="chatF"><input id="chatI" maxlength="120" placeholder="說點什麼…（例如：我真的是淘金者！）" autocomplete="off"><button class="btn" type="submit">送出</button></form></div>`;
+    document.body.appendChild(el);
+    $('#chatX', el).onclick = () => { NET.chatOpen = false; renderChat(); };
+    el.querySelectorAll('[data-emo]').forEach(b => b.onclick = () => sendEmo(b.dataset.emo));
+    $('#chatF', el).onsubmit = (ev) => { ev.preventDefault(); const i = $('#chatI', el); sendChat(i.value); i.value = ''; i.focus(); };
+  }
+  const box = $('#msgs', el);
+  box.innerHTML = NET.chat.map(m => m.sys ? `<div class="sys">— ${esc(m.text)} —</div>` : `<div><b>${esc(m.from)}</b>：${m.emo ? `<span style="font-size:1.3rem">${m.text}</span>` : esc(m.text)}</div>`).join('') || '<div class="sys">還沒有訊息</div>';
+  box.scrollTop = box.scrollHeight;
+}
+
+// ----- setup & lobby screens -----
+function playSegHTML() {
+  const p = setupCfg.play;
+  return `<div class="setup" style="gap:8px"><h3>怎麼玩</h3><div class="seg"><button data-play="local" class="${p === 'local' ? 'on' : ''}">這支手機</button><button data-play="host" class="${p === 'host' ? 'on' : ''}">線上開房</button><button data-play="join" class="${p === 'join' ? 'on' : ''}">加入房間</button></div>
+    <span class="small muted">${p === 'local' ? '和電腦玩，或幾個人輪流用同一支手機。' : p === 'host' ? '你開一個房間，朋友用自己的手機輸入房號加入，空位由電腦補。' : '輸入朋友給你的 4 碼房號。'}</span>
+    ${NET.err ? `<div class="err">${esc(NET.err)}</div>` : ''}</div>`;
+}
+function bindPlaySeg(save) { document.querySelectorAll('[data-play]').forEach(b => b.onclick = () => { if (save) save(); setupCfg.play = b.dataset.play; NET.err = ''; renderSetup(); }); }
+function renderNetSetup() {
+  const c = setupCfg, host = c.play === 'host';
+  const name = c.netName ?? store.get('mine-name');
+  $('#app').innerHTML = `
+  <div class="top"><h1>礦坑淘金<small>矮人礦坑規則</small></h1><button class="pill" id="rulesBtn">規則</button></div>
+  <p style="margin:0;color:var(--muted);line-height:1.5">挖通道找金礦，小心藏在隊伍裡的破壞者。</p>
+  ${playSegHTML()}
+  <div class="setup">
+    <div style="display:flex;flex-direction:column;gap:6px"><h3>你的名字</h3><input class="netin" id="nmI" maxlength="8" value="${esc(name)}" placeholder="最多 8 個字"></div>
+    ${host ? `<div><h3>版本</h3><div class="seg"><button data-m="base" class="${c.mode === 'base' ? 'on' : ''}">只玩一代</button><button data-m="combo" class="${c.mode === 'combo' ? 'on' : ''}">一代＋二代合併</button></div>
+      <p class="small muted" style="margin:6px 0 0">${c.mode === 'combo' ? '2～12 人。' : '3～10 人。'}進房後還可以改。</p></div>`
+      : `<div style="display:flex;flex-direction:column;gap:6px"><h3>房號</h3><input class="netin" id="codeI" maxlength="4" value="${esc(c.code || '')}" placeholder="例如 K7QF" style="text-transform:uppercase;letter-spacing:.3em;font-size:1.3rem;max-width:200px" autocapitalize="characters"></div>`}
+    <button class="btn" id="go" style="align-self:flex-start;font-size:1.05rem">${host ? '建立房間' : '加入房間'}</button>
+    <span class="small muted">需要網路。房主的手機負責發牌和計算，遊戲中請房主不要關掉這個網頁。</span>
+  </div>`;
+  $('#rulesBtn').onclick = showRules;
+  const keep = () => { c.netName = $('#nmI').value; const ci = $('#codeI'); if (ci) c.code = ci.value; };
+  bindPlaySeg(keep);
+  document.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { keep(); c.mode = b.dataset.m; renderSetup(); });
+  $('#go').onclick = () => {
+    const nm2 = $('#nmI').value.trim().slice(0, 8);
+    if (!nm2) { $('#nmI').focus(); return; }
+    store.set('mine-name', nm2);
+    if (host) hostRoom(nm2, c.mode);
+    else { const code = ($('#codeI').value || '').trim().toUpperCase(); if (code.length !== 4) { $('#codeI').focus(); return; } c.code = code; joinRoom(code, nm2); }
+  };
+}
+function renderLobby() {
+  const host = NET.role === 'host', L = NET.lobby;
+  let body;
+  if (NET.status || !L || (host && !NET.code)) body = `<p>${esc(NET.status || '連線中…')}</p>`;
+  else {
+    const players = host ? [NET.myName, ...NET.conns.map(r => r.name)] : L.players;
+    const rg = L.mode === 'combo' ? [2, 12] : [3, 10];
+    const n = host ? lobbyN() : L.n;
+    const ns = []; for (let k = Math.max(rg[0], players.length); k <= rg[1]; k++) ns.push(k);
+    const link = location.href.split('?')[0].split('#')[0] + '?room=' + NET.code;
+    body = `<div style="text-align:center"><span class="small muted">房號</span><div class="code">${esc(NET.code)}</div>
+      ${host ? `<div class="netrow" style="justify-content:center"><button class="btn alt" id="share">分享邀請連結</button></div><p class="small muted" style="margin-top:6px">朋友打開遊戲 → 加入房間 → 輸入房號。</p>` : ''}</div>
+    <div><h3>版本</h3>${host ? `<div class="seg"><button data-lm="base" class="${L.mode === 'base' ? 'on' : ''}">只玩一代</button><button data-lm="combo" class="${L.mode === 'combo' ? 'on' : ''}">一代＋二代合併</button></div>` : `<p class="small">${L.mode === 'combo' ? '一代＋二代合併' : '只玩一代'}</p>`}</div>
+    <div style="display:flex;flex-direction:column;gap:6px"><h3>玩家（${players.length} 位真人）</h3>
+      <div class="plist">${players.map((p, i) => `<div><span>${esc(p)}${p === NET.myName ? '（你）' : ''}</span><span class="small muted">${i === 0 ? '房主' : '已加入'}</span></div>`).join('')}
+      ${n > players.length ? `<div><span class="muted">電腦 × ${n - players.length}</span><span class="small muted">補空位</span></div>` : ''}</div></div>
+    ${host ? `<div><h3>總人數</h3>${players.length > rg[1] ? `<p class="err">人數超過這個版本的上限 ${rg[1]} 人。</p>` : `<div class="seg">${ns.map(k => `<button data-ln="${k}" class="${n === k ? 'on' : ''}">${k}</button>`).join('')}</div>`}</div>
+      <button class="btn" id="startOn" style="align-self:flex-start;font-size:1.05rem" ${players.length > rg[1] ? 'disabled' : ''}>開始遊戲</button>`
+      : `<p class="small muted">共 ${n} 位矮人。等房主按「開始遊戲」…</p>`}`;
+  }
+  $('#app').innerHTML = `
+  <div class="top"><h1>礦坑淘金<small>線上房間</small></h1><div style="display:flex;gap:6px">${chatBtnHTML()}<button class="pill" id="rulesBtn">規則</button><button class="pill" id="leave">離開</button></div></div>
+  <div class="setup">${body}</div>`;
+  $('#rulesBtn').onclick = showRules;
+  bindChatBtn();
+  $('#leave').onclick = netLeave;
+  document.querySelectorAll('[data-lm]').forEach(b => b.onclick = () => { NET.lobby.mode = b.dataset.lm; render(); });
+  document.querySelectorAll('[data-ln]').forEach(b => b.onclick = () => { NET.lobby.n = +b.dataset.ln; render(); });
+  const so = $('#startOn'); if (so) so.onclick = startOnline;
+  const sh = $('#share'); if (sh) sh.onclick = async () => {
+    const link = location.href.split('?')[0].split('#')[0] + '?room=' + NET.code;
+    const text = `來挖礦！房號 ${NET.code}`;
+    try { if (navigator.share) { await navigator.share({ title: '礦坑淘金', text, url: link }); return; } } catch { return; }
+    try { await navigator.clipboard.writeText(text + ' ' + link); sh.textContent = '已複製連結'; } catch { sh.textContent = '房號：' + NET.code; }
+  };
+  syncSoon();
+}
+
 window.__mine = () => S;
+window.__mineNet = () => NET;
 window.addEventListener('resize', () => { if (S) render(); });
 render();
 })();
