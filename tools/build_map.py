@@ -418,22 +418,45 @@ for b in blds:
 blds = [b[:3] for b in blds]
 print('estimated heights for', filled, 'buildings')
 
-# start: westmost point of an eastbound 信義路五段 edge
-best = None
+# start: on 和平東路三段, heading east toward the 基隆路 junction, middle lane, a few metres before the stop line
+# (falls back to the westmost eastbound 信義路五段 edge, the old start near Taipei 101)
+start = None
 for e in edges:
-    if e['name'] == '信義路五段' and e['oneway'] and e['poly'][-1][0] > e['poly'][0][0]:
-        if best is None or e['poly'][0][0] < best['poly'][0][0]:
-            best = e
-if best is None:
-    best = max(edges, key=lambda e: e['hw'])
-(x1, z1), (x2, z2) = best['poly'][0], best['poly'][1]
-L = math.hypot(x2 - x1, z2 - z1)
-k = min(0.5, 30 / L)
-sx, sz = x1 + (x2 - x1) * k, z1 + (z2 - z1) * k
-h = math.atan2(x2 - x1, z2 - z1)
-off = best['hw'] - 1.6 - 3.2  # a lane from the right edge
-rx, rz = -(z2 - z1) / L, (x2 - x1) / L
-start = [round(sx + rx * off * 0 + rx * (best['hw'] - 2.2) * 0.5, 1), round(sz + rz * (best['hw'] - 2.2) * 0.5, 1), round(h, 4)]
+    if e['ug'] or not e['oneway'] or not e['name'].startswith('和平東路三段'):
+        continue
+    nb = cnodes[e['b']]
+    if not any(edges[j]['name'].startswith('基隆路') and not edges[j]['ug'] for j in nb['edges']):
+        continue
+    (x1, z1), (x2, z2) = e['poly'][0], e['poly'][-1]
+    if x2 <= x1:
+        continue  # want the eastbound carriageway
+    poly = e['poly']; L = sum(math.hypot(poly[i+1][0]-poly[i][0], poly[i+1][1]-poly[i][1]) for i in range(len(poly)-1))
+    back = nb['r'] + 4.6 + 6            # distance from the junction centre
+    s_ = max(1.0, L - back)
+    acc = 0.0
+    for i in range(len(poly) - 1):
+        (ax, az), (bx, bz) = poly[i], poly[i + 1]; seg = math.hypot(bx - ax, bz - az)
+        if acc + seg >= s_ or i == len(poly) - 2:
+            u = min(1.0, (s_ - acc) / seg) if seg else 0
+            sx, sz = ax + (bx - ax) * u, az + (bz - az) * u
+            start = [round(sx, 1), round(sz, 1), round(math.atan2(bx - ax, bz - az), 4)]
+            break
+        acc += seg
+    break
+if start is None:
+    best = None
+    for e in edges:
+        if e['name'] == '信義路五段' and e['oneway'] and e['poly'][-1][0] > e['poly'][0][0]:
+            if best is None or e['poly'][0][0] < best['poly'][0][0]:
+                best = e
+    if best is None:
+        best = max(edges, key=lambda e: e['hw'])
+    (x1, z1), (x2, z2) = best['poly'][0], best['poly'][1]
+    L = math.hypot(x2 - x1, z2 - z1)
+    k = min(0.5, 30 / L)
+    sx, sz = x1 + (x2 - x1) * k, z1 + (z2 - z1) * k
+    rx, rz = -(z2 - z1) / L, (x2 - x1) / L
+    start = [round(sx + rx * (best['hw'] - 2.2) * 0.5, 1), round(sz + rz * (best['hw'] - 2.2) * 0.5, 1), round(math.atan2(x2 - x1, z2 - z1), 4)]
 
 xs = [n[0] for n in out_nodes]; zs = [n[1] for n in out_nodes]
 out = dict(names=names, nodes=out_nodes, edges=out_edges, blds=blds, start=start, origin=[lat0, lon0],
