@@ -131,6 +131,15 @@ body[data-mode="menu"] .hud, body[data-mode="menu"] .pads { display: none; }
 .how { margin: 0; font-size: 14px; line-height: 1.75; opacity: 0.92; max-width: 34em; }
 .how b { color: var(--sun); }
 .modes { display: grid; gap: 10px; width: 100%; }
+.opts { display: grid; gap: 8px; width: 100%; }
+.opt { display: flex; gap: 12px; align-items: center; text-align: left; cursor: pointer; background: rgba(12, 20, 38, 0.7); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; }
+.opt input { appearance: none; -webkit-appearance: none; flex: none; width: 44px; height: 26px; border-radius: 13px; background: rgba(255, 255, 255, 0.22); position: relative; cursor: pointer; transition: background 0.15s; margin: 0; }
+.opt input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform 0.15s; }
+.opt input:checked { background: var(--mint); }
+.opt input:checked::after { transform: translateX(18px); }
+.opt input:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
+.opt span { display: grid; gap: 2px; font: 500 12px var(--f-body); line-height: 1.5; opacity: 0.92; }
+.opt b { font-size: 15px; color: var(--sun); letter-spacing: 0.06em; }
 .cars { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; width: 100%; }
 .car {
   display: grid; gap: 4px; justify-items: center; cursor: pointer; color: var(--ink);
@@ -246,6 +255,11 @@ body[data-mode="menu"] .hud, body[data-mode="menu"] .pads { display: none; }
     <p class="how">先選你的車和顏色：</p>
     <div class="cars" id="carPick"></div>
     <div class="swatches" id="swatches"></div>
+    <p class="how">遊戲設定：</p>
+    <div class="opts">
+      <label class="opt"><input type="checkbox" id="optGod"><span><b>無敵模式</b>撞到東西不扣血，車子不會撞壞。</span></label>
+      <label class="opt"><input type="checkbox" id="optNoPolice"><span><b>拿掉警車</b>違規只會提醒，不會有警車來追，也不開罰單。</span></label>
+    </div>
     <p class="how">再選一種玩法：</p>
     <div class="modes">
       <button class="mode" data-mode="city" type="button"><b>台北信義・大安自由開</b><span>照 OpenStreetMap 真實地圖做的信義區和大安區，有 101、市政府、大安森林公園一帶和真實街道，還有基隆路、辛亥路車行地下道。紅綠燈、汽車和機車都有，可以倒車、按喇叭。闖紅燈或逆向可能被警車攔下開罰單。</span></button>
@@ -298,6 +312,7 @@ const Game = {
   keys: { left: false, right: false, brake: false, gas: false },
   coarse: matchMedia("(pointer: coarse)").matches
 };
+Game.opts = (() => { try { return { god: false, noPolice: false, ...JSON.parse(localStorage.getItem("game-opts") || "{}") }; } catch (e) { return { god: false, noPolice: false }; } })();
 const limit = (v, a, b) => Math.max(a, Math.min(v, b));
 const hex2rgb = h => { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
 const css = (c, a) => a === undefined ? `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})` : `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
@@ -947,6 +962,10 @@ const GameAudio = (() => {
     btn.addEventListener("contextmenu", e => e.preventDefault());
   });
   $("gearBtn").addEventListener("pointerdown", e => { e.preventDefault(); if (Game.onGear) Game.onGear(); });
+  for (const [id, k] of [["optGod", "god"], ["optNoPolice", "noPolice"]]) {
+    const el = $(id); el.checked = !!Game.opts[k];
+    el.addEventListener("change", () => { Game.opts[k] = el.checked; try { localStorage.setItem("game-opts", JSON.stringify(Game.opts)); } catch (e) {} });
+  }
   for (const [id, sg] of [["sigL", "L"], ["sigR", "R"], ["sigH", "H"]]) {
     $(id).addEventListener("pointerdown", e => { e.preventDefault(); if (Game.onSignal) Game.onSignal(sg); });
     $(id).addEventListener("contextmenu", e => e.preventDefault());
@@ -1320,6 +1339,7 @@ const Scenic = (() => {
     speed = newSpeed;
     if (invuln > 0) return;
     const d = car ? MODELS[car.model].dmg : (DAMAGE[what] || 10);
+    if (Game.opts.god) { invuln = INVULN; shake = 0.2; GameAudio.blip(120, 0.1, "square", 0.06); showToast("撞到了（無敵模式不扣血）", 800); return; }
     hp = Math.max(0, hp - d); invuln = INVULN; shake = 0.3 + d / 100; GameAudio.crash();
     showToast(car ? `${MODELS[car.model].cn} -${d} 血` : `-${d} 血`, car ? 1100 : 700, true);
     if (navigator.vibrate) { try { navigator.vibrate(80); } catch (e) {} }
@@ -2533,6 +2553,7 @@ const City = (() => {
   }
   function damage(n, label) {
     if (player.invuln > 0 || player.over) return;
+    if (Game.opts.god) { player.invuln = 1; GameAudio.blip(120, 0.1, "square", 0.06); showToast(`${label}（無敵模式不扣血）`, 900); return; }
     player.hp = Math.max(0, player.hp - n); player.invuln = 1;
     GameAudio.crash(); showToast(`${label} -${n} 血`, 1100, true);
     if (navigator.vibrate) { try { navigator.vibrate(80); } catch (e) {} }
@@ -2543,6 +2564,7 @@ const City = (() => {
     player.viol++;
     showToast(label + "！", 1400, true);
     GameAudio.blip(880, 0.15, "square", 0.08); setTimeout(() => GameAudio.blip(660, 0.2, "square", 0.08), 160);
+    if (Game.opts.noPolice) return;
     if (police) { police.tickets.push([label, fine]); return; }
     if (rng() < (kind === "red" ? 0.6 : kind === "wrong" ? 0.5 : 0.35)) callPolice([label, fine]);
   }
