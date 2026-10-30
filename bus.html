@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>芳和國中公車到站</title>
+<meta name="description" content="臺北市公車即時到站時間，預設芳和國中站，資料來源：交通部 TDX 運輸資料流通服務。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Roboto+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: one narrow column like a stop sign — stop header, then one row per route, soonest first */
+:root {
+  --bg: #eef2f1;
+  --panel: #ffffff;
+  --ink: #17201e;
+  --muted: #5d6b67;
+  --line: #d5dedb;
+  --sign: #0b6e4f;        /* Taipei bus-stop green */
+  --sign-ink: #ffffff;
+  --now: #c2410c;         /* arriving now */
+  --soon: #b45309;        /* within 3 minutes */
+  --idle: #6b7280;        /* not running */
+  --chip: #e3ece9;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-num: "Roboto Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1514; --panel: #18211f; --ink: #e6eeeb; --muted: #9aaba6; --line: #2a3633;
+    --sign: #12855f; --sign-ink: #ffffff; --now: #fb923c; --soon: #fbbf24; --idle: #8b949e; --chip: #22302c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1514; --panel: #18211f; --ink: #e6eeeb; --muted: #9aaba6; --line: #2a3633;
+  --sign: #12855f; --sign-ink: #ffffff; --now: #fb923c; --soon: #fbbf24; --idle: #8b949e; --chip: #22302c;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: calc(16px + env(safe-area-inset-top, 0px)) calc(32px + env(safe-area-inset-bottom, 0px));
+}
+[hidden] { display: none !important; }
+main { max-width: 560px; margin: 0 auto; display: grid; gap: 16px; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--sign); outline-offset: 2px; }
+
+.sign { background: var(--sign); color: var(--sign-ink); border-radius: 14px; padding: 16px 18px; display: grid; gap: 6px; }
+.sign-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; letter-spacing: .08em; opacity: .9; }
+.sign h1 { margin: 0; font-size: 30px; line-height: 1.2; font-weight: 700; text-wrap: balance; }
+.sign-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; opacity: .92; }
+.sign-meta b { font-family: var(--font-num); font-weight: 500; }
+.icon-btn { background: rgba(255,255,255,.16); border: 0; border-radius: 999px; padding: 6px 12px; color: var(--sign-ink); font-size: 13px; }
+.icon-btn:hover { background: rgba(255,255,255,.26); }
+
+.search { display: flex; gap: 8px; }
+.search input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.btn { border: 0; border-radius: 10px; padding: 10px 16px; background: var(--sign); color: var(--sign-ink); font-weight: 500; white-space: nowrap; }
+.btn.ghost { background: var(--chip); color: var(--ink); }
+
+.list { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.group-h { padding: 10px 16px; font-size: 13px; color: var(--muted); background: var(--chip); letter-spacing: .04em; }
+.row { display: grid; grid-template-columns: minmax(64px, auto) 1fr auto; align-items: center; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.group-h + .row { border-top: 0; }
+.route { font-family: var(--font-num); font-weight: 700; font-size: 20px; min-width: 0; overflow-wrap: anywhere; }
+.dest { min-width: 0; color: var(--muted); font-size: 14px; }
+.dest strong { display: block; color: var(--ink); font-weight: 500; font-size: 15px; }
+.eta { text-align: right; font-weight: 700; font-size: 18px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.eta .n { font-family: var(--font-num); font-size: 24px; }
+.eta small { font-size: 13px; font-weight: 500; margin-left: 2px; }
+.eta.now { color: var(--now); }
+.eta.soon { color: var(--soon); }
+.eta.idle { color: var(--idle); font-weight: 500; font-size: 15px; }
+.eta .sub { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
+.empty { padding: 28px 16px; text-align: center; color: var(--muted); }
+
+.notice { border-radius: 12px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--line); font-size: 14px; }
+.notice.err { border-color: var(--now); }
+.notice b { color: var(--now); }
+
+.keys { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 12px; }
+.keys h2 { margin: 0; font-size: 18px; }
+.keys p { margin: 0; font-size: 14px; color: var(--muted); }
+.keys ol { margin: 0; padding-left: 20px; font-size: 14px; color: var(--muted); display: grid; gap: 4px; }
+.keys a { color: var(--sign); }
+.field { display: grid; gap: 4px; font-size: 14px; }
+.field input { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); font-family: var(--font-num); font-size: 14px; min-width: 0; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+footer { font-size: 12px; color: var(--muted); text-align: center; }
+footer a { color: inherit; }
+@media (prefers-reduced-motion: no-preference) { .spin { animation: spin 1s linear infinite; display: inline-block; } @keyframes spin { to { transform: rotate(360deg); } } }
+</style>
+</head>
+<body>
+<main>
+  <section class="sign" aria-live="polite">
+    <div class="sign-top"><span>臺北市公車 即時到站</span><button class="icon-btn" id="refreshBtn" type="button">更新</button></div>
+    <h1 id="stopTitle">芳和國中</h1>
+    <div class="sign-meta"><span id="updated">尚未更新</span><span>每 <b>30</b> 秒自動更新</span></div>
+  </section>
+
+  <form class="search" id="searchForm">
+    <input id="stopInput" type="search" placeholder="輸入站名，例如：芳和國中" aria-label="站名" autocomplete="off">
+    <button class="btn" type="submit">查詢</button>
+  </form>
+
+  <div class="notice err" id="errBox" hidden></div>
+  <div id="board"></div>
+
+  <section class="keys" id="keyPanel" hidden>
+    <h2>設定 TDX 金鑰</h2>
+    <p>即時到站資料來自交通部 TDX 運輸資料流通服務，需要一組免費金鑰。金鑰只存在這支手機的瀏覽器裡，不會傳到其他地方。</p>
+    <ol>
+      <li>到 <a href="https://tdx.transportdata.tw/register" target="_blank" rel="noopener">tdx.transportdata.tw</a> 註冊會員並完成信箱驗證。</li>
+      <li>登入後到「會員中心 → 資料服務 → API 金鑰」，複製 Client Id 和 Client Secret。</li>
+      <li>貼到下面，按「儲存並查詢」。</li>
+    </ol>
+    <label class="field">Client Id<input id="cid" autocomplete="off" spellcheck="false"></label>
+    <label class="field">Client Secret<input id="csec" type="password" autocomplete="off" spellcheck="false"></label>
+    <div class="actions">
+      <button class="btn" id="saveKey" type="button">儲存並查詢</button>
+      <button class="btn ghost" id="clearKey" type="button">清除金鑰</button>
+    </div>
+  </section>
+
+  <footer>
+    資料來源：交通部 TDX 運輸資料流通服務。到站時間為預估值，請提早到站候車。<br>
+    <a href="https://ebus.gov.taipei/VirtualStop/1066800160" target="_blank" rel="noopener">在大臺北公車網站看芳和國中[向西]</a> ·
+    <button class="btn ghost" id="keyBtn" type="button" style="padding:2px 10px;font-size:12px">金鑰設定</button>
+  </footer>
+</main>
+<script>
+(() => {
+  const API = "https://tdx.transportdata.tw/api/basic/v2/Bus";
+  const AUTH = "https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token";
+  const DEFAULT_STOP = "芳和國中";
+  const $ = id => document.getElementById(id);
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} },
+  };
+  let stop = store.get("bus-stop") || DEFAULT_STOP;
+  let timer = null, busy = false;
+  const routeInfo = {};   // RouteUID -> {dep, dest}
+
+  // ---------- auth ----------
+  async function token(force) {
+    const cid = store.get("tdx-id"), sec = store.get("tdx-secret");
+    if (!cid || !sec) throw { kind: "nokey" };
+    const t = store.get("tdx-token"), exp = +store.get("tdx-exp") || 0;
+    if (!force && t && Date.now() < exp) return t;
+    const r = await fetch(AUTH, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ grant_type: "client_credentials", client_id: cid, client_secret: sec }) });
+    if (!r.ok) throw { kind: "badkey", status: r.status };
+    const j = await r.json();
+    store.set("tdx-token", j.access_token);
+    store.set("tdx-exp", String(Date.now() + (j.expires_in - 600) * 1000));
+    return j.access_token;
+  }
+  async function api(path, params) {
+    const q = new URLSearchParams({ ...params, $format: "JSON" });
+    const url = `${API}/${path}?${q}`;
+    let r = await fetch(url, { headers: { authorization: "Bearer " + await token(false) } });
+    if (r.status === 401) r = await fetch(url, { headers: { authorization: "Bearer " + await token(true) } });
+    if (r.status === 429) throw { kind: "limit" };
+    if (!r.ok) throw { kind: "http", status: r.status };
+    return r.json();
+  }
+  const esc = s => String(s).replace(/'/g, "''");
+
+  // ---------- data ----------
+  async function loadRoutes(uids) {
+    const need = uids.filter(u => !routeInfo[u]);
+    if (!need.length) return;
+    const rows = await api("Route/City/Taipei", { $select: "RouteUID,RouteName,DepartureStopNameZh,DestinationStopNameZh", $filter: need.map(u => `RouteUID eq '${esc(u)}'`).join(" or ") });
+    for (const r of rows) routeInfo[r.RouteUID] = { dep: r.DepartureStopNameZh || "", dest: r.DestinationStopNameZh || "" };
+  }
+  function towards(e) {
+    const info = routeInfo[e.RouteUID];
+    if (!info) return "";
+    return e.Direction === 1 ? info.dep : info.dest;
+  }
+  // sort key and display for one arrival
+  function etaView(e) {
+    const s = e.StopStatus;
+    if (s === 0 || (s == null && e.EstimateTime != null)) {
+      const sec = e.EstimateTime ?? 0, min = Math.floor(sec / 60);
+      if (sec < 60) return { k: sec, cls: "now", html: "進站中" };
+      if (sec < 180) return { k: sec, cls: "soon", html: `<span class="n">${min}</span><small>分</small><span class="sub">將到站</span>` };
+      return { k: sec, cls: "", html: `<span class="n">${min}</span><small>分</small>` };
+    }
+    if (s === 1) {
+      const t = e.NextBusTime ? new Date(e.NextBusTime) : null;
+      const hm = t && !isNaN(t) ? t.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false }) : "";
+      return { k: 1e5 + (t ? t.getTime() / 1e6 : 0), cls: "idle", html: hm ? `${hm}<span class="sub">預計發車</span>` : "尚未發車" };
+    }
+    const txt = { 2: "交管不停靠", 3: "末班車已過", 4: "今日未營運" }[s] || "暫無資料";
+    return { k: 2e5 + (s || 9), cls: "idle", html: txt };
+  }
+  async function refresh() {
+    if (busy) return;
+    busy = true; $("refreshBtn").innerHTML = '<span class="spin">↻</span>';
+    try {
+      const rows = await api("EstimatedTimeOfArrival/City/Taipei", { $filter: `StopName/Zh_tw eq '${esc(stop)}'`,
+        $select: "StopUID,StopName,RouteUID,RouteName,Direction,EstimateTime,StopStatus,NextBusTime,PlateNumb,SrcUpdateTime" });
+      await loadRoutes([...new Set(rows.map(r => r.RouteUID))]).catch(() => {});
+      render(rows);
+      $("errBox").hidden = true;
+      $("keyPanel").hidden = true;
+      $("updated").textContent = "更新於 " + new Date().toLocaleTimeString("zh-TW", { hour12: false });
+    } catch (err) {
+      showError(err);
+    } finally {
+      busy = false; $("refreshBtn").textContent = "更新";
+    }
+  }
+  function render(rows) {
+    $("stopTitle").textContent = stop;
+    const board = $("board");
+    if (!rows.length) {
+      board.innerHTML = `<div class="list"><div class="empty">找不到「${escapeHtml(stop)}」的公車資料。請確認站名和站牌上寫的一樣，例如「捷運大安站」。</div></div>`;
+      return;
+    }
+    // one row per route and direction; group by which way the buses head
+    const seen = new Map();
+    for (const e of rows) {
+      const key = e.RouteUID + ":" + e.Direction;
+      const v = etaView(e);
+      if (!seen.has(key) || v.k < seen.get(key).v.k) seen.set(key, { e, v });
+    }
+    // group by physical stop sign (the same name can have a sign on each side of the road)
+    const groups = new Map();
+    for (const it of seen.values()) {
+      const g = it.e.StopUID;
+      if (!groups.has(g)) groups.set(g, []);
+      groups.get(g).push(it);
+    }
+    let html = '<div class="list">';
+    const ordered = [...groups.values()].sort((a, b) => Math.min(...a.map(x => x.v.k)) - Math.min(...b.map(x => x.v.k)));
+    for (const items of ordered) {
+      items.sort((a, b) => a.v.k - b.v.k);
+      const dests = [...new Set(items.map(x => towards(x.e)).filter(Boolean))];
+      if (groups.size > 1) html += `<div class="group-h">${dests.length ? "這一側往 " + escapeHtml(dests.slice(0, 3).join("、")) + (dests.length > 3 ? " 等" : "") : "站牌"}</div>`;
+      for (const { e, v } of items) {
+        const to = towards(e);
+        html += `<div class="row"><div class="route">${escapeHtml(e.RouteName?.Zh_tw || "")}</div>` +
+          `<div class="dest"><strong>${to ? "往 " + escapeHtml(to) : "&nbsp;"}</strong>${e.PlateNumb && e.PlateNumb !== "-1" ? "車號 " + escapeHtml(e.PlateNumb) : ""}</div>` +
+          `<div class="eta ${v.cls}">${v.html}</div></div>`;
+      }
+    }
+    board.innerHTML = html + "</div>";
+  }
+  function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+  function showError(err) {
+    const box = $("errBox");
+    if (err && err.kind === "nokey") { box.hidden = true; $("keyPanel").hidden = false; $("board").innerHTML = ""; return; }
+    box.hidden = false;
+    box.innerHTML = err && err.kind === "badkey" ? "<b>金鑰無法使用。</b>請確認 Client Id 和 Client Secret 複製完整，再儲存一次。"
+      : err && err.kind === "limit" ? "<b>查詢太頻繁。</b>TDX 暫時擋下這次查詢，稍等一分鐘會自動再試。"
+      : err && err.kind === "http" ? `<b>查詢失敗（${err.status}）。</b>TDX 服務暫時有問題，稍後會自動再試。`
+      : "<b>連不上 TDX。</b>請檢查網路連線，稍後會自動再試。";
+    if (err && err.kind === "badkey") $("keyPanel").hidden = false;
+  }
+
+  // ---------- UI ----------
+  $("stopInput").value = stop === DEFAULT_STOP ? "" : stop;
+  $("stopTitle").textContent = stop;
+  $("searchForm").addEventListener("submit", ev => {
+    ev.preventDefault();
+    const v = $("stopInput").value.trim().replace(/\s+/g, "");
+    stop = v || DEFAULT_STOP; store.set("bus-stop", stop);
+    $("board").innerHTML = ""; refresh();
+  });
+  $("refreshBtn").addEventListener("click", refresh);
+  $("keyBtn").addEventListener("click", () => {
+    $("cid").value = store.get("tdx-id") || ""; $("csec").value = store.get("tdx-secret") || "";
+    $("keyPanel").hidden = false; $("keyPanel").scrollIntoView({ behavior: "smooth" });
+  });
+  $("saveKey").addEventListener("click", () => {
+    const id = $("cid").value.trim(), sec = $("csec").value.trim();
+    if (!id || !sec) { $("errBox").hidden = false; $("errBox").innerHTML = "<b>還沒填完。</b>Client Id 和 Client Secret 都要填。"; return; }
+    store.set("tdx-id", id); store.set("tdx-secret", sec); store.set("tdx-token", null);
+    refresh();
+  });
+  $("clearKey").addEventListener("click", () => {
+    ["tdx-id", "tdx-secret", "tdx-token", "tdx-exp"].forEach(k => store.set(k, null));
+    $("cid").value = $("csec").value = ""; $("board").innerHTML = ""; $("updated").textContent = "尚未更新";
+  });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+  refresh();
+  timer = setInterval(() => { if (!document.hidden) refresh(); }, 30000);
+})();
+</script>
+</body>
+</html>
