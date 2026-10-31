@@ -667,17 +667,31 @@ function sheetEnd() {
 }
 function showBuySheet() {
   const pr = S.prompt; if (!pr || pr.type !== 'buy') return;
+  const m = openSheet('<div id="buyIn" style="display:contents"></div>');
+  const sheet = m.querySelector('.sheet');
   const draw = () => {
     const sel = UI.buy || [], cost = sel.reduce((a, b) => a + price(b.c)[b.v], 0), left = pr.coins - cost;
+    const status = sel.length === 0 ? '還沒選。可以買 1～2 個，顏色要不同。' : sel.length === 1 ? `已選 1 個，<b>還可以再選 1 個</b>（不同顏色，剩 ${left} 金）。` : '已選滿 2 個。';
     const books = booksOpen().map(c => {
-      const desc = bookText(c);
-      return `<div class="book"><div class="bh">${miniHTML(c, '')} ${COL[c].n}${SETC.includes(c) ? `<span class="small muted">第 ${S.sets[c]} 組</span>` : ''}</div><div class="bd">${desc}</div><div class="row">${Object.keys(price(c)).map(Number).map(v => {
-        const on = sel.some(b => b.c === c && b.v === v), sup = S.supply[key(c, v)] || 0, pr2 = price(c)[v];
-        const can = on || (sup > 0 && pr2 <= left && sel.length < 2 && !sel.some(b => b.c === c));
-        return `<button class="lv ${on ? 'on' : ''}" data-c="${c}" data-v="${v}" ${can ? '' : 'disabled'}>${miniHTML(c, v)} ${v} 級・${pr2} 金${sup <= 3 ? `<span class="small muted">（剩 ${sup}）</span>` : ''}</button>`; }).join('')}</div></div>`; }).join('');
-    const m = openSheet(`<h2>購買藥材</h2><p>金幣 <b>${pr.coins}</b>，已選 ${sel.map(b => `${COL[b.c].n}${b.v}`).join('、') || '無'}，剩 <b>${left}</b>。最多 2 個、顏色不同，沒用完的金幣作廢。</p>${books}
-      <div class="row sticky"><button class="btn" id="ok">${sel.length ? `確定購買（${cost} 金）` : '不買'}</button><span class="small muted">剩 ${left} 金</span></div>`);
-    m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { const c = b.dataset.c, v = +b.dataset.v; const s = UI.buy || []; UI.buy = s.some(x => x.c === c && x.v === v) ? s.filter(x => !(x.c === c && x.v === v)) : [...s, { c, v }]; draw(); });
+      const mine = sel.find(b => b.c === c);
+      return `<div class="book"><div class="bh">${miniHTML(c, '')} ${COL[c].n}${SETC.includes(c) ? `<span class="small muted">第 ${S.sets[c]} 組</span>` : ''}</div><div class="bd">${bookText(c)}</div><div class="row">${Object.keys(price(c)).map(Number).map(v => {
+        const on = !!mine && mine.v === v, sup = S.supply[key(c, v)] || 0, pr2 = price(c)[v];
+        const budget = left + (mine ? price(c)[mine.v] : 0);
+        let why = '';
+        if (!on) { if (sup <= 0) why = '賣完了'; else if (pr2 > budget) why = '金幣不夠'; else if (!mine && sel.length >= 2) why = '已選滿 2 個'; }
+        return `<button class="lv ${on ? 'on' : ''}" data-c="${c}" data-v="${v}" ${why ? 'disabled' : ''}>${miniHTML(c, v)} ${v} 級・${pr2} 金${on ? ' ✓' : ''}${why ? `<span class="small muted">（${why}）</span>` : sup <= 3 ? `<span class="small muted">（剩 ${sup}）</span>` : ''}</button>`; }).join('')}</div></div>`; }).join('');
+    const scroll = sheet.scrollTop;
+    $('#buyIn', m).innerHTML = `<h2>購買藥材</h2><p>金幣 <b>${pr.coins}</b>：${status}</p>
+      <div class="row">${[0, 1].map(k => sel[k] ? `<span class="lv on">${miniHTML(sel[k].c, sel[k].v)} ${COL[sel[k].c].n} ${sel[k].v} 級・${price(sel[k].c)[sel[k].v]} 金</span>` : `<span class="lv" style="opacity:.55">第 ${k + 1} 個：未選</span>`).join('')}</div>
+      <p class="small muted">點同一個可以取消；點同色的其他等級會直接換掉。沒用完的金幣作廢。</p>${books}
+      <div class="row sticky"><button class="btn" id="ok">${sel.length ? `確定購買 ${sel.length} 個（${cost} 金）` : '不買'}</button><span class="small muted">剩 ${left} 金</span></div>`;
+    sheet.scrollTop = scroll;
+    m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => {
+      const c = b.dataset.c, v = +b.dataset.v; let s2 = (UI.buy || []).slice();
+      const i = s2.findIndex(x => x.c === c);
+      if (i >= 0 && s2[i].v === v) s2.splice(i, 1); else if (i >= 0) s2[i] = { c, v }; else if (s2.length < 2) s2.push({ c, v });
+      UI.buy = s2; draw(); renderBar();
+    });
     $('#ok', m).onclick = () => answer((UI.buy || []).slice());
   };
   draw();
