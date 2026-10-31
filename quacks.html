@@ -124,8 +124,40 @@ const COL = {
   b: { n: '烏鴉頭骨', f: '#3f72c9', t: '#fff' }, r: { n: '毒菇', f: '#d64032', t: '#fff' }, y: { n: '人參', f: '#e8c22b', t: '#3b2a16' },
   p: { n: '鬼魂陰氣', f: '#9b59b6', t: '#fff' }, k: { n: '骷髏巨蛾', f: '#2b2b2b', t: '#fff' },
 };
-const PRICE = { o: { 1: 3 }, g: { 1: 4, 2: 8, 4: 14 }, b: { 1: 5, 2: 10, 4: 19 }, r: { 1: 6, 2: 10, 4: 16 }, y: { 1: 8, 2: 12, 4: 18 }, p: { 1: 9 }, k: { 1: 10 } };
+const PRICES = {
+  g: [null, { 1: 4, 2: 8, 4: 14 }, { 1: 6, 2: 11, 4: 18 }, { 1: 6, 2: 11, 4: 21 }, { 1: 4, 2: 8, 4: 14 }],
+  b: [null, { 1: 5, 2: 10, 4: 19 }, { 1: 5, 2: 10, 4: 19 }, { 1: 4, 2: 8, 4: 14 }, { 1: 5, 2: 10, 4: 19 }],
+  r: [null, { 1: 6, 2: 10, 4: 16 }, { 1: 4, 2: 8, 4: 14 }, { 1: 5, 2: 9, 4: 15 }, { 1: 7, 2: 11, 4: 17 }],
+  y: [null, { 1: 8, 2: 12, 4: 18 }, { 1: 9, 2: 13, 4: 19 }, { 1: 8, 2: 12, 4: 18 }, { 1: 8, 2: 12, 4: 18 }],
+  p: [null, { 1: 9 }, { 1: 12 }, { 1: 10 }, { 1: 11 }],
+};
+const SETC = ['g', 'b', 'r', 'y', 'p'];
+const curSets = () => (S && S.sets) || (setupCfg && setupCfg.sets) || { g: 1, b: 1, r: 1, y: 1, p: 1 };
+const price = (c, sets = curSets()) => c === 'o' ? { 1: 3 } : c === 'k' ? { 1: 10 } : PRICES[c][sets[c]];
 const SUPPLY0 = { w1: 20, w2: 8, w3: 4, o1: 20, g1: 15, g2: 10, g4: 13, b1: 14, b2: 10, b4: 10, r1: 12, r2: 8, r4: 10, y1: 13, y2: 6, y4: 10, p1: 15, k1: 18 };
+const BOOKS = {
+  g: [null, '計分步驟 B：大釜中最後 2 個藥材裡，每有 1 個綠色（不論等級），得 1 顆寶石。',
+    '計分步驟 B：大釜中最後 2 個藥材裡，每有 1 個綠色就多得 1 個藥材放進布袋：綠 1 級→南瓜；綠 2 級→藍色或紅色 1 級；綠 4 級→黃色或紫色 1 級。',
+    '計分步驟 B：如果白色等級總和剛好是 7，把大釜中所有綠色的等級加總，最後一個藥材（不論顏色）往前移動這麼多格。',
+    '計分步驟 B：大釜中最後 2 個藥材裡，每有 1 個綠色，可以付 1 顆寶石讓水滴前進 1 格（最多 2 次）。'],
+  b: [null, '放進大釜後，依等級從袋中額外抽 1／2／4 個藥材，可以選其中 1 個放進大釜（有獎勵也會執行），其餘放回袋中；也可以全部放回。',
+    '放進藍色 1／2／4 級後，接下來抽出的 1／2／4 個藥材如果讓藥水爆炸，你仍然同時得分和購買（但不能擲獎勵骰）。效果不累加，取較好的。',
+    '藍色放在有寶石的格子上，立刻得 1 顆寶石（不論等級）。',
+    '藍色放在有寶石的格子上，立刻得分：1 級 1 分、2 級 2 分、4 級 4 分。'],
+  r: [null, '放進大釜時，大釜裡已有 1～2 個南瓜，再往前 1 步；有 3 個以上南瓜，再往前 2 步。',
+    '抽到時先放在大釜旁。停止製藥後（自願或爆炸），可以把旁邊的毒菇逐一放到最後一個藥材後面，也可以留到之後的回合再用，或放回布袋。',
+    '抽到時，如果大釜中最後一個藥材是白色，放置距離＝毒菇等級＋那個白色的等級。',
+    '大釜裡有毒菇之後，再抽到的白色 1 級都放在距離 2 格的地方（白色等級不變，不影響爆炸計算）。'],
+  y: [null, '如果大釜中最後一個藥材是白色，抽到人參並放好後，可以把那個白色藥材放回袋中（原位置留空）。',
+    '大釜中最後一個藥材是人參時，下一個抽出的藥材放置距離加倍（人參等級不影響）。',
+    '大釜中有 1～2 個人參，爆炸上限從 7 提高到 8；3 個以上提高到 9。',
+    '抽到人參時：第 1 個人參距離＋1、第 2 個＋2、第 3 個＋3（第 4 個起沒有效果）。'],
+  p: [null, '計分步驟 B：大釜中有 1 個紫色得 1 分；2 個得 1 分＋1 寶石；3 個以上得 2 分＋水滴前進 1 格。',
+    '計分步驟 B：可以棄掉大釜中的紫色換獎勵（只能選一項）：棄 1 個→黑色 1 級＋1 分＋1 寶石；棄 2 個→綠色 1 級＋藍色 2 級＋3 分＋水滴前進 1 格；棄 3 個→黃色 4 級＋6 分＋1 寶石＋水滴前進 2 格。',
+    '計分步驟 B：看紫色放在哪一格：0～9 沒分；10～19 每個 1 分；20～29 每個 2 分；30 以上每個 3 分。',
+    '計分步驟 B：有 1 個紫色，可以把大釜中 1 個 1 級藥材換成同色 2 級；2 個紫色，2 級換 4 級；3 個以上，1 級換 4 級（換到的直接放進布袋，不影響本輪計分；也可以選較低的獎勵）。'],
+};
+const bookText = (c, sets = curSets(), n = S ? S.n : 3) => c === 'o' ? BOOK.o : c === 'k' ? (n === 2 ? BOOK.k2 : BOOK.k) : BOOKS[c][sets[c]];
 const BOOK = {
   o: '沒有特殊效果，只讓計分格前進 1 步，是最便宜的藥材。',
   g: '計分步驟 B：大釜中最後 2 個藥材裡，每有 1 個綠色（不論等級），得 1 顆寶石。',
@@ -173,17 +205,21 @@ const humans = () => S.players.filter(p => p.human).length;
 const chip = (c, v) => ({ c, v });
 const key = (c, v) => c + v;
 const takeSupply = (c, v) => { const k = key(c, v); if ((S.supply[k] || 0) <= 0) return false; S.supply[k]--; return true; };
-const limit = () => S.mod.steady ? 9 : 7;
+function limit(p) {
+  let L = S.mod.steady ? 9 : 7;
+  if (p && S.sets.y === 3) { const yc = p.pot.filter(x => x.c === 'y').length; if (yc >= 3) L = Math.max(L, 9); else if (yc >= 1) L = Math.max(L, 8); }
+  return L;
+}
 const booksOpen = () => ['o', 'g', 'b', 'r', ...(S.round >= 2 ? ['y'] : []), ...(S.round >= 3 ? ['p'] : []), 'k'];
 const chipHTML = (ch, cls = '') => `<span class="chip ${cls}" style="background:${COL[ch.c].f};color:${COL[ch.c].t}">${ch.v}</span>`;
 const miniHTML = (c, v) => `<span class="mini" style="background:${COL[c].f};color:${COL[c].t}">${v}</span>`;
 
 function newGame(cfg) {
   const n = cfg.seats.length;
-  S = { n, round: 0, gid: Math.random(), log: [], prompt: null, start: rint(n), card: null, mod: {}, supply: { ...SUPPLY0 }, over: false, phase: 'setup', results: null, deck: shuffle(CARDS.flatMap(c => [c, c])),
-    players: cfg.seats.map((s, i) => ({ name: s.name, human: s.human, color: COLORS[i], vp: 0, rubies: 1, drop: 0, flask: true, bag: [], pot: [], last: null, startPos: 0, rats: 0, white: 0, boom: false, done: false, score: 0, risk: 0.22 + Math.random() * 0.16 })) };
+  S = { n, sets: { ...(cfg.sets || { g: 1, b: 1, r: 1, y: 1, p: 1 }) }, round: 0, gid: Math.random(), log: [], prompt: null, start: rint(n), card: null, mod: {}, supply: { ...SUPPLY0 }, over: false, phase: 'setup', results: null, deck: shuffle(CARDS.flatMap(c => [c, c])),
+    players: cfg.seats.map((s, i) => ({ name: s.name, human: s.human, color: COLORS[i], vp: 0, rubies: 1, drop: 0, flask: true, bag: [], pot: [], last: null, startPos: 0, rats: 0, white: 0, boom: false, done: false, score: 0, aside: [], shield: 0, shielded: false, risk: 0.22 + Math.random() * 0.16 })) };
   S.players.forEach(p => START_BAG.forEach(([c, v]) => { takeSupply(c, v); p.bag.push(chip(c, v)); }));
-  log(`新遊戲：${n} 位郎中，玩 9 輪，分數最高的人獲勝。`);
+  log(`新遊戲：${n} 位郎中，玩 9 輪。藥典：${SETC.map(c => COL[c].n + '第' + S.sets[c] + '組').join('、')}。`);
 }
 async function run() { try { await runInner(); } catch (e) { if (e !== 'stop') throw e; } }
 
@@ -203,8 +239,8 @@ async function runInner() {
     S.players.forEach(p => { let t = r >= 2 ? ratTails(p.vp, lead) : 0; if (S.mod.rats) t *= 2; p.rats = t; });
     // brewing
     S.phase = 'brew';
-    S.players.forEach(p => { p.pot.forEach(c => p.bag.push({ c: c.c, v: c.v })); p.pot = []; p.last = null; p.startPos = Math.min(MAXS - 1, p.drop + p.rats); p.white = 0; p.boom = false; p.done = false; p.canFlask = false; p.newIdx = -1; });
-    S.players.forEach((p, i) => { if (!p.human) brewBot(i); });
+    S.players.forEach(p => { p.pot.forEach(c => p.bag.push({ c: c.c, v: c.v })); p.pot = []; p.last = null; p.startPos = Math.min(MAXS - 1, p.drop + p.rats); p.white = 0; p.boom = false; p.done = false; p.canFlask = false; p.newIdx = -1; p.shield = 0; p.shielded = false; });
+    for (let i = 0; i < S.n; i++) if (!P(i).human) await brewBot(i);
     for (let k = 0; k < S.n; k++) { const i = (S.start + k) % S.n; if (P(i).human) await brewHuman(i); }
     S.players.forEach(p => { p.score = Math.min(MAXS, (p.last ?? p.startPos) + 1); });
     await scoring();
@@ -252,49 +288,72 @@ async function applyCard(card) {
 // ---------- brewing ----------
 function drawFromBag(p) { const i = rint(p.bag.length); return p.bag.splice(i, 1)[0]; }
 function place(p, ch) {
-  let pos = (p.last ?? p.startPos) + ch.v;
-  if (ch.c === 'r') { const o = p.pot.filter(x => x.c === 'o').length; pos += o >= 3 ? 2 : o >= 1 ? 1 : 0; }
-  pos = Math.min(MAXS - 1, pos);
-  const prevLast = p.pot.length ? p.pot[p.pot.length - 1] : null;
+  const prev = p.pot.length ? p.pot[p.pot.length - 1] : null;
+  let d = ch.v;
+  if (ch.c === 'r' && S.sets.r === 1) { const o = p.pot.filter(x => x.c === 'o').length; d += o >= 3 ? 2 : o >= 1 ? 1 : 0; }
+  if (ch.c === 'r' && S.sets.r === 3 && prev && prev.c === 'w') d += prev.v;
+  if (ch.c === 'w' && ch.v === 1 && S.sets.r === 4 && p.pot.some(x => x.c === 'r')) d = 2;
+  if (ch.c === 'y' && S.sets.y === 4) { const k = p.pot.filter(x => x.c === 'y').length; if (k < 3) d += k + 1; }
+  if (prev && prev.c === 'y' && S.sets.y === 2) d *= 2;
+  const pos = Math.min(MAXS - 1, (p.last ?? p.startPos) + d);
   p.pot.push({ ...ch, pos }); p.last = pos; p.newIdx = p.pot.length - 1;
-  if (ch.c === 'w') { p.white += ch.v; if (p.white > limit()) p.boom = true; }
-  return prevLast;
+  if (ch.c === 'w') { p.white += ch.v; if (p.white > limit(p)) p.boom = true; }
+  p.rewarded = false;
+  if (ch.c === 'b' && RUBY.has(pos)) {
+    if (S.sets.b === 3) { p.rubies++; p.rewarded = true; if (p.human) toast('烏鴉頭骨放在寶石格：+1 寶石'); }
+    if (S.sets.b === 4) { p.vp += ch.v; p.rewarded = true; if (p.human) toast(`烏鴉頭骨放在寶石格：+${ch.v} 分`); }
+  }
+  return prev;
 }
 function unplaceLast(p) {
   const ch = p.pot.pop(); if (ch.c === 'w') p.white -= ch.v;
   p.last = p.pot.length ? p.pot[p.pot.length - 1].pos : null; p.bag.push({ c: ch.c, v: ch.v });
   return ch;
 }
-function boomRisk(p) { const room = limit() - p.white; if (!p.bag.length) return 1; return p.bag.filter(c => c.c === 'w' && c.v > room).length / p.bag.length; }
+function boomRisk(p) { const room = limit(p) - p.white; if (!p.bag.length) return 1; return p.bag.filter(c => c.c === 'w' && c.v > room).length / p.bag.length; }
 // one draw incl. bonuses; human=true asks for choices
 async function drawOne(i, human) {
   const p = P(i), ch = drawFromBag(p);
+  const shieldOn = p.shield > 0; if (p.shield > 0) p.shield--;
+  if (ch.c === 'r' && S.sets.r === 2) { p.aside.push(ch); p.canFlask = false; if (human) log(`${p.name} 把毒菇 ${ch.v} 級放在大釜旁`); return ch; }
   const prevLast = place(p, ch);
-  let choiceUsed = false;
-  if (p.boom) { p.canFlask = false; return ch; }
-  if (ch.c === 'y' && prevLast && prevLast.c === 'w') {
+  let choiceUsed = p.rewarded;
+  if (p.boom) { if (shieldOn) p.shielded = true; p.canFlask = false; return ch; }
+  if (ch.c === 'b' && S.sets.b === 2) p.shield = Math.max(p.shield, ch.v);
+  if (ch.c === 'y' && S.sets.y === 1 && prevLast && prevLast.c === 'w') {
     const ret = human ? await ask({ type: 'yellow', p: i, w: prevLast }) : true;
     if (ret) { const idx = p.pot.indexOf(prevLast); p.pot.splice(idx, 1); p.white -= prevLast.v; p.bag.push({ c: 'w', v: prevLast.v }); p.newIdx = p.pot.length - 1; if (human) log(`${p.name} 用人參把白色 ${prevLast.v} 級放回袋中`); choiceUsed = true; }
   }
-  if (ch.c === 'b' && p.bag.length) {
+  if (ch.c === 'b' && S.sets.b === 1 && p.bag.length) {
     const extra = []; for (let k = 0; k < ch.v && p.bag.length; k++) extra.push(drawFromBag(p));
-    let pick;
-    if (human) pick = await ask({ type: 'blue', p: i, extra, lv: ch.v });
-    else pick = botBluePick(p, extra);
+    const pick = human ? await ask({ type: 'blue', p: i, extra, lv: ch.v }) : botBluePick(p, extra);
     extra.forEach((x, k) => { if (k !== pick) p.bag.push(x); });
     choiceUsed = true;
     if (pick != null && pick >= 0) {
       const sel = extra[pick];
-      if (human) log(`${p.name} 用烏鴉頭骨挑了 ${COL[sel.c].n} ${sel.v} 級放進大釜`);
-      const pl2 = place(p, sel);
-      if (!p.boom && sel.c === 'y' && pl2 && pl2.c === 'w') {
-        const ret = human ? await ask({ type: 'yellow', p: i, w: pl2 }) : true;
-        if (ret) { const idx = p.pot.indexOf(pl2); p.pot.splice(idx, 1); p.white -= pl2.v; p.bag.push({ c: 'w', v: pl2.v }); }
+      if (human) log(`${p.name} 用烏鴉頭骨挑了 ${COL[sel.c].n} ${sel.v} 級`);
+      if (sel.c === 'r' && S.sets.r === 2) p.aside.push(sel);
+      else {
+        const pl2 = place(p, sel);
+        if (!p.boom && sel.c === 'y' && S.sets.y === 1 && pl2 && pl2.c === 'w') {
+          const ret = human ? await ask({ type: 'yellow', p: i, w: pl2 }) : true;
+          if (ret) { const idx = p.pot.indexOf(pl2); p.pot.splice(idx, 1); p.white -= pl2.v; p.bag.push({ c: 'w', v: pl2.v }); }
+        }
       }
     }
   }
   p.canFlask = p.flask && !p.boom && !choiceUsed;
   return ch;
+}
+async function handleAside(i, human) {
+  const p = P(i);
+  for (const ch of p.aside.slice()) {
+    const a = human ? await ask({ type: 'aside', p: i, ch }) : 'place';
+    if (a === 'keep') continue;
+    p.aside.splice(p.aside.indexOf(ch), 1);
+    if (a === 'bag') { p.bag.push(ch); continue; }
+    place(p, ch); if (human) log(`${p.name} 把大釜旁的毒菇 ${ch.v} 級放進大釜`);
+  }
 }
 async function brewHuman(i) {
   const p = P(i);
@@ -306,36 +365,30 @@ async function brewHuman(i) {
     if (a === 'flask' && p.canFlask) { const c = unplaceLast(p); p.flask = false; p.canFlask = false; p.newIdx = -1; log(`${p.name} 用藥水瓶把 ${COL[c.c].n} ${c.v} 級放回袋中`); continue; }
     if (a === 'draw') {
       const ch = await drawOne(i, true);
-      if (p.boom) { log(`${p.name} 抽到白色 ${ch.v} 級，藥水爆炸了！（白色總和 ${p.white}）`); render(); await ask({ type: 'boom', p: i }); p.done = true; }
+      if (p.boom) { log(`${p.name} 抽到白色 ${ch.v} 級，藥水爆炸了！（白色總和 ${p.white}）${p.shielded ? '但有烏鴉頭骨保護，仍可得分和購買' : ''}`); render(); await ask({ type: 'boom', p: i }); p.done = true; }
     }
   }
+  if (p.aside.length) await handleAside(i, true);
 }
-function brewBot(i) {
-  const p = P(i), rounds = 9 - S.round;
+async function brewBot(i) {
+  const p = P(i);
   let guard = 0;
   while (!p.done && guard++ < 80) {
     if (!p.bag.length) break;
     const risk = boomRisk(p);
-    const thresh = p.risk + (p.flask ? 0.08 : 0) + (S.round === 9 ? 0.1 : 0);
+    const thresh = p.risk + (p.flask ? 0.08 : 0) + (S.round === 9 ? 0.1 : 0) + (p.shield > 0 ? 0.3 : 0);
     if (risk > thresh && p.pot.length >= 2) break;
-    if (risk >= 1) break;
-    // synchronous draw (bots never wait)
-    const ch = drawFromBag(p); const prevLast = place(p, ch);
+    if (risk >= 1 && p.shield <= 0) break;
+    const ch = await drawOne(i, false);
     if (p.boom) break;
-    if (ch.c === 'w' && p.flask && p.white >= limit() - 1 && ch.v >= 2) { unplaceLast(p); p.flask = false; continue; }
-    if (ch.c === 'y' && prevLast && prevLast.c === 'w') { const idx = p.pot.indexOf(prevLast); p.pot.splice(idx, 1); p.white -= prevLast.v; p.bag.push({ c: 'w', v: prevLast.v }); }
-    if (ch.c === 'b' && p.bag.length) {
-      const extra = []; for (let k = 0; k < ch.v && p.bag.length; k++) extra.push(drawFromBag(p));
-      const pick = botBluePick(p, extra);
-      extra.forEach((x, k) => { if (k !== pick) p.bag.push(x); });
-      if (pick != null && pick >= 0) { const sel = extra[pick]; const pl2 = place(p, sel); if (p.boom) break; if (sel.c === 'y' && pl2 && pl2.c === 'w') { const idx = p.pot.indexOf(pl2); p.pot.splice(idx, 1); p.white -= pl2.v; p.bag.push({ c: 'w', v: pl2.v }); } }
-    }
+    if (p.canFlask && ch.c === 'w' && p.white >= limit(p) - 1 && ch.v >= 2) { unplaceLast(p); p.flask = false; p.canFlask = false; }
   }
+  if (p.aside.length) await handleAside(i, false);
   p.done = true;
 }
 function botBluePick(p, extra) {
   let best = -1, bv = 0;
-  extra.forEach((x, k) => { let v = x.v + (x.c === 'r' ? 1 : 0) + (x.c === 'g' || x.c === 'p' || x.c === 'k' ? 1.5 : 0); if (x.c === 'w') v = p.white + x.v > limit() ? -99 : -1; if (v > bv) { bv = v; best = k; } });
+  extra.forEach((x, k) => { let v = x.v + (x.c === 'r' ? 1 : 0) + (x.c === 'g' || x.c === 'p' || x.c === 'k' ? 1.5 : 0); if (x.c === 'w') v = p.white + x.v > limit(p) ? -99 : -1; if (v > bv) { bv = v; best = k; } });
   return best;
 }
 
@@ -352,15 +405,54 @@ async function scoring() {
       for (let k = 0; k < rolls; k++) { const f = DIE[rint(6)]; applyDie(p, f); R[ps.indexOf(p)].notes.push('獎勵骰：' + f.n); }
     });
   }
-  // B: chip actions
-  ps.forEach((p, i) => {
-    const last2 = p.pot.slice(-2);
-    const g = last2.filter(x => x.c === 'g').length; if (g) { p.rubies += g; R[i].notes.push(`花園蜘蛛：+${g} 寶石`); }
+  // B: chip actions (start player first)
+  for (let q = 0; q < S.n; q++) {
+    const i = (S.start + q) % S.n, p = P(i), N = R[i].notes;
+    const g2 = p.pot.slice(-2).filter(x => x.c === 'g');
+    if (S.sets.g === 1 && g2.length) { p.rubies += g2.length; N.push(`花園蜘蛛：+${g2.length} 寶石`); }
+    if (S.sets.g === 2) for (const gc of g2) {
+      let c2 = 'o';
+      if (gc.v > 1) { const opts = gc.v === 2 ? ['b', 'r'] : ['y', 'p']; const av = opts.filter(c => S.supply[c + '1'] > 0); if (!av.length) continue; c2 = av.length === 1 ? av[0] : p.human ? await ask({ type: 'g2', p: i, opts: av, lv: gc.v }) : av[0]; }
+      if (giveChip(p, c2, 1)) N.push(`花園蜘蛛：得到${COL[c2].n} 1 級`);
+    }
+    if (S.sets.g === 3 && p.white === 7 && p.pot.length) {
+      const gs = p.pot.filter(x => x.c === 'g').reduce((t, x) => t + x.v, 0);
+      if (gs) { const lc = p.pot[p.pot.length - 1]; lc.pos = Math.min(MAXS - 1, lc.pos + gs); p.last = lc.pos; p.score = Math.min(MAXS, p.last + 1); N.push(`花園蜘蛛：白色剛好 7，最後一個藥材前進 ${gs} 格`); }
+    }
+    if (S.sets.g === 4) for (let t = 0; t < g2.length && p.rubies >= 1; t++) {
+      const pay = p.human ? await ask({ type: 'g4', p: i }) : S.round <= 7;
+      if (!pay) break; p.rubies--; p.drop++; N.push('花園蜘蛛：付 1 寶石，水滴前進');
+    }
     const pc = p.pot.filter(x => x.c === 'p').length;
-    if (pc === 1) { p.vp += 1; R[i].notes.push('鬼魂陰氣：+1 分'); }
-    else if (pc === 2) { p.vp += 1; p.rubies += 1; R[i].notes.push('鬼魂陰氣：+1 分、+1 寶石'); }
-    else if (pc >= 3) { p.vp += 2; p.drop++; R[i].notes.push('鬼魂陰氣：+2 分、水滴前進'); }
-  });
+    if (S.sets.p === 1) {
+      if (pc === 1) { p.vp += 1; N.push('鬼魂陰氣：+1 分'); }
+      else if (pc === 2) { p.vp += 1; p.rubies += 1; N.push('鬼魂陰氣：+1 分、+1 寶石'); }
+      else if (pc >= 3) { p.vp += 2; p.drop++; N.push('鬼魂陰氣：+2 分、水滴前進'); }
+    }
+    if (S.sets.p === 2 && pc) {
+      const max = Math.min(3, pc);
+      const n = p.human ? await ask({ type: 'p2', p: i, max }) : max;
+      if (n > 0) {
+        for (let t = 0; t < n; t++) { const k = p.pot.map(x => x.c).lastIndexOf('p'); p.pot.splice(k, 1); S.supply.p1++; }
+        if (n === 1) { giveChip(p, 'k', 1); p.vp += 1; p.rubies += 1; }
+        if (n === 2) { giveChip(p, 'g', 1); giveChip(p, 'b', 2); p.vp += 3; p.drop += 1; }
+        if (n === 3) { giveChip(p, 'y', 4); p.vp += 6; p.rubies += 1; p.drop += 2; }
+        N.push(`鬼魂陰氣：棄掉 ${n} 個紫色換獎勵`);
+      }
+    }
+    if (S.sets.p === 3) { let v = 0; p.pot.forEach(x => { if (x.c !== 'p') return; const sv = SPC[x.pos]; v += sv >= 30 ? 3 : sv >= 20 ? 2 : sv >= 10 ? 1 : 0; }); if (v) { p.vp += v; N.push(`鬼魂陰氣：+${v} 分`); } }
+    if (S.sets.p === 4 && pc) {
+      const tiers = [[1, 2], [2, 4], [1, 4]].slice(0, Math.min(3, pc));
+      const cand = [];
+      p.pot.forEach((x, k) => { if (!['g', 'b', 'r', 'y'].includes(x.c)) return; tiers.forEach(([f, t]) => { if (x.v === f && S.supply[x.c + t] > 0 && !cand.some(o => o.k === k && o.to === t)) cand.push({ k, c: x.c, from: f, to: t }); }); });
+      if (cand.length) {
+        let pick;
+        if (p.human) pick = await ask({ type: 'p4', p: i, cand });
+        else pick = cand.slice().sort((a, b) => (b.to - b.from) - (a.to - a.from) || ('brgy'.indexOf(a.c) - 'brgy'.indexOf(b.c)))[0];
+        if (pick) { const x = p.pot[pick.k]; S.supply[x.c + x.v]++; S.supply[x.c + pick.to]--; x.v = pick.to; N.push(`鬼魂陰氣：${COL[x.c].n} ${pick.from} 級換成 ${pick.to} 級`); }
+      }
+    }
+  }
   const kc = ps.map(p => p.pot.filter(x => x.c === 'k').length);
   ps.forEach((p, i) => {
     if (!kc[i]) return;
@@ -375,7 +467,7 @@ async function scoring() {
   for (let k = 0; k < S.n; k++) {
     const i = (S.start + k) % S.n, p = P(i), coins = SPC[p.score] + (S.mod.market ? 4 : 0), vp = vpOf(SPC[p.score]);
     let doVP = true, doBuy = S.round < 9;
-    if (p.boom && !S.mod.brave) {
+    if (p.boom && !S.mod.brave && !p.shielded) {
       let ch;
       if (S.round === 9) ch = 'vp';
       else if (p.human) ch = await ask({ type: 'boomChoice', p: i, vp, coins });
@@ -396,7 +488,7 @@ async function scoring() {
       else { while (p.rubies >= 2) { if (!p.flask) { p.rubies -= 2; p.flask = true; } else if (9 - S.round >= 2) { p.rubies -= 2; p.drop++; } else break; } }
     } else {
       const left = SPC[p.score] * (doBuy || !p.boom || S.mod.brave ? 1 : 0);
-      const extra = Math.floor((p.boom && !S.mod.brave ? 0 : coins) / 5) + Math.floor(p.rubies / 2);
+      const extra = Math.floor((p.boom && !S.mod.brave && !p.shielded ? 0 : coins) / 5) + Math.floor(p.rubies / 2);
       if (extra) { p.vp += extra; R[i].notes.push(`最後一輪：金幣和寶石換 ${extra} 分`); log(`${p.name} 用剩下的金幣和寶石換了 ${extra} 分`); }
       p.rubies %= 2; void left;
     }
@@ -407,7 +499,7 @@ function applyDie(p, f) { if (f.k === 'vp') p.vp += f.v; else if (f.k === 'ruby'
 function botBuy(p, coins) {
   const open = booksOpen().filter(c => c !== 'o' || S.round <= 3);
   const opts = [];
-  for (const c of open) for (const v of Object.keys(PRICE[c]).map(Number)) { const cost = PRICE[c][v]; if (cost > coins || !(S.supply[key(c, v)] > 0)) continue;
+  for (const c of open) for (const v of Object.keys(price(c)).map(Number)) { const cost = price(c)[v]; if (cost > coins || !(S.supply[key(c, v)] > 0)) continue;
     let val = v * 1.6 + ({ g: 1.5, b: 2, r: 1.6, y: 1.8, p: 2.2, k: 1.8, o: 0.3 }[c] || 0); if (c === 'p' && p.bag.filter(x => x.c === 'p').length >= 3) val -= 3; if (c === 'k' && S.n === 2) val += .5; val += Math.random();
     opts.push({ c, v, cost, val }); }
   opts.sort((a, b) => b.val + b.cost * .05 - (a.val + a.cost * .05));
@@ -450,8 +542,9 @@ function render() {
     <span class="st"><span>分數 <b>${q.vp}</b></span><span>寶石 <b>${q.rubies}</b></span><span>水滴 <b>${q.drop}</b></span><span>藥水瓶 <b>${q.flask ? '滿' : '空'}</b></span>
     ${brewing && S.round ? `<span>${q.boom ? '<span class="boom">爆炸了</span>' : q.done ? '已停止' : '製藥中'}・計分格 <b>${SPC[q.done || q.boom ? q.score || ((q.last ?? q.startPos) + 1) : (q.last ?? q.startPos) + 1] ?? ''}</b></span>` : ''}${q.rats ? `<span>🐀 ×${q.rats}</span>` : ''}</span></button>`).join('')}</div>
   <div class="potbox"><div class="pothd"><span>${esc(p.name)} 的大釜${me !== S.players.findIndex(x => x.human) || humans() > 1 ? '' : ''}　計分格 <b>${SPC[Math.min(MAXS, (p.last ?? p.startPos) + 1)]}</b> 金幣・<b>${vpOf(SPC[Math.min(MAXS, (p.last ?? p.startPos) + 1)])}</b> 分</span>
-    <span class="meter">白色 ${p.white}/${limit()}<span class="bar"><i style="width:${Math.min(100, p.white / limit() * 100)}%"></i></span></span></div>
+    <span class="meter">白色 ${p.white}/${limit(p)}<span class="bar"><i style="width:${Math.min(100, p.white / limit(p) * 100)}%"></i></span></span></div>
     ${potHTML(p, { live: S.prompt && S.prompt.type === 'brew', score: S.phase === 'score' })}
+    ${p.aside.length ? `<div class="pothd" style="margin:6px 0 0"><span>大釜旁的毒菇：</span><span class="row">${p.aside.map(c => miniHTML(c.c, c.v)).join('')}</span></div>` : ''}${p.shield > 0 ? `<div class="pothd" style="margin:6px 0 0"><span>🛡 烏鴉頭骨保護：接下來 ${p.shield} 個藥材爆炸也能得分和購買</span></div>` : ''}
     <div class="pothd" style="margin:6px 0 0"><span>💧 水滴在 ${p.drop}${p.rats ? `，🐀 老鼠讓起點前進 ${p.rats} 格` : ''}</span><span>布袋剩 <b>${p.bag.length}</b> 個</span></div></div>
   <div class="card"><b>布袋裡</b>（只是提醒你買過什麼，抽的時候看不到）<div class="bag" style="margin-top:4px">${bagHTML(p)}</div></div>
   <div style="display:flex;flex-direction:column;gap:6px"><h3 style="font-size:1rem">紀錄</h3><div class="log">${S.log.map(l => `<div>${esc(l)}</div>`).join('')}</div></div>`;
@@ -467,10 +560,10 @@ function renderBar() {
     const p = P(pr.p), risk = boomRisk(p);
     const lastC = p.pot[p.pot.length - 1];
     h = `<div class="t">${humans() > 1 ? `<b>${esc(p.name)}</b>，` : ''}${p.pot.length ? `剛放進 ${lastC ? `${COL[lastC.c].n} ${lastC.v} 級` : ''}。要繼續抽嗎？` : '開始製藥！從布袋抽出藥材放進大釜。'}</div>
-      <div class="hint">白色總和超過 ${limit()} 就爆炸。袋中還有 ${p.bag.length} 個，下一個讓你爆炸的機率約 ${Math.round(risk * 100)}%。</div>
+      <div class="hint">白色總和超過 ${limit(p)} 就爆炸。袋中還有 ${p.bag.length} 個，下一個讓你爆炸的機率約 ${Math.round(risk * 100)}%。</div>
       <div class="row"><button class="btn big" id="bDraw">抽藥材</button><button class="btn stop" id="bStop">停止製藥</button>${p.canFlask ? `<button class="btn flask" id="bFlask">藥水瓶：放回 ${COL[lastC.c].n}${lastC.v}</button>` : ''}</div>`;
   } else if (pr && pr.type === 'buy') {
-    const sel = UI.buy || [], cost = sel.reduce((a, b) => a + PRICE[b.c][b.v], 0);
+    const sel = UI.buy || [], cost = sel.reduce((a, b) => a + price(b.c)[b.v], 0);
     h = `<div class="t"><b>購買藥材</b>：你有 <b>${pr.coins}</b> 枚金幣，可以買 1～2 個（顏色要不同）。已選 ${sel.map(b => `${COL[b.c].n}${b.v}`).join('、') || '無'}（${cost} 金幣）</div>
       <div class="row"><button class="btn" id="bBuy">${sel.length ? '確定購買' : '不買'}</button><button class="btn alt" id="bBooks">看藥典說明</button></div>`;
   } else if (pr && pr.type === 'ruby') {
@@ -496,12 +589,34 @@ function closeSheet() { const m = $('#modal'); if (m) m.remove(); }
 function openSheet(html, o = {}) { closeSheet(); const m = document.createElement('div'); m.className = 'modal'; m.id = 'modal'; if (o.keep) m.dataset.keep = '1'; m.innerHTML = `<div class="sheet">${html}</div>`; document.body.appendChild(m); return m; }
 function renderSheet() {
   const pr = S && S.prompt, open = $('#modal');
-  const T = { cardShow: sheetCard, donate: sheetDonate, yellow: sheetYellow, blue: sheetBlue, boom: sheetBoom, turnStart: sheetTurn, scoreShow: sheetScore, boomChoice: sheetBoomChoice, roundEnd: sheetRoundEnd, end: sheetEnd };
+  const T = { aside: sheetAside, g2: sheetG2, g4: sheetG4, p2: sheetP2, p4: sheetP4, cardShow: sheetCard, donate: sheetDonate, yellow: sheetYellow, blue: sheetBlue, boom: sheetBoom, turnStart: sheetTurn, scoreShow: sheetScore, boomChoice: sheetBoomChoice, roundEnd: sheetRoundEnd, end: sheetEnd };
   if (pr && pr.type === 'buy') return;
   if (!pr || !T[pr.type]) { if (open && !open.dataset.keep) closeSheet(); return; }
-  const k = pr.type + (pr.p ?? '') + S.round;
+  const k = pr.type + (pr.p ?? '') + S.round + (pr.ch ? JSON.stringify(pr.ch) + P(pr.p).aside.length : '') + (pr.type === 'g4' ? P(pr.p).rubies : '');
   if (open && open.dataset.for === k) return;
   const m = T[pr.type](pr); if (m) m.dataset.for = k;
+}
+function sheetAside(pr) {
+  const m = openSheet(`<h2>大釜旁的毒菇 ${miniHTML('r', pr.ch.v)}</h2><p>${esc(nm(pr.p))}，要怎麼處理這個毒菇 ${pr.ch.v} 級？放進大釜會接在最後一個藥材後面 ${pr.ch.v} 格。</p>
+    <button class="opt" id="a"><span class="l"><b>放進大釜</b></span></button><button class="opt" id="b"><span class="l"><b>留在大釜旁</b><span>之後的回合再用</span></span></button><button class="opt" id="c"><span class="l"><b>放回布袋</b></span></button>`);
+  $('#a', m).onclick = () => answer('place'); $('#b', m).onclick = () => answer('keep'); $('#c', m).onclick = () => answer('bag'); return m;
+}
+function sheetG2(pr) {
+  const m = openSheet(`<h2>花園蜘蛛 ${pr.lv} 級的獎勵</h2><p>選一個藥材放進布袋：</p>${pr.opts.map(c => `<button class="opt" data-c="${c}"><span class="l"><b>${miniHTML(c, 1)} ${COL[c].n} 1 級</b></span></button>`).join('')}`);
+  m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => answer(b.dataset.c)); return m;
+}
+function sheetG4(pr) {
+  const m = openSheet(`<h2>花園蜘蛛的獎勵</h2><p>你有 ${P(pr.p).rubies} 顆寶石。要付 1 顆讓水滴前進 1 格嗎？</p><div class="row"><button class="btn" id="y">付 1 寶石</button><button class="btn alt" id="n">不要</button></div>`);
+  $('#y', m).onclick = () => answer(true); $('#n', m).onclick = () => answer(false); return m;
+}
+function sheetP2(pr) {
+  const R2 = ['', '黑色 1 級＋1 分＋1 寶石', '綠色 1 級＋藍色 2 級＋3 分＋水滴前進 1 格', '黃色 4 級＋6 分＋1 寶石＋水滴前進 2 格'];
+  const m = openSheet(`<h2>鬼魂陰氣：棄紫色換獎勵</h2><p>大釜中有紫色藥材，可以棄掉一些換獎勵（只能選一項，棄掉的紫色回到供應區）。</p>${[1, 2, 3].filter(n => n <= pr.max).map(n => `<button class="opt" data-n="${n}"><span class="l"><b>棄 ${n} 個紫色</b><span>${R2[n]}</span></span></button>`).join('')}<button class="opt" data-n="0"><span class="l"><b>不棄</b></span></button>`);
+  m.querySelectorAll('[data-n]').forEach(b => b.onclick = () => answer(+b.dataset.n)); return m;
+}
+function sheetP4(pr) {
+  const m = openSheet(`<h2>鬼魂陰氣：升級藥材</h2><p>選一個大釜中的藥材升級（換到的放進布袋，不影響本輪計分）：</p>${pr.cand.map((o, k) => `<button class="opt" data-k="${k}"><span class="l"><b>${miniHTML(o.c, o.from)} ${COL[o.c].n} ${o.from} 級 → ${o.to} 級</b></span></button>`).join('')}<button class="opt" data-k="-1"><span class="l"><b>不換</b></span></button>`);
+  m.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { const k = +b.dataset.k; answer(k < 0 ? null : pr.cand[k]); }); return m;
 }
 function sheetCard() {
   const m = openSheet(`<h2>🔮 第 ${S.round} 輪占卜牌</h2><p style="font-size:1.1rem"><b>${S.card.n}</b></p><p>${S.card.d}</p>${S.round === 6 ? '<p class="small muted">另外，第 6 輪開始時每人的布袋多 1 個白色 1 級藥材。</p>' : ''}<button class="btn" id="ok">開始製藥</button>`);
@@ -517,14 +632,14 @@ function sheetYellow(pr) {
 }
 function sheetBlue(pr) {
   const p = P(pr.p);
-  const m = openSheet(`<h2>烏鴉頭骨：額外抽了 ${pr.extra.length} 個</h2><p>選 1 個放進大釜（白色會算進爆炸），或全部放回袋中。目前白色 ${p.white}/${limit()}。</p>
-    ${pr.extra.map((x, k) => `<button class="opt" data-k="${k}"><span class="l"><b>${miniHTML(x.c, x.v)} ${COL[x.c].n} ${x.v} 級</b>${x.c === 'w' && p.white + x.v > limit() ? '<span class="boom">放進去會爆炸！</span>' : ''}</span><span>選這個</span></button>`).join('')}
+  const m = openSheet(`<h2>烏鴉頭骨：額外抽了 ${pr.extra.length} 個</h2><p>選 1 個放進大釜（白色會算進爆炸），或全部放回袋中。目前白色 ${p.white}/${limit(p)}。</p>
+    ${pr.extra.map((x, k) => `<button class="opt" data-k="${k}"><span class="l"><b>${miniHTML(x.c, x.v)} ${COL[x.c].n} ${x.v} 級</b>${x.c === 'w' && p.white + x.v > limit(p) ? '<span class="boom">放進去會爆炸！</span>' : ''}</span><span>選這個</span></button>`).join('')}
     <button class="opt" data-k="-1"><span class="l"><b>全部放回袋中</b></span></button>`);
   m.querySelectorAll('[data-k]').forEach(b => b.onclick = () => answer(+b.dataset.k)); return m;
 }
 function sheetBoom(pr) {
   const p = P(pr.p);
-  const m = openSheet(`<h2 class="boom">💥 藥水爆炸了！</h2><p>白色總和 ${p.white}，超過 ${limit()}。這輪不能再抽了。</p><p class="small muted">計分時你不能擲獎勵骰，而且「得分」和「買藥材」只能二選一（最後一輪只能得分）。</p><button class="btn" id="ok">知道了</button>`);
+  const m = openSheet(`<h2 class="boom">💥 藥水爆炸了！</h2><p>白色總和 ${p.white}，超過 ${limit(p)}。這輪不能再抽了。</p><p class="small muted">${p.shielded ? '幸好有烏鴉頭骨保護：你仍然可以同時得分和購買，只是不能擲獎勵骰。' : '計分時你不能擲獎勵骰，而且「得分」和「買藥材」只能二選一（最後一輪只能得分）。'}</p><button class="btn" id="ok">知道了</button>`);
   $('#ok', m).onclick = () => answer(true); return m;
 }
 function sheetTurn(pr) { const m = openSheet(`<h2>輪到 ${esc(nm(pr.p))} 製藥</h2><p>請把手機交給 ${esc(nm(pr.p))}。</p><button class="btn" id="ok">開始</button>`); $('#ok', m).onclick = () => answer(true); return m; }
@@ -553,13 +668,13 @@ function sheetEnd() {
 function showBuySheet() {
   const pr = S.prompt; if (!pr || pr.type !== 'buy') return;
   const draw = () => {
-    const sel = UI.buy || [], cost = sel.reduce((a, b) => a + PRICE[b.c][b.v], 0), left = pr.coins - cost;
+    const sel = UI.buy || [], cost = sel.reduce((a, b) => a + price(b.c)[b.v], 0), left = pr.coins - cost;
     const books = booksOpen().map(c => {
-      const desc = c === 'k' ? (S.n === 2 ? BOOK.k2 : BOOK.k) : BOOK[c];
-      return `<div class="book"><div class="bh">${miniHTML(c, '')} ${COL[c].n}</div><div class="bd">${desc}</div><div class="row">${Object.keys(PRICE[c]).map(Number).map(v => {
-        const on = sel.some(b => b.c === c && b.v === v), sup = S.supply[key(c, v)] || 0, price = PRICE[c][v];
-        const can = on || (sup > 0 && price <= left && sel.length < 2 && !sel.some(b => b.c === c));
-        return `<button class="lv ${on ? 'on' : ''}" data-c="${c}" data-v="${v}" ${can ? '' : 'disabled'}>${miniHTML(c, v)} ${v} 級・${price} 金${sup <= 3 ? `<span class="small muted">（剩 ${sup}）</span>` : ''}</button>`; }).join('')}</div></div>`; }).join('');
+      const desc = bookText(c);
+      return `<div class="book"><div class="bh">${miniHTML(c, '')} ${COL[c].n}${SETC.includes(c) ? `<span class="small muted">第 ${S.sets[c]} 組</span>` : ''}</div><div class="bd">${desc}</div><div class="row">${Object.keys(price(c)).map(Number).map(v => {
+        const on = sel.some(b => b.c === c && b.v === v), sup = S.supply[key(c, v)] || 0, pr2 = price(c)[v];
+        const can = on || (sup > 0 && pr2 <= left && sel.length < 2 && !sel.some(b => b.c === c));
+        return `<button class="lv ${on ? 'on' : ''}" data-c="${c}" data-v="${v}" ${can ? '' : 'disabled'}>${miniHTML(c, v)} ${v} 級・${pr2} 金${sup <= 3 ? `<span class="small muted">（剩 ${sup}）</span>` : ''}</button>`; }).join('')}</div></div>`; }).join('');
     const m = openSheet(`<h2>購買藥材</h2><p>金幣 <b>${pr.coins}</b>，已選 ${sel.map(b => `${COL[b.c].n}${b.v}`).join('、') || '無'}，剩 <b>${left}</b>。最多 2 個、顏色不同，沒用完的金幣作廢。</p>${books}
       <div class="row sticky"><button class="btn" id="ok">${sel.length ? `確定購買（${cost} 金）` : '不買'}</button><span class="small muted">剩 ${left} 金</span></div>`);
     m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { const c = b.dataset.c, v = +b.dataset.v; const s = UI.buy || []; UI.buy = s.some(x => x.c === c && x.v === v) ? s.filter(x => !(x.c === c && x.v === v)) : [...s, { c, v }]; draw(); });
@@ -568,8 +683,8 @@ function showBuySheet() {
   draw();
 }
 function showBooks() {
-  const all = ['o', 'g', 'b', 'r', 'y', 'p', 'k'];
-  const m = openSheet(`<h2>📖 藥典（第 1 組）</h2>${all.map(c => `<div class="book"><div class="bh">${miniHTML(c, '')} ${COL[c].n}${c === 'y' ? '（第 2 輪上市）' : c === 'p' ? '（第 3 輪上市）' : ''}</div><div class="bd">${c === 'k' ? (S && S.n === 2 ? BOOK.k2 : BOOK.k) : BOOK[c]}</div><div class="small">價格：${Object.entries(PRICE[c]).map(([v, p]) => `${v} 級 ${p} 金`).join('、')}</div></div>`).join('')}
+  const all = ['o', 'g', 'b', 'r', 'y', 'p', 'k'], sets = curSets();
+  const m = openSheet(`<h2>📖 本局藥典</h2>${all.map(c => `<div class="book"><div class="bh">${miniHTML(c, '')} ${COL[c].n}${SETC.includes(c) ? `<span class="small muted">第 ${sets[c]} 組</span>` : ''}${c === 'y' ? '<span class="small muted">（第 2 輪上市）</span>' : c === 'p' ? '<span class="small muted">（第 3 輪上市）</span>' : ''}</div><div class="bd">${bookText(c, sets, S ? S.n : setupCfg.n)}</div><div class="small">價格：${Object.entries(price(c, sets)).map(([v, pp]) => `${v} 級 ${pp} 金`).join('、')}</div></div>`).join('')}
     <div class="book"><div class="bh">${miniHTML('w', '')} 白色（不能購買）</div><div class="bd">大釜中白色等級總和超過 7 就爆炸（剛好 7 不會）。</div></div><button class="btn" id="ok">關閉</button>`, { keep: true });
   $('#ok', m).onclick = () => { closeSheet(); if (S) { const pr = S.prompt; if (pr && pr.type === 'buy') showBuySheet(); else renderSheet(); } };
 }
@@ -591,7 +706,7 @@ const RULES = () => `<div class="rules" style="display:flex;flex-direction:colum
   <h3>特別的輪</h3><ul><li>第 2 輪人參（黃）上市、第 3 輪鬼魂陰氣（紫）上市。</li><li>第 6 輪開始時每人布袋多 1 個白色 1 級。</li><li>第 9 輪不買藥材：每 5 金幣或 2 寶石換 1 分。</li></ul>
   <h3>起始布袋</h3><p>白色 1 級 ×4、白色 2 級 ×2、白色 3 級 ×1、南瓜 ×1、綠色 1 級 ×1，寶石 1 顆。</p>
   <h3>這個電腦版</h3><ul>
-    <li>非官方練習版，依繁體中文說明書製作，使用各藥典的第 1 組（說明書建議第一次玩用第 1 組）。</li>
+    <li>非官方練習版，依繁體中文說明書和藥典圖鑑製作。綠、藍、紅、黃、紫藥典各有第 1～4 組，開局可以選一整組或每色自選（說明書建議第一次玩第 1 組，之後第 3 組、第 4 組）。</li>
     <li><b>自己補的地方</b>：24 張占卜牌的內容（照片看不到，這裡設計了 12 種各 2 張）；大釜每格的金幣／分數／寶石位置，依說明書的例子推算（例如 10 格 2 分、15 格 3 分、19 格 5 分、23 格 7 分，最後一格 35 金幣 15 分）；計分板上每 3 格 1 條老鼠尾巴。</li>
     <li>藥材數量照說明書的配件表，買完就沒了。</li></ul></div>`;
 function showRules() { const m = openSheet(RULES() + '<button class="btn" id="ok">知道了</button>', { keep: true }); $('#ok', m).onclick = () => { closeSheet(); if (S) renderSheet(); }; }
@@ -600,7 +715,7 @@ function showRules() { const m = openSheet(RULES() + '<button class="btn" id="ok
 const BOTNAMES = ['電腦 魯卡斯', '電腦 妮娜', '電腦 瑪莉'];
 function renderSetup() {
   $('#bar').hidden = true; $('#app').style.paddingBottom = '';
-  if (!setupCfg) setupCfg = { n: 3, seats: [{ name: '你', human: true }, ...BOTNAMES.map(n => ({ name: n, human: false }))] };
+  if (!setupCfg) setupCfg = { n: 3, sets: { g: 1, b: 1, r: 1, y: 1, p: 1 }, preset: 1, seats: [{ name: '你', human: true }, ...BOTNAMES.map(n => ({ name: n, human: false }))] };
   const c = setupCfg;
   $('#app').innerHTML = `
   <div class="top"><h1>藥鍋郎中<small>郎中闖江湖規則</small></h1><button class="pill" id="rulesBtn">規則</button></div>
@@ -611,6 +726,11 @@ function renderSetup() {
       ${c.seats.slice(0, c.n).map((s, i) => `<div class="seatrow"><span class="dot" style="background:${COLORS[i]}"></span><input id="nm${i}" value="${esc(s.name)}" maxlength="8" aria-label="名字">
         <div class="seg"><button data-h="${i}" class="${s.human ? 'on' : ''}">真人</button><button data-c="${i}" class="${s.human ? '' : 'on'}">電腦</button></div></div>`).join('')}
       <span class="small muted">好幾個真人可以輪流用同一支手機，每人輪流製藥。</span></div>
+    <div style="display:flex;flex-direction:column;gap:8px"><h3>藥典組合</h3>
+      <div class="seg">${[1, 2, 3, 4].map(k => `<button data-ps="${k}" class="${c.preset === k ? 'on' : ''}">第 ${k} 組</button>`).join('')}<button data-ps="0" class="${c.preset === 0 ? 'on' : ''}">自選</button></div>
+      <span class="small muted">說明書建議：第一次玩第 1 組，接著第 3 組，最後第 4 組。南瓜和骷髏巨蛾每局都一樣。</span>
+      ${c.preset === 0 ? SETC.map(col => `<div class="seatrow">${miniHTML(col, '')}<span style="width:5.5em">${COL[col].n}</span><div class="seg">${[1, 2, 3, 4].map(k => `<button data-sc="${col}" data-sk="${k}" class="${c.sets[col] === k ? 'on' : ''}">${k}</button>`).join('')}</div></div>`).join('') : ''}
+      <button class="btn alt" id="setBooks" style="align-self:flex-start">看這組藥典的效果</button></div>
     <button class="btn big" id="start" style="align-self:flex-start">開始製藥</button>
   </div>
   <div class="setup">${RULES()}</div>`;
@@ -619,11 +739,14 @@ function renderSetup() {
   document.querySelectorAll('[data-n]').forEach(b => b.onclick = () => { save(); c.n = +b.dataset.n; renderSetup(); });
   document.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { save(); const s = c.seats[+b.dataset.h]; s.human = true; if (s.name.startsWith('電腦')) s.name = `郎中${+b.dataset.h + 1}`; renderSetup(); });
   document.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { save(); const s = c.seats[+b.dataset.c]; s.human = false; if (!s.name.startsWith('電腦')) s.name = BOTNAMES[(+b.dataset.c) % 3] || '電腦'; renderSetup(); });
-  $('#start').onclick = () => { save(); const seats = c.seats.slice(0, c.n).map(s => ({ ...s })); if (!seats.some(s => s.human)) seats[0].human = true; newGame({ seats }); render(); run(); };
+  document.querySelectorAll('[data-ps]').forEach(b => b.onclick = () => { save(); const k = +b.dataset.ps; c.preset = k; if (k) SETC.forEach(col => c.sets[col] = k); renderSetup(); });
+  document.querySelectorAll('[data-sc]').forEach(b => b.onclick = () => { save(); c.sets[b.dataset.sc] = +b.dataset.sk; renderSetup(); });
+  $('#setBooks').onclick = showBooks;
+  $('#start').onclick = () => { save(); const seats = c.seats.slice(0, c.n).map(s => ({ ...s })); if (!seats.some(s => s.human)) seats[0].human = true; newGame({ seats, sets: c.sets }); render(); run(); };
 }
 window.__q = () => S;
 window.__qSpeed = (v) => { SPEED = v; };
-window.__qBots = (n) => { newGame({ seats: Array.from({ length: n }, (_, i) => ({ name: '電腦' + (i + 1), human: false })) }); run(); };
+window.__qBots = (n, sets) => { newGame({ seats: Array.from({ length: n }, (_, i) => ({ name: '電腦' + (i + 1), human: false })), sets }); run(); };
 window.__qApi = { answer, get P() { return S && S.prompt; } };
 render();
 })();
