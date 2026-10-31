@@ -1,0 +1,631 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>藥鍋郎中</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&display=swap">
+<style>
+/* Layout: a market-fair potion stall — rival quacks on top, your bubbling cauldron track in the middle, the bag and choices in a fixed bar. Single deliberate warm parchment theme. */
+:root {
+  color-scheme: light;
+  --bg: #efe3c8; --paper: #fbf4e2; --paper2: #f3e6c8; --ink: #3b2a16; --muted: #7a6646; --line: #d6c19a;
+  --acc: #8a3b12; --acc2: #c06a1e; --good: #2f7d3e; --bad: #b5352a; --pot: #2f6d5a; --pot2: #3f8a72;
+  --head: "Noto Serif TC", "Songti TC", serif;
+  --ui: system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; color: var(--ink); font-family: var(--ui); font-size: 15px; min-height: 100vh; -webkit-tap-highlight-color: transparent;
+  background: radial-gradient(110% 60% at 50% 0%, #f8eed6, var(--bg) 70%); }
+.wrap { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px 240px; }
+h1, h2, h3 { margin: 0; font-family: var(--head); font-weight: 900; text-wrap: balance; }
+button { font: inherit; cursor: pointer; color: inherit; }
+button:focus-visible { outline: 3px solid var(--acc2); outline-offset: 2px; }
+.top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.top h1 { font-size: 1.6rem; color: var(--acc); letter-spacing: .06em; }
+.top h1 small { font-size: .74rem; color: var(--muted); margin-left: 6px; font-family: var(--ui); font-weight: 400; letter-spacing: 0; }
+.pill { border: 1.5px solid var(--line); background: var(--paper); border-radius: 999px; padding: 5px 12px; font-size: .84rem; }
+.rounds { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; font-size: .8rem; }
+.rd { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--paper2); color: var(--muted); font-weight: 700; box-shadow: inset 0 0 0 1.5px var(--line); }
+.rd.on { background: var(--acc2); color: #fff; box-shadow: none; } .rd.done { background: #d9c8a3; color: #fff; }
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; font-size: .86rem; line-height: 1.5; }
+.card b { color: var(--acc); }
+.quacks { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+.qk { background: var(--paper); border-radius: 12px; padding: 8px 10px; display: flex; flex-direction: column; gap: 3px; box-shadow: inset 0 0 0 1.5px var(--line); font-size: .8rem; text-align: left; border: 0; }
+.qk.me { box-shadow: inset 0 0 0 2px var(--acc2); }
+.qk .nm { font-weight: 800; font-size: .92rem; display: flex; gap: 6px; align-items: center; }
+.qk .st { display: flex; flex-wrap: wrap; gap: 2px 8px; color: var(--muted); }
+.qk .st b { color: var(--ink); }
+.dot { width: 11px; height: 11px; border-radius: 50%; flex: 0 0 auto; box-shadow: 0 0 0 1px #0003; }
+.potbox { background: radial-gradient(120% 90% at 50% 40%, var(--pot2), var(--pot)); border-radius: 16px; padding: 10px; box-shadow: inset 0 0 0 3px #1f4a3d, 0 6px 18px #0002; }
+.pothd { display: flex; justify-content: space-between; align-items: center; color: #eaf6ef; font-size: .84rem; margin-bottom: 6px; gap: 8px; flex-wrap: wrap; }
+.pothd b { color: #ffe08a; }
+.pot { display: grid; grid-template-columns: repeat(13, minmax(0, 1fr)); gap: 3px; }
+.sp { aspect-ratio: 1; border-radius: 50%; background: #ffffff1c; position: relative; display: grid; place-items: center; font-size: .58rem; color: #d7efe4; }
+.sp .cn { position: absolute; bottom: -1px; left: 50%; transform: translateX(-50%); font-size: .52rem; color: #cfe8dc; }
+.sp.ruby::after { content: ""; position: absolute; top: 1px; right: 1px; width: 6px; height: 6px; background: #e0364a; transform: rotate(45deg); border-radius: 1px; }
+.sp.start { box-shadow: inset 0 0 0 2px #7ec8ff; }
+.sp.rat { box-shadow: inset 0 0 0 2px #e5c06a; }
+.sp.next { box-shadow: inset 0 0 0 2px #ffe08a; background: #ffe08a33; }
+.sp.score { box-shadow: 0 0 0 2px #ffe08a; background: #ffe08a55; }
+.chip { width: 92%; height: 92%; border-radius: 50%; display: grid; place-items: center; font-weight: 900; font-size: .72rem; box-shadow: inset 0 -2px 0 #0003, 0 1px 2px #0005; position: relative; z-index: 1; }
+.chip.new { animation: drop .35s ease-out; }
+@keyframes drop { from { transform: translateY(-14px) scale(1.3); opacity: 0; } }
+.meter { display: flex; align-items: center; gap: 6px; font-size: .8rem; color: #eaf6ef; }
+.meter .bar { flex: 1; height: 10px; border-radius: 6px; background: #ffffff22; overflow: hidden; min-width: 80px; }
+.meter .bar i { display: block; height: 100%; background: linear-gradient(90deg, #f2efe6, #ffd56b, #e5533d); }
+.bag { display: flex; flex-wrap: wrap; gap: 3px; }
+.bc { display: inline-flex; align-items: center; gap: 2px; font-size: .74rem; background: var(--paper2); border-radius: 6px; padding: 1px 5px; }
+.mini { width: 16px; height: 16px; border-radius: 50%; display: inline-grid; place-items: center; font-size: .56rem; font-weight: 900; box-shadow: inset 0 -1px 0 #0003; }
+.log { font-size: .8rem; color: var(--muted); display: flex; flex-direction: column; gap: 3px; max-height: 160px; overflow-y: auto; }
+.log div:first-child { color: var(--ink); }
+.bar2 { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: #fbf4e2f5; backdrop-filter: blur(6px); border-top: 1.5px solid var(--line); box-shadow: 0 -6px 18px #0001;
+  padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); padding-top: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+.bar2 .in { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+.bar2 .t { font-size: .93rem; line-height: 1.45; }
+.bar2 .t b { color: var(--acc); }
+.hint { font-size: .78rem; color: var(--muted); line-height: 1.4; }
+.row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.btn { border: 0; border-radius: 10px; padding: 10px 16px; font-weight: 800; background: var(--acc2); color: #fff; min-height: 44px; }
+.btn.big { font-size: 1.05rem; padding: 12px 22px; }
+.btn.stop { background: var(--pot); } .btn.flask { background: #5a7fb5; } .btn.alt { background: var(--paper); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--line); }
+.btn.bad { background: var(--bad); }
+.btn:disabled { opacity: .4; cursor: default; }
+.modal { position: fixed; inset: 0; z-index: 30; background: #2a1c0d99; display: flex; align-items: flex-end; justify-content: center; padding: 12px; animation: fade .2s; }
+.sheet { background: var(--paper); width: 100%; max-width: 560px; max-height: 86vh; overflow-y: auto; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px; margin-bottom: env(safe-area-inset-bottom, 0px); }
+.sheet h2 { font-size: 1.3rem; color: var(--acc); }
+.sheet p { margin: 0; line-height: 1.6; }
+@keyframes fade { from { opacity: 0; } }
+.opt { display: flex; justify-content: space-between; align-items: center; gap: 8px; text-align: left; border: 1px solid var(--line); background: var(--paper2); border-radius: 10px; padding: 9px 11px; width: 100%; }
+.opt.on { border-color: var(--acc2); box-shadow: 0 0 0 2px var(--acc2); background: #fff3dc; }
+.opt:disabled { opacity: .45; }
+.opt .l { display: flex; flex-direction: column; gap: 2px; } .opt .l span { font-size: .76rem; color: var(--muted); }
+.book { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--paper2); display: flex; flex-direction: column; gap: 6px; }
+.book .bh { display: flex; align-items: center; gap: 8px; font-weight: 800; }
+.book .bd { font-size: .76rem; color: var(--muted); line-height: 1.45; }
+.sticky { position: sticky; bottom: -16px; background: var(--paper); padding: 10px 0 4px; box-shadow: 0 -8px 12px var(--paper); }
+.lv { border: 1.5px solid var(--line); background: var(--paper); border-radius: 9px; padding: 5px 9px; font-size: .82rem; display: inline-flex; align-items: center; gap: 5px; }
+.lv.on { border-color: var(--acc2); background: #ffe7c2; box-shadow: 0 0 0 2px var(--acc2); }
+.lv:disabled { opacity: .35; }
+table.res { width: 100%; border-collapse: collapse; font-size: .84rem; }
+table.res th, table.res td { padding: 5px 4px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+table.res th:first-child, table.res td:first-child { text-align: left; }
+.setup { display: flex; flex-direction: column; gap: 14px; background: var(--paper); border-radius: 14px; padding: 14px; border: 1px solid var(--line); }
+.seg { display: inline-flex; border-radius: 9px; overflow: hidden; box-shadow: inset 0 0 0 1.5px var(--line); flex-wrap: wrap; background: var(--paper2); }
+.seg button { border: 0; background: transparent; padding: 6px 12px; font-size: .9rem; }
+.seg button.on { background: var(--acc2); color: #fff; }
+.seatrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.seatrow input { font: inherit; border: 1.5px solid var(--line); border-radius: 8px; padding: 6px 8px; background: #fff; width: 120px; min-width: 0; }
+.rules h3 { font-size: 1.02rem; color: var(--acc); margin-top: 6px; }
+.rules ul, .rules ol { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 4px; line-height: 1.6; font-size: .88rem; }
+.rules p { font-size: .88rem; line-height: 1.6; margin: 0; }
+.muted { color: var(--muted); } .small { font-size: .8rem; }
+.boom { color: var(--bad); font-weight: 800; }
+.toast { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); z-index: 50; background: #3b2a16f0; color: #fff; border-radius: 12px; padding: 9px 16px; font-size: .9rem; max-width: 90vw; text-align: center; box-shadow: 0 6px 20px #0004; animation: fade .2s; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap" id="app"></div>
+<div class="bar2" id="bar" hidden><div class="in" id="barIn"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const rint = (n) => Math.floor(Math.random() * n);
+let SPEED = 1;
+
+// ---------- data (from the rulebook: set 1 of each book) ----------
+const COL = {
+  w: { n: '白色', f: '#f4f1e8', t: '#333' }, o: { n: '南瓜', f: '#e8892b', t: '#fff' }, g: { n: '花園蜘蛛', f: '#4caf50', t: '#fff' },
+  b: { n: '烏鴉頭骨', f: '#3f72c9', t: '#fff' }, r: { n: '毒菇', f: '#d64032', t: '#fff' }, y: { n: '人參', f: '#e8c22b', t: '#3b2a16' },
+  p: { n: '鬼魂陰氣', f: '#9b59b6', t: '#fff' }, k: { n: '骷髏巨蛾', f: '#2b2b2b', t: '#fff' },
+};
+const PRICE = { o: { 1: 3 }, g: { 1: 4, 2: 8, 4: 14 }, b: { 1: 5, 2: 10, 4: 19 }, r: { 1: 6, 2: 10, 4: 16 }, y: { 1: 8, 2: 12, 4: 18 }, p: { 1: 9 }, k: { 1: 10 } };
+const SUPPLY0 = { w1: 20, w2: 8, w3: 4, o1: 20, g1: 15, g2: 10, g4: 13, b1: 14, b2: 10, b4: 10, r1: 12, r2: 8, r4: 10, y1: 13, y2: 6, y4: 10, p1: 15, k1: 18 };
+const BOOK = {
+  o: '沒有特殊效果，只讓計分格前進 1 步，是最便宜的藥材。',
+  g: '計分步驟 B：大釜中最後 2 個藥材裡，每有 1 個綠色（不論等級），得 1 顆寶石。',
+  b: '放進大釜後，依等級從袋中額外抽 1／2／4 個藥材，可以選其中 1 個放進大釜（有獎勵也會執行），其餘放回袋中；也可以全部放回。',
+  r: '放進大釜時，大釜裡已有 1～2 個南瓜，再往前 1 步；有 3 個以上南瓜，再往前 2 步。',
+  y: '如果大釜中最後一個藥材是白色，抽到人參並放好後，可以把那個白色藥材放回袋中（原位置留空）。',
+  p: '計分步驟 B：大釜中有 1 個紫色得 1 分；2 個得 1 分＋1 寶石；3 個以上得 2 分＋水滴前進 1 格。',
+  k2: '計分步驟 B（2 人）：黑色數量和對手相同，水滴前進 1 格；比對手多，水滴前進 1 格並得 1 寶石。',
+  k: '計分步驟 B（3～4 人）：黑色比左邊或右邊其中一人多，水滴前進 1 格；比兩人都多，水滴前進 1 格並得 1 寶石。',
+};
+// cauldron spaces: coin value and VP, rubies (approximated from the rulebook examples)
+const SPC = []; for (let i = 0; i <= 16; i++) SPC.push(i); for (let c = 17; c <= 33; c++) SPC.push(c, c); SPC.push(35);
+const MAXS = SPC.length - 1;
+const vpOf = (c) => c === 35 ? 15 : c <= 5 ? 0 : c <= 9 ? 1 : c <= 13 ? 2 : c <= 16 ? 3 : 4 + Math.floor((c - 17) / 2);
+const RUBY = new Set([5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 49]);
+const START_BAG = [['w', 1], ['w', 1], ['w', 1], ['w', 1], ['w', 2], ['w', 2], ['w', 3], ['o', 1], ['g', 1]];
+const DIE = [{ k: 'vp', v: 1, n: '1 分' }, { k: 'vp', v: 1, n: '1 分' }, { k: 'vp', v: 2, n: '2 分' }, { k: 'ruby', n: '1 顆寶石' }, { k: 'drop', n: '水滴前進 1 格' }, { k: 'pump', n: '1 個南瓜' }];
+const CARDS = [
+  { id: 'donate', n: '慷慨的捐贈', d: '每人選擇：得 4 分，或從袋中移除 1 個白色 1 級藥材。' },
+  { id: 'ruby', n: '幸運寶石', d: '每人得 1 顆寶石。' },
+  { id: 'pumpkin', n: '南瓜豐收', d: '每人得 1 個南瓜，放進布袋。' },
+  { id: 'steady', n: '穩定的手', d: '本輪白色藥材的爆炸上限從 7 提高到 9。' },
+  { id: 'rats', n: '老鼠橫行', d: '本輪老鼠尾巴的效果加倍。' },
+  { id: 'poor', n: '雪中送炭', d: '寶石最少的玩家（平手都算）各得 1 顆寶石。' },
+  { id: 'behind', n: '落後者的機會', d: '分數最低的玩家（平手都算）水滴前進 1 格。' },
+  { id: 'green', n: '學徒的禮物', d: '每人得 1 個綠色 1 級藥材，放進布袋。' },
+  { id: 'clean', n: '大掃除', d: '每人從袋中移除 1 個白色 1 級藥材（如果有）。' },
+  { id: 'dice', n: '幸運骰', d: '本輪可以擲獎勵骰的玩家，擲兩次。' },
+  { id: 'brave', n: '大膽嘗試', d: '本輪爆炸的玩家，仍然可以同時得分和購買藥材。' },
+  { id: 'market', n: '豐收市集', d: '本輪購買藥材時，每人額外多 4 枚金幣。' },
+];
+const COLORS = ['#c0392b', '#2e86c1', '#d4a017', '#27ae60'];
+
+// ---------- state & flow helpers ----------
+let S = null, resolver = null, UI = {}, setupCfg = null;
+const P = (i) => S.players[i];
+const nm = (i) => P(i).name;
+function log(t) { S.log.unshift(t); if (S.log.length > 150) S.log.pop(); }
+async function nap(ms) { const g = S && S.gid; await sleep(ms * SPEED); if (!S || S.gid !== g) throw 'stop'; }
+function ask(pr) { UI = {}; S.prompt = pr; render(); return new Promise(r => { resolver = r; }); }
+function answer(v) { const r = resolver; resolver = null; S.prompt = null; UI = {}; closeSheet(); if (r) r(v); }
+let toastT = null;
+function toast(m) { const t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2200 * Math.max(SPEED, .3)); }
+const humans = () => S.players.filter(p => p.human).length;
+const chip = (c, v) => ({ c, v });
+const key = (c, v) => c + v;
+const takeSupply = (c, v) => { const k = key(c, v); if ((S.supply[k] || 0) <= 0) return false; S.supply[k]--; return true; };
+const limit = () => S.mod.steady ? 9 : 7;
+const booksOpen = () => ['o', 'g', 'b', 'r', ...(S.round >= 2 ? ['y'] : []), ...(S.round >= 3 ? ['p'] : []), 'k'];
+const chipHTML = (ch, cls = '') => `<span class="chip ${cls}" style="background:${COL[ch.c].f};color:${COL[ch.c].t}">${ch.v}</span>`;
+const miniHTML = (c, v) => `<span class="mini" style="background:${COL[c].f};color:${COL[c].t}">${v}</span>`;
+
+function newGame(cfg) {
+  const n = cfg.seats.length;
+  S = { n, round: 0, gid: Math.random(), log: [], prompt: null, start: rint(n), card: null, mod: {}, supply: { ...SUPPLY0 }, over: false, phase: 'setup', results: null, deck: shuffle(CARDS.flatMap(c => [c, c])),
+    players: cfg.seats.map((s, i) => ({ name: s.name, human: s.human, color: COLORS[i], vp: 0, rubies: 1, drop: 0, flask: true, bag: [], pot: [], last: null, startPos: 0, rats: 0, white: 0, boom: false, done: false, score: 0, risk: 0.22 + Math.random() * 0.16 })) };
+  S.players.forEach(p => START_BAG.forEach(([c, v]) => { takeSupply(c, v); p.bag.push(chip(c, v)); }));
+  log(`新遊戲：${n} 位郎中，玩 9 輪，分數最高的人獲勝。`);
+}
+async function run() { try { await runInner(); } catch (e) { if (e !== 'stop') throw e; } }
+
+async function runInner() {
+  for (let r = 1; r <= 9; r++) {
+    S.round = r; S.mod = {}; S.results = null;
+    log(`—— 第 ${r} 輪 ——`);
+    if (r === 2) log('人參藥典（黃色）上市了！');
+    if (r === 3) log('鬼魂陰氣藥典（紫色）上市了！');
+    if (r === 6) { S.players.forEach(p => { takeSupply('w', 1); p.bag.push(chip('w', 1)); }); log('第 6 輪：每人的布袋多放 1 個白色 1 級藥材。'); }
+    // fortune card
+    S.phase = 'card'; S.card = S.deck.pop();
+    log(`占卜牌「${S.card.n}」：${S.card.d}`);
+    await applyCard(S.card);
+    // rats
+    const lead = Math.max(...S.players.map(p => p.vp));
+    S.players.forEach(p => { let t = r >= 2 ? ratTails(p.vp, lead) : 0; if (S.mod.rats) t *= 2; p.rats = t; });
+    // brewing
+    S.phase = 'brew';
+    S.players.forEach(p => { p.pot.forEach(c => p.bag.push({ c: c.c, v: c.v })); p.pot = []; p.last = null; p.startPos = Math.min(MAXS - 1, p.drop + p.rats); p.white = 0; p.boom = false; p.done = false; p.canFlask = false; p.newIdx = -1; });
+    S.players.forEach((p, i) => { if (!p.human) brewBot(i); });
+    for (let k = 0; k < S.n; k++) { const i = (S.start + k) % S.n; if (P(i).human) await brewHuman(i); }
+    S.players.forEach(p => { p.score = Math.min(MAXS, (p.last ?? p.startPos) + 1); });
+    await scoring();
+    S.start = (S.start + 1) % S.n;
+  }
+  S.over = true; S.phase = 'over';
+  const best = Math.max(...S.players.map(p => p.vp));
+  let win = S.players.filter(p => p.vp === best);
+  if (win.length > 1) { const m = Math.max(...win.map(p => p.pot.length)); win = win.filter(p => p.pot.length === m); }
+  S.winners = win.map(p => S.players.indexOf(p));
+  log(`遊戲結束！${win.map(p => p.name).join('、')} 獲勝（${best} 分）。`);
+  ask({ type: 'end' });
+}
+function ratTails(mine, lead) { let t = 0; for (let x = mine + 1; x <= lead; x++) if (x % 3 === 0) t++; return t; }
+function removeWhite1(p) { const i = p.bag.findIndex(c => c.c === 'w' && c.v === 1); if (i < 0) return false; p.bag.splice(i, 1); S.supply.w1++; return true; }
+function giveChip(p, c, v) { if (!takeSupply(c, v)) return false; p.bag.push(chip(c, v)); return true; }
+async function applyCard(card) {
+  const ps = S.players;
+  const lowest = (f) => { const m = Math.min(...ps.map(f)); return ps.filter(p => f(p) === m); };
+  switch (card.id) {
+    case 'donate':
+      for (let k = 0; k < S.n; k++) {
+        const i = (S.start + k) % S.n, p = P(i), canW = p.bag.some(c => c.c === 'w' && c.v === 1);
+        let ch;
+        if (p.human) ch = canW ? await ask({ type: 'donate', p: i }) : 'vp';
+        else ch = canW && S.round <= 5 ? 'white' : 'vp';
+        if (ch === 'white' && removeWhite1(p)) log(`${p.name} 從袋中移除 1 個白色 1 級藥材`); else { p.vp += 4; log(`${p.name} 得 4 分`); }
+      }
+      break;
+    case 'ruby': ps.forEach(p => p.rubies++); break;
+    case 'pumpkin': ps.forEach(p => giveChip(p, 'o', 1)); break;
+    case 'steady': S.mod.steady = true; break;
+    case 'rats': S.mod.rats = true; break;
+    case 'poor': lowest(p => p.rubies).forEach(p => { p.rubies++; log(`${p.name} 得 1 顆寶石`); }); break;
+    case 'behind': lowest(p => p.vp).forEach(p => { p.drop = Math.min(30, p.drop + 1); log(`${p.name} 的水滴前進 1 格`); }); break;
+    case 'green': ps.forEach(p => giveChip(p, 'g', 1)); break;
+    case 'clean': ps.forEach(p => removeWhite1(p)); break;
+    case 'dice': S.mod.dice = true; break;
+    case 'brave': S.mod.brave = true; break;
+    case 'market': S.mod.market = true; break;
+  }
+  if (humans()) { render(); await ask({ type: 'cardShow' }); } else await nap(300);
+}
+
+// ---------- brewing ----------
+function drawFromBag(p) { const i = rint(p.bag.length); return p.bag.splice(i, 1)[0]; }
+function place(p, ch) {
+  let pos = (p.last ?? p.startPos) + ch.v;
+  if (ch.c === 'r') { const o = p.pot.filter(x => x.c === 'o').length; pos += o >= 3 ? 2 : o >= 1 ? 1 : 0; }
+  pos = Math.min(MAXS - 1, pos);
+  const prevLast = p.pot.length ? p.pot[p.pot.length - 1] : null;
+  p.pot.push({ ...ch, pos }); p.last = pos; p.newIdx = p.pot.length - 1;
+  if (ch.c === 'w') { p.white += ch.v; if (p.white > limit()) p.boom = true; }
+  return prevLast;
+}
+function unplaceLast(p) {
+  const ch = p.pot.pop(); if (ch.c === 'w') p.white -= ch.v;
+  p.last = p.pot.length ? p.pot[p.pot.length - 1].pos : null; p.bag.push({ c: ch.c, v: ch.v });
+  return ch;
+}
+function boomRisk(p) { const room = limit() - p.white; if (!p.bag.length) return 1; return p.bag.filter(c => c.c === 'w' && c.v > room).length / p.bag.length; }
+// one draw incl. bonuses; human=true asks for choices
+async function drawOne(i, human) {
+  const p = P(i), ch = drawFromBag(p);
+  const prevLast = place(p, ch);
+  let choiceUsed = false;
+  if (p.boom) { p.canFlask = false; return ch; }
+  if (ch.c === 'y' && prevLast && prevLast.c === 'w') {
+    const ret = human ? await ask({ type: 'yellow', p: i, w: prevLast }) : true;
+    if (ret) { const idx = p.pot.indexOf(prevLast); p.pot.splice(idx, 1); p.white -= prevLast.v; p.bag.push({ c: 'w', v: prevLast.v }); p.newIdx = p.pot.length - 1; if (human) log(`${p.name} 用人參把白色 ${prevLast.v} 級放回袋中`); choiceUsed = true; }
+  }
+  if (ch.c === 'b' && p.bag.length) {
+    const extra = []; for (let k = 0; k < ch.v && p.bag.length; k++) extra.push(drawFromBag(p));
+    let pick;
+    if (human) pick = await ask({ type: 'blue', p: i, extra, lv: ch.v });
+    else pick = botBluePick(p, extra);
+    extra.forEach((x, k) => { if (k !== pick) p.bag.push(x); });
+    choiceUsed = true;
+    if (pick != null && pick >= 0) {
+      const sel = extra[pick];
+      if (human) log(`${p.name} 用烏鴉頭骨挑了 ${COL[sel.c].n} ${sel.v} 級放進大釜`);
+      const pl2 = place(p, sel);
+      if (!p.boom && sel.c === 'y' && pl2 && pl2.c === 'w') {
+        const ret = human ? await ask({ type: 'yellow', p: i, w: pl2 }) : true;
+        if (ret) { const idx = p.pot.indexOf(pl2); p.pot.splice(idx, 1); p.white -= pl2.v; p.bag.push({ c: 'w', v: pl2.v }); }
+      }
+    }
+  }
+  p.canFlask = p.flask && !p.boom && !choiceUsed;
+  return ch;
+}
+async function brewHuman(i) {
+  const p = P(i);
+  if (humans() > 1) await ask({ type: 'turnStart', p: i });
+  while (!p.done) {
+    if (!p.bag.length) { p.done = true; toast('布袋空了，必須停止製藥'); break; }
+    const a = await ask({ type: 'brew', p: i });
+    if (a === 'stop') { p.done = true; break; }
+    if (a === 'flask' && p.canFlask) { const c = unplaceLast(p); p.flask = false; p.canFlask = false; p.newIdx = -1; log(`${p.name} 用藥水瓶把 ${COL[c.c].n} ${c.v} 級放回袋中`); continue; }
+    if (a === 'draw') {
+      const ch = await drawOne(i, true);
+      if (p.boom) { log(`${p.name} 抽到白色 ${ch.v} 級，藥水爆炸了！（白色總和 ${p.white}）`); render(); await ask({ type: 'boom', p: i }); p.done = true; }
+    }
+  }
+}
+function brewBot(i) {
+  const p = P(i), rounds = 9 - S.round;
+  let guard = 0;
+  while (!p.done && guard++ < 80) {
+    if (!p.bag.length) break;
+    const risk = boomRisk(p);
+    const thresh = p.risk + (p.flask ? 0.08 : 0) + (S.round === 9 ? 0.1 : 0);
+    if (risk > thresh && p.pot.length >= 2) break;
+    if (risk >= 1) break;
+    // synchronous draw (bots never wait)
+    const ch = drawFromBag(p); const prevLast = place(p, ch);
+    if (p.boom) break;
+    if (ch.c === 'w' && p.flask && p.white >= limit() - 1 && ch.v >= 2) { unplaceLast(p); p.flask = false; continue; }
+    if (ch.c === 'y' && prevLast && prevLast.c === 'w') { const idx = p.pot.indexOf(prevLast); p.pot.splice(idx, 1); p.white -= prevLast.v; p.bag.push({ c: 'w', v: prevLast.v }); }
+    if (ch.c === 'b' && p.bag.length) {
+      const extra = []; for (let k = 0; k < ch.v && p.bag.length; k++) extra.push(drawFromBag(p));
+      const pick = botBluePick(p, extra);
+      extra.forEach((x, k) => { if (k !== pick) p.bag.push(x); });
+      if (pick != null && pick >= 0) { const sel = extra[pick]; const pl2 = place(p, sel); if (p.boom) break; if (sel.c === 'y' && pl2 && pl2.c === 'w') { const idx = p.pot.indexOf(pl2); p.pot.splice(idx, 1); p.white -= pl2.v; p.bag.push({ c: 'w', v: pl2.v }); } }
+    }
+  }
+  p.done = true;
+}
+function botBluePick(p, extra) {
+  let best = -1, bv = 0;
+  extra.forEach((x, k) => { let v = x.v + (x.c === 'r' ? 1 : 0) + (x.c === 'g' || x.c === 'p' || x.c === 'k' ? 1.5 : 0); if (x.c === 'w') v = p.white + x.v > limit() ? -99 : -1; if (v > bv) { bv = v; best = k; } });
+  return best;
+}
+
+// ---------- scoring ----------
+async function scoring() {
+  S.phase = 'score';
+  const ps = S.players, R = ps.map(() => ({ notes: [] }));
+  // A: bonus die
+  const ok = ps.filter(p => !p.boom);
+  if (ok.length) {
+    const m = Math.max(...ok.map(p => p.score));
+    ok.filter(p => p.score === m).forEach(p => {
+      const rolls = S.mod.dice ? 2 : 1;
+      for (let k = 0; k < rolls; k++) { const f = DIE[rint(6)]; applyDie(p, f); R[ps.indexOf(p)].notes.push('獎勵骰：' + f.n); }
+    });
+  }
+  // B: chip actions
+  ps.forEach((p, i) => {
+    const last2 = p.pot.slice(-2);
+    const g = last2.filter(x => x.c === 'g').length; if (g) { p.rubies += g; R[i].notes.push(`花園蜘蛛：+${g} 寶石`); }
+    const pc = p.pot.filter(x => x.c === 'p').length;
+    if (pc === 1) { p.vp += 1; R[i].notes.push('鬼魂陰氣：+1 分'); }
+    else if (pc === 2) { p.vp += 1; p.rubies += 1; R[i].notes.push('鬼魂陰氣：+1 分、+1 寶石'); }
+    else if (pc >= 3) { p.vp += 2; p.drop++; R[i].notes.push('鬼魂陰氣：+2 分、水滴前進'); }
+  });
+  const kc = ps.map(p => p.pot.filter(x => x.c === 'k').length);
+  ps.forEach((p, i) => {
+    if (!kc[i]) return;
+    if (S.n === 2) { const o = kc[1 - i]; if (kc[i] > o) { p.drop++; p.rubies++; R[i].notes.push('骷髏巨蛾：水滴前進、+1 寶石'); } else if (kc[i] === o) { p.drop++; R[i].notes.push('骷髏巨蛾：水滴前進'); } }
+    else { const L = kc[(i + S.n - 1) % S.n], Rr = kc[(i + 1) % S.n]; const more = (kc[i] > L) + (kc[i] > Rr); if (more === 2) { p.drop++; p.rubies++; R[i].notes.push('骷髏巨蛾：水滴前進、+1 寶石'); } else if (more === 1) { p.drop++; R[i].notes.push('骷髏巨蛾：水滴前進'); } }
+  });
+  // C: rubies on score space
+  ps.forEach((p, i) => { if (RUBY.has(p.score)) { p.rubies++; R[i].notes.push('計分格寶石：+1'); } });
+  S.results = R;
+  if (humans()) await ask({ type: 'scoreShow' }); else await nap(200);
+  // D/E/F in turn order
+  for (let k = 0; k < S.n; k++) {
+    const i = (S.start + k) % S.n, p = P(i), coins = SPC[p.score] + (S.mod.market ? 4 : 0), vp = vpOf(SPC[p.score]);
+    let doVP = true, doBuy = S.round < 9;
+    if (p.boom && !S.mod.brave) {
+      let ch;
+      if (S.round === 9) ch = 'vp';
+      else if (p.human) ch = await ask({ type: 'boomChoice', p: i, vp, coins });
+      else ch = S.round <= 5 && coins >= 10 ? 'buy' : 'vp';
+      doVP = ch === 'vp'; doBuy = ch === 'buy';
+    }
+    if (doVP) { p.vp += vp; R[i].notes.push(`得 ${vp} 分`); }
+    if (doBuy) {
+      let buys;
+      if (p.human) buys = await ask({ type: 'buy', p: i, coins });
+      else buys = botBuy(p, coins);
+      for (const b of buys) if (takeSupply(b.c, b.v)) p.bag.push(chip(b.c, b.v));
+      R[i].notes.push(buys.length ? '買了 ' + buys.map(b => `${COL[b.c].n}${b.v}`).join('、') : '沒有買藥材');
+      if (buys.length) log(`${p.name} 用 ${coins} 金幣買了 ${buys.map(b => `${COL[b.c].n} ${b.v} 級`).join('、')}`);
+    }
+    if (S.round < 9) {
+      if (p.human) { while (p.rubies >= 2) { const a = await ask({ type: 'ruby', p: i }); if (a === 'drop') { p.rubies -= 2; p.drop++; log(`${p.name} 花 2 寶石讓水滴前進`); } else if (a === 'flask' && !p.flask) { p.rubies -= 2; p.flask = true; log(`${p.name} 花 2 寶石裝滿藥水瓶`); } else break; } }
+      else { while (p.rubies >= 2) { if (!p.flask) { p.rubies -= 2; p.flask = true; } else if (9 - S.round >= 2) { p.rubies -= 2; p.drop++; } else break; } }
+    } else {
+      const left = SPC[p.score] * (doBuy || !p.boom || S.mod.brave ? 1 : 0);
+      const extra = Math.floor((p.boom && !S.mod.brave ? 0 : coins) / 5) + Math.floor(p.rubies / 2);
+      if (extra) { p.vp += extra; R[i].notes.push(`最後一輪：金幣和寶石換 ${extra} 分`); log(`${p.name} 用剩下的金幣和寶石換了 ${extra} 分`); }
+      p.rubies %= 2; void left;
+    }
+  }
+  if (humans()) await ask({ type: 'roundEnd' }); else await nap(100);
+}
+function applyDie(p, f) { if (f.k === 'vp') p.vp += f.v; else if (f.k === 'ruby') p.rubies++; else if (f.k === 'drop') p.drop++; else giveChip(p, 'o', 1); }
+function botBuy(p, coins) {
+  const open = booksOpen().filter(c => c !== 'o' || S.round <= 3);
+  const opts = [];
+  for (const c of open) for (const v of Object.keys(PRICE[c]).map(Number)) { const cost = PRICE[c][v]; if (cost > coins || !(S.supply[key(c, v)] > 0)) continue;
+    let val = v * 1.6 + ({ g: 1.5, b: 2, r: 1.6, y: 1.8, p: 2.2, k: 1.8, o: 0.3 }[c] || 0); if (c === 'p' && p.bag.filter(x => x.c === 'p').length >= 3) val -= 3; if (c === 'k' && S.n === 2) val += .5; val += Math.random();
+    opts.push({ c, v, cost, val }); }
+  opts.sort((a, b) => b.val + b.cost * .05 - (a.val + a.cost * .05));
+  const out = []; let left = coins;
+  for (const o of opts) { if (out.length >= 2) break; if (o.cost > left || out.some(x => x.c === o.c)) continue; out.push(o); left -= o.cost; }
+  return out.map(o => ({ c: o.c, v: o.v }));
+}
+
+// ---------- rendering ----------
+function viewerIdx() { const pr = S.prompt; if (pr && pr.p != null && P(pr.p).human) return pr.p; if (S.focus != null) return S.focus; return Math.max(0, S.players.findIndex(p => p.human)); }
+function bagHTML(p) {
+  const m = {}; p.bag.forEach(c => { const k = c.c + c.v; m[k] = (m[k] || 0) + 1; });
+  return Object.keys(m).sort().map(k => `<span class="bc">${miniHTML(k[0], k.slice(1))}×${m[k]}</span>`).join('') || '<span class="small muted">空的</span>';
+}
+function potHTML(p, opts = {}) {
+  const at = {}; p.pot.forEach((c, k) => at[c.pos] = { c, k });
+  const next = !p.done && !p.boom && opts.live ? new Set([1, 2, 3, 4].map(v => (p.last ?? p.startPos) + v)) : new Set();
+  let h = '';
+  for (let s = 0; s <= MAXS; s++) {
+    const cls = ['sp'];
+    if (RUBY.has(s)) cls.push('ruby');
+    if (s === p.drop) cls.push('start');
+    if (p.rats && s === p.startPos) cls.push('rat');
+    if (next.has(s)) cls.push('next');
+    if (opts.score && s === p.score) cls.push('score');
+    const a = at[s];
+    h += `<div class="${cls.join(' ')}" title="${SPC[s]} 金幣・${vpOf(SPC[s])} 分">${a ? chipHTML(a.c, a.k === p.newIdx && opts.live ? 'new' : '') : (s === p.drop ? '💧' : p.rats && s === p.startPos ? '🐀' : `<span>${SPC[s]}</span>`)}</div>`;
+  }
+  return `<div class="pot">${h}</div>`;
+}
+function render() {
+  if (!S) return renderSetup();
+  const app = $('#app'), me = viewerIdx(), p = P(me);
+  const brewing = S.phase === 'brew' || S.phase === 'score' || S.phase === 'over';
+  app.innerHTML = `
+  <div class="top"><h1>藥鍋郎中<small>郎中闖江湖規則</small></h1><div class="row"><button class="pill" id="booksBtn">藥典</button><button class="pill" id="rulesBtn">規則</button><button class="pill" id="quitBtn">重新開始</button></div></div>
+  <div class="rounds">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(r => `<span class="rd ${r === S.round ? 'on' : r < S.round ? 'done' : ''}">${r}</span>`).join('')}<span class="muted" style="margin-left:4px">${S.round >= 2 ? '' : '第 2 輪人參、第 3 輪鬼魂陰氣上市'}</span></div>
+  ${S.card ? `<div class="card">🔮 本輪占卜牌 <b>${S.card.n}</b>：${S.card.d}</div>` : ''}
+  <div class="quacks">${S.players.map((q, j) => `<button class="qk ${j === me ? 'me' : ''}" data-q="${j}"><span class="nm"><span class="dot" style="background:${q.color}"></span>${esc(q.name)}${q.human ? '' : '<span class="small muted">（電腦）</span>'}</span>
+    <span class="st"><span>分數 <b>${q.vp}</b></span><span>寶石 <b>${q.rubies}</b></span><span>水滴 <b>${q.drop}</b></span><span>藥水瓶 <b>${q.flask ? '滿' : '空'}</b></span>
+    ${brewing && S.round ? `<span>${q.boom ? '<span class="boom">爆炸了</span>' : q.done ? '已停止' : '製藥中'}・計分格 <b>${SPC[q.done || q.boom ? q.score || ((q.last ?? q.startPos) + 1) : (q.last ?? q.startPos) + 1] ?? ''}</b></span>` : ''}${q.rats ? `<span>🐀 ×${q.rats}</span>` : ''}</span></button>`).join('')}</div>
+  <div class="potbox"><div class="pothd"><span>${esc(p.name)} 的大釜${me !== S.players.findIndex(x => x.human) || humans() > 1 ? '' : ''}　計分格 <b>${SPC[Math.min(MAXS, (p.last ?? p.startPos) + 1)]}</b> 金幣・<b>${vpOf(SPC[Math.min(MAXS, (p.last ?? p.startPos) + 1)])}</b> 分</span>
+    <span class="meter">白色 ${p.white}/${limit()}<span class="bar"><i style="width:${Math.min(100, p.white / limit() * 100)}%"></i></span></span></div>
+    ${potHTML(p, { live: S.prompt && S.prompt.type === 'brew', score: S.phase === 'score' })}
+    <div class="pothd" style="margin:6px 0 0"><span>💧 水滴在 ${p.drop}${p.rats ? `，🐀 老鼠讓起點前進 ${p.rats} 格` : ''}</span><span>布袋剩 <b>${p.bag.length}</b> 個</span></div></div>
+  <div class="card"><b>布袋裡</b>（只是提醒你買過什麼，抽的時候看不到）<div class="bag" style="margin-top:4px">${bagHTML(p)}</div></div>
+  <div style="display:flex;flex-direction:column;gap:6px"><h3 style="font-size:1rem">紀錄</h3><div class="log">${S.log.map(l => `<div>${esc(l)}</div>`).join('')}</div></div>`;
+  $('#rulesBtn').onclick = showRules; $('#booksBtn').onclick = showBooks; $('#quitBtn').onclick = confirmQuit;
+  app.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { S.focus = +b.dataset.q; render(); });
+  renderBar(); renderSheet();
+}
+function renderBar() {
+  const bar = $('#bar'), inn = $('#barIn'), pr = S.prompt;
+  bar.hidden = false;
+  let h = '';
+  if (pr && pr.type === 'brew') {
+    const p = P(pr.p), risk = boomRisk(p);
+    const lastC = p.pot[p.pot.length - 1];
+    h = `<div class="t">${humans() > 1 ? `<b>${esc(p.name)}</b>，` : ''}${p.pot.length ? `剛放進 ${lastC ? `${COL[lastC.c].n} ${lastC.v} 級` : ''}。要繼續抽嗎？` : '開始製藥！從布袋抽出藥材放進大釜。'}</div>
+      <div class="hint">白色總和超過 ${limit()} 就爆炸。袋中還有 ${p.bag.length} 個，下一個讓你爆炸的機率約 ${Math.round(risk * 100)}%。</div>
+      <div class="row"><button class="btn big" id="bDraw">抽藥材</button><button class="btn stop" id="bStop">停止製藥</button>${p.canFlask ? `<button class="btn flask" id="bFlask">藥水瓶：放回 ${COL[lastC.c].n}${lastC.v}</button>` : ''}</div>`;
+  } else if (pr && pr.type === 'buy') {
+    const sel = UI.buy || [], cost = sel.reduce((a, b) => a + PRICE[b.c][b.v], 0);
+    h = `<div class="t"><b>購買藥材</b>：你有 <b>${pr.coins}</b> 枚金幣，可以買 1～2 個（顏色要不同）。已選 ${sel.map(b => `${COL[b.c].n}${b.v}`).join('、') || '無'}（${cost} 金幣）</div>
+      <div class="row"><button class="btn" id="bBuy">${sel.length ? '確定購買' : '不買'}</button><button class="btn alt" id="bBooks">看藥典說明</button></div>`;
+  } else if (pr && pr.type === 'ruby') {
+    const p = P(pr.p);
+    h = `<div class="t">你有 <b>${p.rubies}</b> 顆寶石，每 2 顆可以：</div><div class="row"><button class="btn" id="bDrop">水滴前進 1 格（永久）</button>${p.flask ? '' : '<button class="btn flask" id="bRefill">裝滿藥水瓶</button>'}<button class="btn alt" id="bRDone">先留著</button></div>`;
+  } else if (S.over) {
+    h = `<div class="t"><b>遊戲結束</b>：${S.winners.map(nm).map(esc).join('、')} 獲勝！</div><div class="row"><button class="btn" id="bAgain">再玩一次</button><button class="btn alt" id="bRes">看結果</button></div>`;
+  } else {
+    h = `<div class="t">${S.phase === 'brew' ? '其他郎中正在製藥…' : S.phase === 'score' ? '計分中…' : '…'}</div>`;
+  }
+  inn.innerHTML = h;
+  $('#app').style.paddingBottom = (bar.offsetHeight + 24) + 'px';
+  const on = (id, f) => { const b = $('#' + id); if (b) b.onclick = f; };
+  on('bDraw', () => answer('draw')); on('bStop', () => answer('stop')); on('bFlask', () => answer('flask'));
+  on('bBuy', () => answer((UI.buy || []).slice())); on('bBooks', showBuySheet);
+  on('bDrop', () => answer('drop')); on('bRefill', () => answer('flask')); on('bRDone', () => answer('done'));
+  on('bAgain', () => { S = null; render(); }); on('bRes', () => { S.prompt = { type: 'end' }; renderSheet(); });
+  if (pr && pr.type === 'buy' && !UI.sheetShown) { UI.sheetShown = true; showBuySheet(); }
+}
+
+// ---------- sheets ----------
+function closeSheet() { const m = $('#modal'); if (m) m.remove(); }
+function openSheet(html, o = {}) { closeSheet(); const m = document.createElement('div'); m.className = 'modal'; m.id = 'modal'; if (o.keep) m.dataset.keep = '1'; m.innerHTML = `<div class="sheet">${html}</div>`; document.body.appendChild(m); return m; }
+function renderSheet() {
+  const pr = S && S.prompt, open = $('#modal');
+  const T = { cardShow: sheetCard, donate: sheetDonate, yellow: sheetYellow, blue: sheetBlue, boom: sheetBoom, turnStart: sheetTurn, scoreShow: sheetScore, boomChoice: sheetBoomChoice, roundEnd: sheetRoundEnd, end: sheetEnd };
+  if (pr && pr.type === 'buy') return;
+  if (!pr || !T[pr.type]) { if (open && !open.dataset.keep) closeSheet(); return; }
+  const k = pr.type + (pr.p ?? '') + S.round;
+  if (open && open.dataset.for === k) return;
+  const m = T[pr.type](pr); if (m) m.dataset.for = k;
+}
+function sheetCard() {
+  const m = openSheet(`<h2>🔮 第 ${S.round} 輪占卜牌</h2><p style="font-size:1.1rem"><b>${S.card.n}</b></p><p>${S.card.d}</p>${S.round === 6 ? '<p class="small muted">另外，第 6 輪開始時每人的布袋多 1 個白色 1 級藥材。</p>' : ''}<button class="btn" id="ok">開始製藥</button>`);
+  $('#ok', m).onclick = () => answer(true); return m;
+}
+function sheetDonate(pr) {
+  const m = openSheet(`<h2>慷慨的捐贈</h2><p>${esc(nm(pr.p))}，選一個：</p><button class="opt" id="a"><span class="l"><b>得 4 分</b></span></button><button class="opt" id="b"><span class="l"><b>從袋中移除 1 個白色 1 級藥材</b><span>少一顆炸彈，之後比較不容易爆炸</span></span></button>`);
+  $('#a', m).onclick = () => answer('vp'); $('#b', m).onclick = () => answer('white'); return m;
+}
+function sheetYellow(pr) {
+  const m = openSheet(`<h2>人參的效果</h2><p>大釜中前一個藥材是白色 ${pr.w.v} 級。要把它放回布袋嗎？（位置會空著，白色總和減少 ${pr.w.v}）</p><div class="row"><button class="btn" id="y">放回袋中</button><button class="btn alt" id="n">不要</button></div>`);
+  $('#y', m).onclick = () => answer(true); $('#n', m).onclick = () => answer(false); return m;
+}
+function sheetBlue(pr) {
+  const p = P(pr.p);
+  const m = openSheet(`<h2>烏鴉頭骨：額外抽了 ${pr.extra.length} 個</h2><p>選 1 個放進大釜（白色會算進爆炸），或全部放回袋中。目前白色 ${p.white}/${limit()}。</p>
+    ${pr.extra.map((x, k) => `<button class="opt" data-k="${k}"><span class="l"><b>${miniHTML(x.c, x.v)} ${COL[x.c].n} ${x.v} 級</b>${x.c === 'w' && p.white + x.v > limit() ? '<span class="boom">放進去會爆炸！</span>' : ''}</span><span>選這個</span></button>`).join('')}
+    <button class="opt" data-k="-1"><span class="l"><b>全部放回袋中</b></span></button>`);
+  m.querySelectorAll('[data-k]').forEach(b => b.onclick = () => answer(+b.dataset.k)); return m;
+}
+function sheetBoom(pr) {
+  const p = P(pr.p);
+  const m = openSheet(`<h2 class="boom">💥 藥水爆炸了！</h2><p>白色總和 ${p.white}，超過 ${limit()}。這輪不能再抽了。</p><p class="small muted">計分時你不能擲獎勵骰，而且「得分」和「買藥材」只能二選一（最後一輪只能得分）。</p><button class="btn" id="ok">知道了</button>`);
+  $('#ok', m).onclick = () => answer(true); return m;
+}
+function sheetTurn(pr) { const m = openSheet(`<h2>輪到 ${esc(nm(pr.p))} 製藥</h2><p>請把手機交給 ${esc(nm(pr.p))}。</p><button class="btn" id="ok">開始</button>`); $('#ok', m).onclick = () => answer(true); return m; }
+function resTable(withNotes) {
+  return `<div style="overflow-x:auto"><table class="res"><tr><th>郎中</th><th>計分格</th><th>結果</th><th>分數</th><th>寶石</th></tr>${S.players.map((p, i) => `<tr><td><span class="dot" style="display:inline-block;background:${p.color}"></span> ${esc(p.name)}</td><td>${SPC[p.score]} 金／${vpOf(SPC[p.score])} 分</td><td>${p.boom ? '<span class="boom">爆炸</span>' : '成功'}</td><td>${p.vp}</td><td>${p.rubies}</td></tr>${withNotes && S.results[i].notes.length ? `<tr><td colspan="5" class="small muted" style="text-align:left;white-space:normal">${S.results[i].notes.map(esc).join('；')}</td></tr>` : ''}`).join('')}</table></div>`;
+}
+function sheetScore() {
+  const m = openSheet(`<h2>第 ${S.round} 輪：製藥結束</h2><p class="small muted">已完成：獎勵骰（沒爆炸、計分格最遠的人擲）、藥材行動、計分格寶石。接著每人得分和購買藥材。</p>${resTable(true)}<button class="btn" id="ok">繼續</button>`);
+  $('#ok', m).onclick = () => answer(true); return m;
+}
+function sheetBoomChoice(pr) {
+  const m = openSheet(`<h2>${esc(nm(pr.p))}：爆炸了，二選一</h2><button class="opt" id="a"><span class="l"><b>得 ${pr.vp} 分</b><span>這輪不買藥材</span></span></button><button class="opt" id="b"><span class="l"><b>用 ${pr.coins} 金幣買藥材</b><span>這輪不得分</span></span></button>`);
+  $('#a', m).onclick = () => answer('vp'); $('#b', m).onclick = () => answer('buy'); return m;
+}
+function sheetRoundEnd() {
+  const m = openSheet(`<h2>第 ${S.round} 輪結束</h2>${resTable(true)}<button class="btn" id="ok">${S.round < 9 ? '下一輪' : '看最後結果'}</button>`);
+  $('#ok', m).onclick = () => answer(true); return m;
+}
+function sheetEnd() {
+  const order = S.players.map((p, i) => i).sort((a, b) => P(b).vp - P(a).vp);
+  const m = openSheet(`<h2>🏆 ${S.winners.map(nm).map(esc).join('、')} 獲勝！</h2><p class="small muted">九輪結束，分數最高的人成為奎德林堡最優秀的名醫。平手時，最後一輪大釜裡藥材較多的人獲勝。</p>
+    <table class="res"><tr><th>郎中</th><th>分數</th><th>最後一輪藥材數</th></tr>${order.map(i => `<tr><td>${esc(nm(i))}</td><td>${P(i).vp}</td><td>${P(i).pot.length}</td></tr>`).join('')}</table>
+    <div class="row"><button class="btn" id="again">再玩一次</button><button class="btn alt" id="close">看大釜</button></div>`, { keep: true });
+  $('#again', m).onclick = () => { closeSheet(); S = null; render(); }; $('#close', m).onclick = () => { closeSheet(); S.prompt = null; render(); }; return m;
+}
+function showBuySheet() {
+  const pr = S.prompt; if (!pr || pr.type !== 'buy') return;
+  const draw = () => {
+    const sel = UI.buy || [], cost = sel.reduce((a, b) => a + PRICE[b.c][b.v], 0), left = pr.coins - cost;
+    const books = booksOpen().map(c => {
+      const desc = c === 'k' ? (S.n === 2 ? BOOK.k2 : BOOK.k) : BOOK[c];
+      return `<div class="book"><div class="bh">${miniHTML(c, '')} ${COL[c].n}</div><div class="bd">${desc}</div><div class="row">${Object.keys(PRICE[c]).map(Number).map(v => {
+        const on = sel.some(b => b.c === c && b.v === v), sup = S.supply[key(c, v)] || 0, price = PRICE[c][v];
+        const can = on || (sup > 0 && price <= left && sel.length < 2 && !sel.some(b => b.c === c));
+        return `<button class="lv ${on ? 'on' : ''}" data-c="${c}" data-v="${v}" ${can ? '' : 'disabled'}>${miniHTML(c, v)} ${v} 級・${price} 金${sup <= 3 ? `<span class="small muted">（剩 ${sup}）</span>` : ''}</button>`; }).join('')}</div></div>`; }).join('');
+    const m = openSheet(`<h2>購買藥材</h2><p>金幣 <b>${pr.coins}</b>，已選 ${sel.map(b => `${COL[b.c].n}${b.v}`).join('、') || '無'}，剩 <b>${left}</b>。最多 2 個、顏色不同，沒用完的金幣作廢。</p>${books}
+      <div class="row sticky"><button class="btn" id="ok">${sel.length ? `確定購買（${cost} 金）` : '不買'}</button><span class="small muted">剩 ${left} 金</span></div>`);
+    m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { const c = b.dataset.c, v = +b.dataset.v; const s = UI.buy || []; UI.buy = s.some(x => x.c === c && x.v === v) ? s.filter(x => !(x.c === c && x.v === v)) : [...s, { c, v }]; draw(); });
+    $('#ok', m).onclick = () => answer((UI.buy || []).slice());
+  };
+  draw();
+}
+function showBooks() {
+  const all = ['o', 'g', 'b', 'r', 'y', 'p', 'k'];
+  const m = openSheet(`<h2>📖 藥典（第 1 組）</h2>${all.map(c => `<div class="book"><div class="bh">${miniHTML(c, '')} ${COL[c].n}${c === 'y' ? '（第 2 輪上市）' : c === 'p' ? '（第 3 輪上市）' : ''}</div><div class="bd">${c === 'k' ? (S && S.n === 2 ? BOOK.k2 : BOOK.k) : BOOK[c]}</div><div class="small">價格：${Object.entries(PRICE[c]).map(([v, p]) => `${v} 級 ${p} 金`).join('、')}</div></div>`).join('')}
+    <div class="book"><div class="bh">${miniHTML('w', '')} 白色（不能購買）</div><div class="bd">大釜中白色等級總和超過 7 就爆炸（剛好 7 不會）。</div></div><button class="btn" id="ok">關閉</button>`, { keep: true });
+  $('#ok', m).onclick = () => { closeSheet(); if (S) { const pr = S.prompt; if (pr && pr.type === 'buy') showBuySheet(); else renderSheet(); } };
+}
+function confirmQuit() {
+  const m = openSheet(`<h2>重新開始？</h2><p>這一局的進度會消失。</p><div class="row"><button class="btn bad" id="y">重新開始</button><button class="btn alt" id="n">繼續玩</button></div>`, { keep: true });
+  $('#y', m).onclick = () => { closeSheet(); resolver = null; if (S) S.gid = -1; S = null; render(); };
+  $('#n', m).onclick = () => { closeSheet(); if (S) renderSheet(); };
+}
+const RULES = () => `<div class="rules" style="display:flex;flex-direction:column;gap:8px">
+  <h2>怎麼玩</h2>
+  <p>你是江湖郎中，每輪從布袋抽藥材調製藥水。抽越多，藥水越好，但<b>白色藥材的等級總和超過 7 就爆炸</b>。共 9 輪，分數最高的人獲勝。</p>
+  <h3>每輪流程</h3>
+  <ol><li><b>占卜牌</b>：翻一張，效果適用所有人。</li>
+    <li><b>老鼠</b>（第 2 輪起）：落後的玩家，計分板上和第一名之間每有 1 條老鼠尾巴，起點就往前 1 格。</li>
+    <li><b>製藥</b>：所有人同時進行。抽出的藥材從水滴（或老鼠）開始，依等級往前放（1 級放下一格，2 級隔一格…）。隨時可以停止。爆炸就立刻停止。</li>
+    <li><b>藥水瓶</b>：每輪一次，可以把剛抽出的藥材放回袋中（造成爆炸的白色不行）。用過要花 2 寶石裝滿。</li>
+    <li><b>計分</b>：最後一個藥材前一格是你的計分格。
+      <ul><li>A 獎勵骰：沒爆炸、計分格最遠的人擲骰。</li><li>B 藥材行動：綠、紫、黑色的效果。</li><li>C 計分格有寶石就得 1 顆。</li><li>D 得分、E 用計分格的金幣買 1～2 個不同顏色的藥材。<b>爆炸的人 D、E 二選一。</b></li><li>F 每 2 顆寶石：水滴前進 1 格，或裝滿藥水瓶。</li></ul></li></ol>
+  <h3>特別的輪</h3><ul><li>第 2 輪人參（黃）上市、第 3 輪鬼魂陰氣（紫）上市。</li><li>第 6 輪開始時每人布袋多 1 個白色 1 級。</li><li>第 9 輪不買藥材：每 5 金幣或 2 寶石換 1 分。</li></ul>
+  <h3>起始布袋</h3><p>白色 1 級 ×4、白色 2 級 ×2、白色 3 級 ×1、南瓜 ×1、綠色 1 級 ×1，寶石 1 顆。</p>
+  <h3>這個電腦版</h3><ul>
+    <li>非官方練習版，依繁體中文說明書製作，使用各藥典的第 1 組（說明書建議第一次玩用第 1 組）。</li>
+    <li><b>自己補的地方</b>：24 張占卜牌的內容（照片看不到，這裡設計了 12 種各 2 張）；大釜每格的金幣／分數／寶石位置，依說明書的例子推算（例如 10 格 2 分、15 格 3 分、19 格 5 分、23 格 7 分，最後一格 35 金幣 15 分）；計分板上每 3 格 1 條老鼠尾巴。</li>
+    <li>藥材數量照說明書的配件表，買完就沒了。</li></ul></div>`;
+function showRules() { const m = openSheet(RULES() + '<button class="btn" id="ok">知道了</button>', { keep: true }); $('#ok', m).onclick = () => { closeSheet(); if (S) renderSheet(); }; }
+
+// ---------- setup ----------
+const BOTNAMES = ['電腦 魯卡斯', '電腦 妮娜', '電腦 瑪莉'];
+function renderSetup() {
+  $('#bar').hidden = true; $('#app').style.paddingBottom = '';
+  if (!setupCfg) setupCfg = { n: 3, seats: [{ name: '你', human: true }, ...BOTNAMES.map(n => ({ name: n, human: false }))] };
+  const c = setupCfg;
+  $('#app').innerHTML = `
+  <div class="top"><h1>藥鍋郎中<small>郎中闖江湖規則</small></h1><button class="pill" id="rulesBtn">規則</button></div>
+  <p style="margin:0;color:var(--muted);line-height:1.6">從布袋抽藥材調製藥水——再抽一個，還是見好就收？白色櫻桃炸彈太多，整鍋藥就爆了！</p>
+  <div class="setup">
+    <div><h3>人數</h3><div class="seg">${[2, 3, 4].map(n => `<button data-n="${n}" class="${c.n === n ? 'on' : ''}">${n}</button>`).join('')}</div></div>
+    <div style="display:flex;flex-direction:column;gap:8px"><h3>座位</h3>
+      ${c.seats.slice(0, c.n).map((s, i) => `<div class="seatrow"><span class="dot" style="background:${COLORS[i]}"></span><input id="nm${i}" value="${esc(s.name)}" maxlength="8" aria-label="名字">
+        <div class="seg"><button data-h="${i}" class="${s.human ? 'on' : ''}">真人</button><button data-c="${i}" class="${s.human ? '' : 'on'}">電腦</button></div></div>`).join('')}
+      <span class="small muted">好幾個真人可以輪流用同一支手機，每人輪流製藥。</span></div>
+    <button class="btn big" id="start" style="align-self:flex-start">開始製藥</button>
+  </div>
+  <div class="setup">${RULES()}</div>`;
+  const save = () => c.seats.slice(0, c.n).forEach((s, i) => { s.name = $('#nm' + i).value.trim() || `郎中${i + 1}`; });
+  $('#rulesBtn').onclick = showRules;
+  document.querySelectorAll('[data-n]').forEach(b => b.onclick = () => { save(); c.n = +b.dataset.n; renderSetup(); });
+  document.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { save(); const s = c.seats[+b.dataset.h]; s.human = true; if (s.name.startsWith('電腦')) s.name = `郎中${+b.dataset.h + 1}`; renderSetup(); });
+  document.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { save(); const s = c.seats[+b.dataset.c]; s.human = false; if (!s.name.startsWith('電腦')) s.name = BOTNAMES[(+b.dataset.c) % 3] || '電腦'; renderSetup(); });
+  $('#start').onclick = () => { save(); const seats = c.seats.slice(0, c.n).map(s => ({ ...s })); if (!seats.some(s => s.human)) seats[0].human = true; newGame({ seats }); render(); run(); };
+}
+window.__q = () => S;
+window.__qSpeed = (v) => { SPEED = v; };
+window.__qBots = (n) => { newGame({ seats: Array.from({ length: n }, (_, i) => ({ name: '電腦' + (i + 1), human: false })) }); run(); };
+window.__qApi = { answer, get P() { return S && S.prompt; } };
+render();
+})();
+</script>
+</html>
