@@ -188,21 +188,33 @@ header h1 span { color: var(--acc); }
   ];
   const EVENT = Object.fromEntries(EVENTS.map(([k, n, , e]) => [k, { key: k, name: n, eff: e }]));
   const CLIM = { t: "溫和", h: "炎熱", c: "寒冷" };
+  // pathogen types chosen at the start, each with a strength and a weakness
+  const PATHOGENS = {
+    bact: { name: "細菌", good: "開局就有「耐熱」或「耐寒」（隨機一種），不佔進化板的格子", bad: "沒有其他加成" },
+    virus: { name: "病毒", good: "感染力 +1", bad: "基因不穩定：每回合有 25% 機率突變失控，那回合感染力 −2（最少 1）" },
+    fungus: { name: "真菌", good: "每 3 個自己的回合可以「孢子爆發」一次：任選一個國家放 1 個標記，不用相連（只看氣候）", bad: "感染力 −1" },
+    parasite: { name: "寄生蟲", good: "很難被發現：標記不會被「抗病毒藥物」移除", bad: "每回合 DNA 收入 −1" },
+  };
+  const PKEYS = Object.keys(PATHOGENS);
   const COLORS = ["var(--p0)", "var(--p1)", "var(--p2)", "var(--p3)"];
   const NAMES = ["你的病菌", "紅潮病毒", "綠影真菌", "黃沙細菌"];
   const PHASES = ["dna", "country", "evolve", "infect", "death"];
   const HAND = 5, BOARD_SLOTS = 5, EV_LIMIT = 3, TURN_CAP = 120;
 
   // ---------- state ----------
-  let S = null, busy = false, nPlayers = 3;
-  function newGame(n) {
-    nPlayers = n;
+  let S = null, busy = false, nPlayers = 3, myType = "bact";
+  function newGame(n, type) {
+    nPlayers = n; if (type) myType = type;
     const tdeck = []; for (const [k, , , , cnt] of TRAITS) for (let i = 0; i < cnt; i++) tdeck.push(k);
     const edeck = []; for (const [k, , cnt] of EVENTS) for (let i = 0; i < cnt; i++) edeck.push(k);
     const cdeck = shuffle(COUNTRIES.map(c => c.id));
     S = { players: [], board: Object.fromEntries(CONTS.map(c => [c.id, []])), cdeck, faceUp: [], tdeck: shuffle(tdeck), tdisc: [], edeck: shuffle(edeck),
       cur: 0, phase: "dna", turn: 1, sudden: false, ended: false, log: [], flags: {}, infectLeft: 0, picked: null, pendingEnd: false };
-    for (let i = 0; i < n; i++) S.players.push({ i, name: NAMES[i], color: COLORS[i], human: i === 0, dna: 5, traits: [], hand: [], events: [], killed: [] });
+    for (let i = 0; i < n; i++) {
+      const type = i === 0 ? myType : PKEYS[rnd(PKEYS.length)];
+      S.players.push({ i, name: NAMES[i], color: COLORS[i], human: i === 0, dna: 5, traits: [], hand: [], events: [], killed: [], type,
+        innate: type === "bact" ? (Math.random() < 0.5 ? "heat" : "cold") : null, sporeCd: type === "fungus" ? 1 : 0, unstable: -1 });
+    }
     // starting countries: temperate, one per player, in different continents where possible
     const used = new Set();
     for (const p of S.players) {
@@ -214,7 +226,7 @@ header h1 span { color: var(--acc); }
     }
     refillFaceUp();
     setTimeout(() => { const pc = allPlaced().find(q => q.slots.includes(0)), sc = $("mapScroll"), svg = $("map"); if (pc && sc.scrollWidth > sc.clientWidth) { const [lon] = POS[pc.c.name]; sc.scrollLeft = (lon + 180) / 360 * svg.clientWidth - sc.clientWidth / 2; } }, 50);
-    S.log = []; log(`遊戲開始：${n} 種瘟疫比賽，誰最後 DNA 最多誰贏。`);
+    S.log = []; log(`遊戲開始：${n} 種瘟疫比賽，誰最後 DNA 最多誰贏。${S.players.map(p => `${p.name}是<b>${PATHOGENS[p.type].name}</b>${p.innate ? `（天生${p.innate === "heat" ? "耐熱" : "耐寒"}）` : ""}`).join("、")}。`);
     render(); startTurn();
   }
   const contCap = id => CONTS.find(c => c.id === id).cap;
@@ -227,7 +239,11 @@ header h1 span { color: var(--acc); }
     const has = k => p.traits.includes(k);
     let inf = 2, let_ = 1;
     for (const k of p.traits) { if (k === "inf1" || k === "mut") inf++; if (k === "inf2") inf += 2; if (k === "let1" || k === "mut") let_++; if (k === "let2") let_ += 2; }
-    return { inf, let: let_, heat: has("heat") || has("clim"), cold: has("cold") || has("clim"), air: has("air"), water: has("water"), resist: has("resist"), latent: p.traits.filter(k => k === "latent").length };
+    if (p.type === "virus") inf += 1;
+    if (p.type === "fungus") inf -= 1;
+    if (p.type === "virus" && p.unstable === S.turn) inf -= 2;
+    inf = Math.max(1, inf);
+    return { inf, let: let_, heat: has("heat") || has("clim") || p.innate === "heat", cold: has("cold") || has("clim") || p.innate === "cold", air: has("air"), water: has("water"), resist: has("resist"), latent: p.traits.filter(k => k === "latent").length };
   }
   const tokensOf = p => allPlaced().reduce((a, pc) => a + pc.slots.filter(s => s === p.i).length, 0);
   function controller(pc) {
@@ -250,6 +266,7 @@ header h1 span { color: var(--acc); }
     return false;
   }
   const canInfect = (p, pc) => pc.slots.includes(null) && reachable(p, pc);
+  const canSpore = (p, pc) => pc.slots.includes(null) && climateOk(p, pc.c);
   const anyInfect = p => allPlaced().some(pc => canInfect(p, pc));
   const deathTargets = p => allPlaced().filter(pc => full(pc) && controller(pc) === p.i);
 
@@ -257,22 +274,24 @@ header h1 span { color: var(--acc); }
   function log(t) { S.log.unshift(t); S.log = S.log.slice(0, 40); }
   function render() {
     const cur = S.players[S.cur];
-    $("rivals").innerHTML = S.players.map(p => { const st = stats(p); return `<div class="pchip ${p === cur && !S.ended ? "turn" : ""}" style="--c:${p.color}"><div class="nm"><span>${p.name}${p.human ? "（你）" : ""}</span><span style="color:var(--dna);font-family:var(--f-num)">${p.dna} DNA</span></div><div class="st"><span>標記 <b>${tokensOf(p)}</b></span><span>感染 <b>${st.inf}</b></span><span>致死 <b>${st.let}</b></span><span>滅亡 <b>${p.killed.length}</b></span></div></div>`; }).join("");
-    const me = S.players[0], myInfect = S.phase === "infect" && cur.human && S.infectLeft > 0 && !busy;
+    $("rivals").innerHTML = S.players.map(p => { const st = stats(p); return `<div class="pchip ${p === cur && !S.ended ? "turn" : ""}" style="--c:${p.color}"><div class="nm"><span>${p.name}${p.human ? "（你）" : ""}・${PATHOGENS[p.type].name}</span><span style="color:var(--dna);font-family:var(--f-num)">${p.dna} DNA</span></div><div class="st"><span>標記 <b>${tokensOf(p)}</b></span><span>感染 <b>${st.inf}</b></span><span>致死 <b>${st.let}</b></span><span>滅亡 <b>${p.killed.length}</b></span></div></div>`; }).join("");
+    const me = S.players[0], myInfect = S.phase === "infect" && cur.human && (S.infectLeft > 0 || S.sporeMode) && !busy;
     renderMap(me, myInfect);
     $("board").innerHTML = CONTS.map(ct => {
       const list = S.board[ct.id];
       return `<div class="cont"><h3>${ct.name}<small>${list.length}/${ct.cap}</small></h3>${list.map(pc => {
-        const ctl = controller(pc), can = myInfect && canInfect(me, pc);
+        const ctl = controller(pc), can = myInfect && (S.sporeMode ? canSpore(me, pc) : canInfect(me, pc));
         const tags = `<span class="tag ${pc.c.clim === "h" ? "hot" : pc.c.clim === "c" ? "cold" : ""}">${CLIM[pc.c.clim]}</span>${pc.c.air ? '<span class="tag">✈</span>' : ""}${pc.c.port ? '<span class="tag">⚓</span>' : ""}`;
         return `<button class="ctry ${ctl != null ? "ctl" : ""} ${can ? "can" : ""}" style="--c:${ctl != null ? S.players[ctl].color : "var(--line)"}" data-pc="${pc.id}" ${can ? "" : "tabindex=\"-1\""} type="button" aria-label="${pc.c.name}"><div class="top"><span>${pc.c.name}</span><span class="tags">${tags}</span></div><div class="slots">${pc.slots.map(s => `<i class="slot ${s != null ? "f" : ""}" style="${s != null ? `--c:${S.players[s].color}` : ""}"></i>`).join("")}</div><div class="owner">${ctl != null ? `${S.players[ctl].name}控制${full(pc) ? "・已滿" : ""}` : pc.slots.some(s => s != null) ? "勢均力敵" : "尚未感染"}</div></button>`;
       }).join("") || '<div class="empty">還沒有國家</div>'}</div>`;
     }).join("");
     const st = stats(me);
-    const abil = [st.heat && "耐熱", st.cold && "耐寒", st.air && "空氣傳播", st.water && "水傳播", st.resist && "抗藥性", st.latent && `潛伏 ×${st.latent}`].filter(Boolean).join("、") || "還沒有";
+    const tr = k => me.traits.includes(k), heatT = tr("heat") || tr("clim"), coldT = tr("cold") || tr("clim");
+    const abil = [me.innate && `天生${me.innate === "heat" ? "耐熱" : "耐寒"}`, heatT && me.innate !== "heat" && "耐熱", coldT && me.innate !== "cold" && "耐寒", st.air && "空氣傳播", st.water && "水傳播", st.resist && "抗藥性", st.latent && `潛伏 ×${st.latent}`].filter(Boolean).join("、") || "還沒有";
     const canEvolve = cur.human && S.phase === "evolve" && !busy;
     $("me").innerHTML = `<h2><span style="color:var(--p0)">● ${me.name}</span><span class="stat dna">DNA<b>${me.dna}</b></span></h2>
       <div class="stats"><span class="stat">感染力<b>${st.inf}</b></span><span class="stat">致死率<b>${st.let}</b></span><span class="stat">死亡骰成功<b>1–${Math.min(6, st.let + 1 + (S.flags.deathBonus && cur.human ? S.flags.deathBonus : 0))}</b></span><span class="stat">已滅亡國家<b>${me.killed.length}</b></span></div>
+      <div class="row-label">病原體：<b style="color:var(--ink)">${PATHOGENS[me.type].name}</b>　強項：${PATHOGENS[me.type].good}；弱點：${PATHOGENS[me.type].bad}${me.type === "fungus" ? `　孢子爆發：${me.sporeCd === 0 ? "<b style='color:var(--ok)'>可以用</b>" : `再 ${me.sporeCd} 回合`}` : ""}${me.type === "virus" && me.unstable === S.turn ? "　<b style='color:var(--acc)'>這回合突變失控</b>" : ""}</div>
       <div class="row-label">能力：${abil}</div>
       <div class="row-label">進化板（${me.traits.length}/${BOARD_SLOTS}）</div>
       <div class="cards">${me.traits.map(k => cardHtml(TRAIT[k], false)).join("")}${Array(BOARD_SLOTS - me.traits.length).fill('<div class="card slotEmpty">空位</div>').join("")}</div>
@@ -295,7 +314,7 @@ header h1 span { color: var(--acc); }
       const [x, y] = xy(c), pc = placed.get(c.id);
       if (dead.has(c.id)) { marks += `<text x="${x}" y="${y + 2.4}" style="font-size:8px;fill:#8b95a1">✕</text>`; continue; }
       if (!pc) { marks += `<circle cx="${x}" cy="${y}" r="1.6" fill="#5b6774"><title>${c.name}（還沒開放）</title></circle>`; continue; }
-      const ctl = controller(pc), can = myInfect && canInfect(me, pc), n = pc.slots.length;
+      const ctl = controller(pc), can = myInfect && (S.sporeMode ? canSpore(me, pc) : canInfect(me, pc)), n = pc.slots.length;
       let m = `<g class="mk ${can ? "can" : ""}" data-pc="${pc.id}">`;
       if (full(pc) && ctl != null) m += `<circle class="hot" cx="${x}" cy="${y}" r="9"/>`;
       if (can) m += `<circle class="halo" cx="${x}" cy="${y}" r="10.5"/>`;
@@ -324,10 +343,12 @@ header h1 span { color: var(--acc); }
   async function startTurn() {
     if (S.ended) return;
     const p = S.players[S.cur];
-    S.flags = {}; S.phase = "dna";
-    const st = stats(p), ctl = allPlaced().filter(pc => controller(pc) === p.i).length, gain = ctl + st.latent;
+    S.flags = {}; S.phase = "dna"; S.sporeMode = false;
+    if (p.type === "virus" && Math.random() < 0.25) p.unstable = S.turn;
+    if (p.type === "fungus" && p.sporeCd > 0) p.sporeCd--;
+    const st = stats(p), ctl = allPlaced().filter(pc => controller(pc) === p.i).length, gain = Math.max(0, ctl + st.latent - (p.type === "parasite" ? 1 : 0));
     p.dna += gain;
-    log(`<b>${p.name}</b> 的回合：控制 ${ctl} 國${st.latent ? `、潛伏 ${st.latent}` : ""}，得到 ${gain} DNA。`);
+    log(`<b>${p.name}</b> 的回合：控制 ${ctl} 國${st.latent ? `、潛伏 ${st.latent}` : ""}${p.type === "parasite" ? "、寄生蟲 −1" : ""}，得到 ${gain} DNA。${p.unstable === S.turn ? "<b>病毒突變失控</b>，這回合感染力 −2。" : ""}${p.type === "fungus" && p.sporeCd === 0 ? "孢子爆發可以用了。" : ""}`);
     render();
     if (p.human) { await sleep(250); countryPhase(); } else { await sleep(500); aiTurn(p); }
   }
@@ -390,9 +411,14 @@ header h1 span { color: var(--acc); }
   }
   function infectPrompt() {
     const me = S.players[0];
-    if (S.infectLeft <= 0 || !anyInfect(me)) { S.infectLeft = 0; render(); return deathPhase(); }
+    const spore = me.type === "fungus" && me.sporeCd === 0 && allPlaced().some(pc => canSpore(me, pc));
+    if (S.sporeMode) { render(); return bar("孢子爆發：點任何一個發亮的國家放 1 個標記（不用相連，只看氣候）。", [{ label: "算了", alt: true, on: () => { S.sporeMode = false; infectPrompt(); } }]); }
+    if ((S.infectLeft <= 0 || !anyInfect(me)) && !spore) { S.infectLeft = 0; render(); return deathPhase(); }
     render();
-    bar(`感染階段：還可以放 <b>${S.infectLeft}</b> 個標記，點地圖上發亮的國家。`, [{ label: "不放了，去死亡階段", alt: true, on: () => { S.infectLeft = 0; render(); deathPhase(); } }]);
+    const btns = [];
+    if (spore) btns.push({ label: "孢子爆發", on: () => { S.sporeMode = true; infectPrompt(); } });
+    btns.push({ label: S.infectLeft > 0 ? "不放了，去死亡階段" : "去死亡階段", alt: true, on: () => { S.infectLeft = 0; render(); deathPhase(); } });
+    bar(S.infectLeft > 0 && anyInfect(me) ? `感染階段：還可以放 <b>${S.infectLeft}</b> 個標記，點地圖上發亮的國家。` : "感染階段：一般標記放完了，還可以用孢子爆發。", btns);
   }
   function infectAt(p, pc) { const i = pc.slots.indexOf(null); pc.slots[i] = p.i; S.infectLeft--; }
   // ----- human: death -----
@@ -445,8 +471,8 @@ header h1 span { color: var(--acc); }
   function humanEvent(idx) {
     const me = S.players[0], e = me.events[idx];
     if (e.key === "antiviral") {
-      const opts = []; for (const pc of allPlaced()) for (const p of S.players) if (p !== me && pc.slots.includes(p.i)) opts.push({ pc, who: p.i });
-      if (!opts.length) { log("現在沒有對手的標記可以移除。"); return resumePhase(); }
+      const opts = []; for (const pc of allPlaced()) for (const p of S.players) if (p !== me && p.type !== "parasite" && pc.slots.includes(p.i)) opts.push({ pc, who: p.i });
+      if (!opts.length) { log("現在沒有對手的標記可以移除（寄生蟲的標記移除不了）。"); return resumePhase(); }
       modal(`<h2>抗病毒藥物</h2><p>選一個國家和一位對手，移除他在那裡最多 2 個標記。</p><div class="choices">${opts.map((o, i) => `<button class="choice" data-av="${i}" type="button"><b>${o.pc.c.name}</b><small style="color:${S.players[o.who].color}">${S.players[o.who].name}：${o.pc.slots.filter(s => s === o.who).length} 個</small></button>`).join("")}</div><button class="btn alt" id="avNo" type="button">算了</button>`, sh => {
         sh.querySelectorAll("[data-av]").forEach(b => b.onclick = () => { closeModal(); useEvent(me, idx, opts[+b.dataset.av]); resumePhase(); });
         sh.querySelector("#avNo").onclick = closeModal;
@@ -519,6 +545,14 @@ header h1 span { color: var(--acc); }
       }
       infectAt(p, best); placed++;
     }
+    if (p.type === "fungus" && p.sporeCd === 0) {
+      const opts = allPlaced().filter(pc => canSpore(p, pc));
+      if (opts.length) {
+        const score = pc => (pc.slots.includes(p.i) ? 0 : 3) + (allPlaced().some(q => q.c.cont === pc.c.cont && q.slots.includes(p.i)) ? 0 : 2) + (controller(pc) == null ? 1 : 0) + Math.random();
+        const pc = opts.sort((a, b) => score(b) - score(a))[0]; pc.slots[pc.slots.indexOf(null)] = p.i; p.sporeCd = 3;
+        log(`<b>${p.name}</b> 用孢子爆發感染了 ${pc.c.name}。`);
+      }
+    }
     log(`<b>${p.name}</b> 放了 ${placed} 個標記。`);
     render(); await sleep(500);
     // death
@@ -531,7 +565,7 @@ header h1 span { color: var(--acc); }
   }
   function bestAntiviral(p) {
     let best = null, bv = 0;
-    for (const pc of allPlaced()) for (const q of S.players) { if (q === p) continue; const n = pc.slots.filter(s => s === q.i).length; if (!n) continue; const v = (controller(pc) === q.i ? 3 : 0) + (full(pc) ? 2 : 0) + Math.min(2, n); if (v > bv) { bv = v; best = { pc, who: q.i }; } }
+    for (const pc of allPlaced()) for (const q of S.players) { if (q === p || q.type === "parasite") continue; const n = pc.slots.filter(s => s === q.i).length; if (!n) continue; const v = (controller(pc) === q.i ? 3 : 0) + (full(pc) ? 2 : 0) + Math.min(2, n); if (v > bv) { bv = v; best = { pc, who: q.i }; } }
     return bv >= 4 ? best : null;
   }
 
@@ -560,19 +594,25 @@ header h1 span { color: var(--acc); }
       <li><b>感染</b>：放「感染力」那麼多個標記到國家的空城市。只能感染：你已經在的國家、和你的標記同一洲的國家，或用空氣傳播（機場 ✈）、水傳播（港口 ⚓）跨洲。炎熱國家要耐熱、寒冷國家要耐寒。</li>
       <li><b>死亡</b>：你控制、而且城市全滿的國家，各擲一次死亡骰，擲出 1 到「致死率＋1」就滅亡。滅亡的國家拿走，每個標記回到主人手上，<b>每個標記給主人 1 DNA</b>；擲成功的人拿一張事件卡。</li>
     </ol>
+    <p><b>病原體</b>：開局選一種，各有強項和弱點（電腦隨機選）：</p>
+    <ul>${PKEYS.map(k => `<li><b>${PATHOGENS[k].name}</b>：${PATHOGENS[k].good}；弱點是${PATHOGENS[k].bad}。</li>`).join("")}</ul>
     <p><b>事件卡</b>：手上最多 ${EV_LIMIT} 張，拿到的那回合不能用，之後在自己的回合隨時可以用。</p>
     <p><b>結束</b>：國家卡全部用完後進入「突然死亡」。之後只要有人地圖上一個標記都沒有，那個回合結束後遊戲就結束；有人在自己回合既不能放標記也不能擲死亡骰，遊戲立刻結束。最終分數＝DNA＋進化板上特性卡的分數。</p>
-    <p class="note">網頁版說明：桌遊的回合流程、控制、死亡骰、滅亡給 DNA、事件卡限制和結束條件照規則做；國家卡、特性卡、事件卡的內容和數值是自製的。每回合進化一張、跨洲要靠機場或港口、標記全部消失可以重新開始、擲成功拿事件卡，這幾項是網頁版自訂的細節。</p>
+    <p class="note">網頁版說明：桌遊的回合流程、控制、死亡骰、滅亡給 DNA、事件卡限制和結束條件照規則做；國家卡、特性卡、事件卡的內容和數值是自製的。每回合進化一張、跨洲要靠機場或港口、標記全部消失可以重新開始、擲成功拿事件卡、開局選病原體，這幾項是網頁版自訂的（病原體參考手機版瘟疫公司）。</p>
     <button class="btn" id="rulesOk" type="button">知道了</button>`;
   function openRules() { modal(RULES, sh => sh.querySelector("#rulesOk").onclick = () => { closeModal(); if (!S) openSetup(); }); }
   function openSetup() {
     let n = nPlayers;
     modal(`<h2>病菌大進化</h2><p>瘟疫公司（Plague Inc.）桌遊規則的網頁版。你和電腦瘟疫比賽感染世界、讓國家滅亡，最後 DNA 最多的人贏。</p>
+      <p><b>選你的病原體</b></p>
+      <div class="choices" id="segT">${PKEYS.map(k => `<button class="choice ${k === myType ? "on" : ""}" data-t="${k}" type="button" style="${k === myType ? "border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset" : ""}"><b>${PATHOGENS[k].name}</b><small>強項：${PATHOGENS[k].good}<br>弱點：${PATHOGENS[k].bad}</small></button>`).join("")}</div>
       <div class="opts"><span>對手數量</span><div class="seg" id="segN">${[1, 2, 3].map(k => `<button type="button" data-n="${k + 1}" class="${k + 1 === n ? "on" : ""}">${k} 個電腦</button>`).join("")}</div></div>
       <div class="btns"><button class="btn" id="goBtn" type="button">開始感染</button><button class="btn alt" id="setRules" type="button">先看規則</button></div>
       <p class="note">國家、特性、事件卡的內容是自製的，不是官方卡牌。</p>`, sh => {
       sh.querySelectorAll("[data-n]").forEach(b => b.onclick = () => { n = +b.dataset.n; sh.querySelectorAll("[data-n]").forEach(x => x.classList.toggle("on", x === b)); });
-      sh.querySelector("#goBtn").onclick = () => { closeModal(); newGame(n); };
+      let t = myType;
+      sh.querySelectorAll("[data-t]").forEach(b => b.onclick = () => { t = b.dataset.t; sh.querySelectorAll("[data-t]").forEach(x => { const on = x === b; x.style.borderColor = on ? "var(--acc)" : ""; x.style.boxShadow = on ? "0 0 0 1px var(--acc) inset" : ""; }); });
+      sh.querySelector("#goBtn").onclick = () => { closeModal(); newGame(n, t); };
       sh.querySelector("#setRules").onclick = openRules;
     });
   }
@@ -582,6 +622,11 @@ header h1 span { color: var(--acc); }
     if (!S || busy || S.ended) return;
     const cur = S.players[S.cur]; if (!cur.human) return;
     const c = e.target.closest("[data-pc]");
+    if (c && S.phase === "infect" && S.sporeMode) {
+      const pc = allPlaced().find(x => x.id === +c.dataset.pc);
+      if (pc && canSpore(cur, pc)) { pc.slots[pc.slots.indexOf(null)] = cur.i; cur.sporeCd = 3; S.sporeMode = false; log(`你用<b>孢子爆發</b>感染了 ${pc.c.name}。`); infectPrompt(); }
+      return;
+    }
     if (c && S.phase === "infect" && S.infectLeft > 0) {
       const pc = allPlaced().find(x => x.id === +c.dataset.pc);
       if (pc && canInfect(cur, pc)) { infectAt(cur, pc); infectPrompt(); }
