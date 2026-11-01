@@ -1,0 +1,486 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>樓上吐口水</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="從三樓走廊的矮牆往下吐口水，打中經過的同學和老師就得分。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=Chiron+Hei+HK:wght@500;800&display=swap">
+<style>
+/* Layout: one full-screen canvas seen from the sky (corridor at top, courtyard below), HUD chips on top, thumb controls at the bottom */
+:root {
+  --chalk: #2f4a3a;        /* blackboard green: HUD and overlays */
+  --chalk-ink: #f6f1e4;    /* chalk white */
+  --tile: #8fb89a;         /* parapet mosaic green */
+  --spit: #dff3ff;
+  --phlegm: #c9d86a;
+  --warn: #ffb547;
+  --hit: #ff6f61;
+  --f-display: "Zen Maru Gothic", "Chiron Hei HK", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --f-body: "Chiron Hei HK", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body { margin: 0; background: #1d2b23; color: var(--chalk-ink); font-family: var(--f-body); overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+#game { position: fixed; inset: 0; display: block; width: 100%; height: 100%; }
+
+.hud { position: fixed; left: 0; right: 0; top: 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; pointer-events: none;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 10px); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.chip { background: rgba(47, 74, 58, 0.88); border: 2px solid rgba(246, 241, 228, 0.35); border-radius: 12px; padding: 6px 10px; display: grid; gap: 2px; min-width: 64px; box-shadow: 0 3px 0 rgba(0,0,0,0.25); }
+.chip small { font-size: 11px; opacity: 0.8; letter-spacing: 0.08em; }
+.chip b { font-family: var(--f-display); font-size: 22px; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+.chip.phlegm b { color: var(--phlegm); }
+.dots { display: flex; gap: 3px; margin-top: 2px; }
+.dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(246, 241, 228, 0.25); }
+.dots i.on { background: var(--spit); }
+
+.pads { position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; pointer-events: none;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.group { display: flex; gap: 10px; align-items: flex-end; }
+.pad { pointer-events: auto; touch-action: none; -webkit-tap-highlight-color: transparent; cursor: pointer;
+  width: 66px; height: 66px; border-radius: 50%; border: 3px solid rgba(246, 241, 228, 0.55); background: rgba(47, 74, 58, 0.78); color: var(--chalk-ink);
+  font: 800 15px var(--f-body); display: grid; place-items: center; box-shadow: 0 4px 0 rgba(0,0,0,0.3); }
+.pad svg { width: 30px; height: 30px; fill: currentColor; }
+.pad.spit { width: 92px; height: 92px; font-size: 18px; border-color: var(--spit); position: relative; overflow: hidden; }
+.pad.phlegm { width: 70px; height: 70px; border-color: var(--phlegm); color: var(--phlegm); font-size: 14px; line-height: 1.2; text-align: center; }
+.pad.phlegm[disabled] { opacity: 0.4; }
+.pad.on { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,0.3); background: rgba(70, 105, 84, 0.9); }
+.pad:focus-visible, .btn:focus-visible { outline: 3px solid var(--warn); outline-offset: 3px; }
+.charge { position: absolute; left: 0; right: 0; bottom: 0; height: 0%; background: rgba(223, 243, 255, 0.35); pointer-events: none; }
+.pad span { position: relative; }
+
+.screen { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(20, 32, 25, 0.72); overflow-y: auto;
+  padding-block: calc(env(safe-area-inset-top, 0px) + 16px) calc(env(safe-area-inset-bottom, 0px) + 16px); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.board { width: min(440px, 100%); background: var(--chalk); border: 10px solid #8a5a36; border-radius: 10px; padding: 22px 20px 20px; display: grid; gap: 12px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.45), inset 0 0 40px rgba(0,0,0,0.25); }
+.board h1 { margin: 0; font-family: var(--f-display); font-weight: 900; font-size: clamp(38px, 11vw, 54px); letter-spacing: 0.08em; line-height: 1.05; text-wrap: balance; }
+.board .tag { margin: 0; font-size: 12px; letter-spacing: 0.3em; opacity: 0.75; }
+.board p { margin: 0; font-size: 14px; line-height: 1.75; text-align: left; }
+.board ul { margin: 0; padding-left: 20px; text-align: left; font-size: 14px; line-height: 1.8; }
+.board b { color: var(--warn); }
+.btn { font: 900 20px var(--f-display); letter-spacing: 0.12em; color: #2b2116; background: var(--warn); border: 0; border-radius: 14px; padding: 12px 30px; cursor: pointer; box-shadow: 0 4px 0 #b9761f; justify-self: center; }
+.btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #b9761f; }
+.result { display: flex; justify-content: center; gap: 22px; }
+.result div { display: grid; gap: 2px; }
+.result small { font-size: 12px; opacity: 0.8; }
+.result b { font-family: var(--f-display); font-size: 40px; font-weight: 900; color: var(--chalk-ink); font-variant-numeric: tabular-nums; }
+.tally { font-size: 13px; opacity: 0.9; }
+.keys { font-size: 12px !important; opacity: 0.75; text-align: center !important; }
+@media (pointer: fine) { .pads { display: none; } }
+@media (prefers-reduced-motion: reduce) { .btn:active, .pad.on { transform: none; } }
+</style>
+
+<canvas id="game" aria-label="從走廊往下看的校園中庭"></canvas>
+
+<div class="hud">
+  <div class="chip"><small>得分</small><b id="score">0</b></div>
+  <div class="chip"><small>剩餘時間</small><b id="time">90</b></div>
+  <div class="chip phlegm"><small>濃痰</small><b id="phlegm">0</b><div class="dots" id="dots" aria-label="再吐幾次口水換一口濃痰"></div></div>
+</div>
+
+<div class="pads">
+  <div class="group">
+    <button class="pad" id="leftBtn" type="button" aria-label="往左"><svg viewBox="0 0 24 24"><path d="M15.5 3 6 12l9.5 9 2-2-7.4-7 7.4-7z"/></svg></button>
+    <button class="pad" id="rightBtn" type="button" aria-label="往右"><svg viewBox="0 0 24 24"><path d="M8.5 3 18 12l-9.5 9-2-2 7.4-7-7.4-7z"/></svg></button>
+  </div>
+  <div class="group">
+    <button class="pad phlegm" id="phlegmBtn" type="button" disabled>濃痰<br>×0</button>
+    <button class="pad spit" id="spitBtn" type="button"><i class="charge" id="charge"></i><span>吐口水</span></button>
+  </div>
+</div>
+
+<div class="screen" id="startScreen">
+  <div class="board">
+    <p class="tag">三年二班 · 三樓走廊</p>
+    <h1>樓上吐口水</h1>
+    <p>趴在走廊矮牆上，對樓下經過的人吐口水。口水要掉一下才會到地面，記得算好提前量。</p>
+    <ul>
+      <li>打中一個人得 <b>1 分</b>，同學、女同學、老師都算。</li>
+      <li><b>按住</b>吐口水鍵蓄力，按越久吐越遠，地上的圓圈是落點。</li>
+      <li>每吐 <b>10 次口水</b>換一口<b>濃痰</b>：落點範圍大，可以一次打中好幾個人。</li>
+      <li>口水卡在樹上就不算。一局 90 秒。</li>
+    </ul>
+    <p class="keys">鍵盤：← → 移動，按住空白鍵吐口水，按住 X 吐濃痰</p>
+    <button class="btn" id="startBtn" type="button">開始吐</button>
+    <p class="keys" id="bestLine"></p>
+  </div>
+</div>
+
+<div class="screen" id="overScreen" hidden>
+  <div class="board">
+    <p class="tag">下課鐘響</p>
+    <h1 style="font-size:clamp(32px,9vw,44px)">時間到！</h1>
+    <div class="result">
+      <div><small>這局得分</small><b id="resScore">0</b></div>
+      <div><small>最高紀錄</small><b id="resBest">0</b></div>
+    </div>
+    <p class="tally" id="resTally" style="text-align:center"></p>
+    <p class="tally" id="resNew" style="text-align:center;color:var(--warn)" hidden>新紀錄！</p>
+    <button class="btn" id="againBtn" type="button">再來一局</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $("game"), g = cv.getContext("2d");
+  const W = 400;                       // logical width; height follows the screen
+  let H = 700, dpr = 1, scale = 1;
+  let WALL = 150;                      // y of the parapet's outer edge
+  const ROUND = 90, COOLDOWN = 0.42, PER_PHLEGM = 10, PS = 1.7, TOP = 64;   // PS: people size, TOP: room for the score chips
+  const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
+
+  // ---------- audio (made on the fly; starts after the first tap) ----------
+  let ac = null;
+  function audio() { if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (ac && ac.state === "suspended") ac.resume(); return ac; }
+  function noise(dur, f0, f1, vol, type = "bandpass") {
+    const a = audio(); if (!a) return;
+    const n = Math.floor(a.sampleRate * dur), buf = a.createBuffer(1, n, a.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const src = a.createBufferSource(); src.buffer = buf;
+    const f = a.createBiquadFilter(); f.type = type; f.Q.value = 1.2; f.frequency.setValueAtTime(f0, a.currentTime); f.frequency.exponentialRampToValueAtTime(f1, a.currentTime + dur);
+    const gn = a.createGain(); gn.gain.value = vol;
+    src.connect(f); f.connect(gn); gn.connect(a.destination); src.start();
+  }
+  function tone(f0, f1, dur, vol, type = "square") {
+    const a = audio(); if (!a) return;
+    const o = a.createOscillator(), gn = a.createGain(); o.type = type;
+    o.frequency.setValueAtTime(f0, a.currentTime); o.frequency.exponentialRampToValueAtTime(f1, a.currentTime + dur);
+    gn.gain.setValueAtTime(vol, a.currentTime); gn.gain.exponentialRampToValueAtTime(0.001, a.currentTime + dur);
+    o.connect(gn); gn.connect(a.destination); o.start(); o.stop(a.currentTime + dur);
+  }
+  const sfx = {
+    spit: () => { noise(0.12, 2600, 900, 0.5); tone(500, 180, 0.08, 0.05); },
+    phlegm: () => { noise(0.45, 300, 1200, 0.45, "lowpass"); setTimeout(() => noise(0.16, 1800, 500, 0.6), 420); },
+    splat: big => noise(big ? 0.25 : 0.12, big ? 500 : 900, 160, big ? 0.55 : 0.35, "lowpass"),
+    hit: () => { tone(880, 1320, 0.09, 0.06); setTimeout(() => tone(1320, 1760, 0.09, 0.05), 90); },
+    yuck: () => tone(420, 260, 0.25, 0.05, "sawtooth"),
+    tree: () => noise(0.3, 3000, 1500, 0.2, "highpass"),
+    bell: () => { [659, 523, 587, 392].forEach((f, i) => setTimeout(() => tone(f, f, 0.5, 0.07, "triangle"), i * 380)); },
+  };
+
+  // ---------- world ----------
+  let ground = null, trees = [];
+  function resize() {
+    const cw = innerWidth, ch = innerHeight;
+    dpr = Math.min(2, devicePixelRatio || 1);
+    cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
+    scale = cv.width / W; H = cv.height / scale;
+    WALL = Math.max(TOP + 110, Math.min(TOP + 150, H * 0.26));
+    trees = [{ x: 46, y: WALL + (H - WALL) * 0.42, r: 44 }, { x: W - 40, y: WALL + (H - WALL) * 0.7, r: 50 }];
+    paintGround();
+  }
+  // the courtyard far below, painted once
+  function paintGround() {
+    ground = document.createElement("canvas"); ground.width = cv.width; ground.height = cv.height;
+    const c = ground.getContext("2d"); c.scale(scale, scale);
+    const top = WALL + 8;
+    c.fillStyle = "#cdb991"; c.fillRect(0, top, W, H - top);
+    // lawn patches
+    c.fillStyle = "#86ad5e";
+    c.fillRect(0, top + 30, 110, (H - top) * 0.28); c.fillRect(W - 120, top + (H - top) * 0.52, 120, (H - top) * 0.3);
+    // walkway of grey tiles across the courtyard and a red running track lane
+    const walkY = top + (H - top) * 0.36, walkH = (H - top) * 0.13;
+    c.fillStyle = "#b9b5ad"; c.fillRect(0, walkY, W, walkH);
+    c.strokeStyle = "rgba(0,0,0,0.08)"; c.lineWidth = 0.6;
+    for (let x = 0; x < W; x += 14) { c.beginPath(); c.moveTo(x, walkY); c.lineTo(x, walkY + walkH); c.stroke(); }
+    const trackY = top + (H - top) * 0.74, trackH = (H - top) * 0.11;
+    c.fillStyle = "#c9584a"; c.fillRect(0, trackY, W, trackH);
+    c.strokeStyle = "rgba(255,255,255,0.75)"; c.lineWidth = 1;
+    for (let k = 0; k <= 2; k++) { c.beginPath(); c.moveTo(0, trackY + trackH * k / 2); c.lineTo(W, trackY + trackH * k / 2); c.stroke(); }
+    // flower bed by the building
+    c.fillStyle = "#6f8f4c"; c.fillRect(150, top + 4, 110, 18);
+    for (let i = 0; i < 26; i++) { c.fillStyle = ["#f2c14e", "#e86a8a", "#ffffff"][i % 3]; c.beginPath(); c.arc(154 + (i * 37) % 104, top + 8 + (i * 13) % 12, 1.6, 0, 7); c.fill(); }
+    // sandy grain
+    for (let i = 0; i < 500; i++) { c.fillStyle = `rgba(80,60,30,${0.05 + Math.random() * 0.06})`; c.fillRect(Math.random() * W, top + Math.random() * (H - top), 1, 1); }
+    // the building's shadow falling on the courtyard
+    const sh = c.createLinearGradient(0, top, 0, top + 46); sh.addColorStop(0, "rgba(20,25,30,0.45)"); sh.addColorStop(1, "rgba(20,25,30,0)");
+    c.fillStyle = sh; c.fillRect(0, top, W, 46);
+  }
+  function drawCorridor() {
+    // classroom wall with windows and a door, seen from above
+    // the classroom (roof edge and windows) sits below the score chips
+    const cw = TOP + 30;
+    g.fillStyle = "#4e5e56"; g.fillRect(0, 0, W, TOP);
+    g.fillStyle = "#5e6f66"; g.fillRect(0, TOP, W, 30);
+    for (let x = 14; x < W; x += 62) { g.fillStyle = "#9cc3d8"; g.fillRect(x, TOP + 8, 44, 14); g.fillStyle = "rgba(255,255,255,0.35)"; g.fillRect(x + 4, TOP + 10, 10, 10); }
+    g.fillStyle = "#8a5a36"; g.fillRect(W * 0.5 - 22, TOP + 2, 44, 26);
+    g.fillStyle = "#f6f1e4"; g.font = `700 11px ${getComputedStyle(document.body).fontFamily}`; g.textAlign = "center"; g.fillText("三年二班", W * 0.5, TOP + 19);
+    // terrazzo corridor floor
+    g.fillStyle = "#d8d0c0"; g.fillRect(0, cw, W, WALL - 12 - cw);
+    g.strokeStyle = "rgba(0,0,0,0.07)"; g.lineWidth = 1;
+    for (let x = 0; x < W; x += 30) { g.beginPath(); g.moveTo(x, cw); g.lineTo(x, WALL - 12); g.stroke(); }
+    for (let y = cw; y < WALL - 12; y += 30) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+    // parapet: green mosaic top
+    g.fillStyle = "#6f9a7c"; g.fillRect(0, WALL - 14, W, 18);
+    g.fillStyle = "#8fb89a";
+    for (let x = 0; x < W; x += 6) for (let y = WALL - 13; y < WALL + 2; y += 6) g.fillRect(x + 0.6, y + 0.6, 4.8, 4.8);
+    g.fillStyle = "rgba(0,0,0,0.25)"; g.fillRect(0, WALL + 4, W, 4);
+  }
+
+  // ---------- people walking below ----------
+  const TYPES = {
+    boy:     { label: "同學",   shirt: "#f4f4f2", pants: "#2c4f8f", hair: "#1b1b1b", speed: [42, 62], size: 1,    lines: ["噁～", "誰啦！", "好髒！", "靠夭！"] },
+    girl:    { label: "女同學", shirt: "#f7f5ef", pants: "#2c3f6e", hair: "#20181a", speed: [34, 48], size: 0.95, lines: ["好噁！", "討厭！", "誰吐的啦", "我要跟老師講！"], ribbon: true },
+    teacher: { label: "老師",   shirt: "#8d6a4a", pants: "#3b3b3b", hair: "#6b6b6b", speed: [24, 32], size: 1.18, lines: ["是誰！給我下來！", "幾年幾班的！", "成何體統！"], books: true },
+  };
+  let people = [];
+  function spawnPerson(kind, opts = {}) {
+    const T = TYPES[kind], fromLeft = opts.fromLeft ?? Math.random() < 0.5;
+    const yMin = WALL + 40, yMax = H - 40;
+    const y = opts.y ?? (yMin + Math.random() * (yMax - yMin));
+    const v = (T.speed[0] + Math.random() * (T.speed[1] - T.speed[0])) * (Math.random() < 0.12 && kind === "boy" ? 1.8 : 1);
+    const p = { kind, T, x: opts.x ?? (fromLeft ? -20 : W + 20), y, vx: fromLeft ? v : -v, vy: (Math.random() - 0.5) * 8, t: Math.random() * 6, hit: 0, state: "walk", bubble: null, splat: null, look: 0 };
+    people.push(p); return p;
+  }
+  let spawnT = 0;
+  function spawnTick(dt) {
+    spawnT -= dt;
+    const alive = people.filter(p => p.state === "walk").length;
+    if (spawnT > 0 && alive >= 4) return;
+    if (alive >= 9) return;
+    spawnT = 0.9 + Math.random() * 1.6;
+    const r = Math.random();
+    if (r < 0.45) spawnPerson("boy");
+    else if (r < 0.82) {
+      // girls often walk in pairs
+      const a = spawnPerson("girl");
+      if (Math.random() < 0.6) spawnPerson("girl", { fromLeft: a.vx > 0, x: a.x - Math.sign(a.vx) * 22, y: a.y + 20 });
+    } else spawnPerson("teacher");
+  }
+  function drawPerson(p) {
+    const T = p.T, s = T.size * PS, sw = Math.sin(p.t * (p.state === "run" ? 16 : 9)), dir = Math.sign(p.vx) || 1;
+    g.save(); g.translate(p.x, p.y);
+    g.fillStyle = "rgba(0,0,0,0.22)"; g.beginPath(); g.ellipse(2, 3, 9 * s, 6 * s, 0, 0, 7); g.fill();
+    // legs (seen from above they peek out in front and behind)
+    g.fillStyle = T.pants;
+    g.fillRect(dir * 3 * sw * s - 2 * s, -5 * s, 4 * s, 3.2 * s); g.fillRect(-dir * 3 * sw * s - 2 * s, 1.8 * s, 4 * s, 3.2 * s);
+    // shoulders and arms
+    g.fillStyle = T.shirt; g.beginPath(); g.ellipse(0, 0, 8 * s, 5 * s, 0, 0, 7); g.fill();
+    g.strokeStyle = "rgba(0,0,0,0.25)"; g.lineWidth = 0.6; g.stroke();
+    g.fillStyle = "#e7b991"; g.beginPath(); g.arc(dir * 2 * sw * s, -6 * s, 1.8 * s, 0, 7); g.arc(-dir * 2 * sw * s, 6 * s, 1.8 * s, 0, 7); g.fill();
+    if (T.books) { g.fillStyle = "#c0392b"; g.fillRect(-2 * s, 5 * s, 6 * s, 4 * s); g.fillStyle = "#2e86c1"; g.fillRect(-1 * s, 6 * s, 6 * s, 3.4 * s); }
+    // head: hair on top, a face glimpse when looking up after being hit
+    const hr = 4.6 * s;
+    if (T.ribbon) { g.fillStyle = T.hair; g.beginPath(); g.ellipse(-dir * 5 * s, 0, 5 * s, 2.4 * s, 0, 0, 7); g.fill(); g.fillStyle = "#ef7aa0"; g.fillRect(-dir * 2.2 * s - 1.3, -1.6, 2.6, 3.2); }
+    if (p.look > 0) { g.fillStyle = "#e7b991"; g.beginPath(); g.arc(0, 0, hr, 0, 7); g.fill(); g.fillStyle = T.hair; g.beginPath(); g.arc(0, 0, hr, Math.PI * 0.95, Math.PI * 2.05); g.fill(); g.fillStyle = "#222"; g.fillRect(-2, -0.5, 1.2, 1.2); g.fillRect(1, -0.5, 1.2, 1.2); g.fillRect(-1.4, 2, 3, 0.9); }
+    else if (p.kind === "teacher") { g.fillStyle = "#e3b48c"; g.beginPath(); g.arc(0, 0, hr, 0, 7); g.fill(); g.strokeStyle = T.hair; g.lineWidth = 2; g.beginPath(); g.arc(0, 0, hr - 0.8, Math.PI * 0.2, Math.PI * 0.8); g.arc(0, 0, hr - 0.8, Math.PI * 1.2, Math.PI * 1.8); g.stroke(); }
+    else { g.fillStyle = T.hair; g.beginPath(); g.arc(0, 0, hr, 0, 7); g.fill(); g.fillStyle = "rgba(255,255,255,0.18)"; g.beginPath(); g.arc(-1.2, -1.2, hr * 0.45, 0, 7); g.fill(); }
+    if (p.splat) { g.fillStyle = p.splat.big ? "rgba(201,216,106,0.95)" : "rgba(223,243,255,0.95)"; blob(g, 1, -1, p.splat.big ? 6 : 3.4, p.splat.seed); }
+    g.restore();
+    if (p.bubble) {
+      const txt = p.bubble.text; g.font = `700 11px ${getComputedStyle(document.body).fontFamily}`;
+      const w = g.measureText(txt).width + 12, bx = Math.max(4, Math.min(W - w - 4, p.x - w / 2)), by = p.y - 38;
+      g.fillStyle = "rgba(255,255,255,0.95)"; roundRect(bx, by, w, 18, 6); g.fill();
+      g.beginPath(); g.moveTo(p.x - 3, by + 18); g.lineTo(p.x + 3, by + 18); g.lineTo(p.x, by + 23); g.fill();
+      g.fillStyle = p.kind === "teacher" ? "#c0392b" : "#2b2b2b"; g.textAlign = "center"; g.fillText(txt, bx + w / 2, by + 13);
+    }
+  }
+  function roundRect(x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+  function blob(c, x, y, r, seed) {
+    c.beginPath();
+    for (let i = 0; i <= 12; i++) { const a = i / 12 * Math.PI * 2, rr = r * (0.75 + 0.35 * Math.abs(Math.sin(seed * 7.1 + i * 2.3))); c.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
+    c.fill();
+  }
+
+  // ---------- the kid on the parapet ----------
+  const kid = { x: W / 2, lean: 0, cheek: 0 };
+  function drawKid() {
+    g.save(); g.translate(kid.x, WALL - 10); g.scale(1.3, 1.3); g.translate(-kid.x, -(WALL - 10));
+    const x = kid.x, y = WALL - 10, ln = kid.lean;
+    g.fillStyle = "rgba(0,0,0,0.2)"; g.beginPath(); g.ellipse(x + 3, y - 14, 24, 13, 0, 0, 7); g.fill();
+    // body in the corridor (white shirt, school badge)
+    g.fillStyle = "#f6f6f2"; g.beginPath(); g.ellipse(x, y - 18 + ln * 3, 22, 14, 0, 0, 7); g.fill(); g.strokeStyle = "rgba(0,0,0,0.2)"; g.lineWidth = 1; g.stroke();
+    g.fillStyle = "#2c4f8f"; g.fillRect(x - 3, y - 30 + ln * 3, 6, 8);
+    // forearms resting on the parapet
+    g.fillStyle = "#f6f6f2"; g.fillRect(x - 26, y - 6, 16, 9); g.fillRect(x + 10, y - 6, 16, 9);
+    g.fillStyle = "#e7b991"; g.beginPath(); g.arc(x - 26, y - 1.5, 5, 0, 7); g.arc(x + 26, y - 1.5, 5, 0, 7); g.fill();
+    // head poking out over the edge
+    const hy = y - 4 + ln * 6;
+    g.fillStyle = "#e7b991"; g.beginPath(); g.arc(x - 12, hy, 3.5, 0, 7); g.arc(x + 12, hy, 3.5, 0, 7); g.fill();
+    g.fillStyle = "#151515"; g.beginPath(); g.arc(x, hy, 12, 0, 7); g.fill();
+    g.fillStyle = "rgba(255,255,255,0.15)"; g.beginPath(); g.arc(x - 3, hy - 4, 5, 0, 7); g.fill();
+    if (kid.cheek > 0) { g.fillStyle = `rgba(255,140,140,${kid.cheek * 0.6})`; g.beginPath(); g.arc(x - 10, hy + 6, 4, 0, 7); g.arc(x + 10, hy + 6, 4, 0, 7); g.fill(); }
+    g.restore();
+  }
+
+  // ---------- spit ----------
+  let drops = [], splats = [], floaters = [];
+  function landingY(power) { return WALL + 26 + power * (H - WALL - 110); }
+  function launch(big, power) {
+    const sx = kid.x + (Math.random() - 0.5) * 3, sy = WALL + 6;
+    const ty = landingY(power), tx = sx + (Math.random() - 0.5) * (big ? 6 : 8);
+    drops.push({ big, sx, sy, tx, ty, t: 0, T: (big ? 1.05 : 0.8) + power * 0.35, seed: Math.random() * 9 });
+    kid.lean = 1;
+  }
+  function land(d) {
+    // tree canopies catch the spit
+    for (const tr of trees) if (Math.hypot(d.tx - tr.x, d.ty - tr.y) < tr.r * 0.9) { sfx.tree(); floaters.push({ x: d.tx, y: d.ty, text: "卡在樹上", t: 1.2, color: "#f6f1e4" }); return; }
+    const R = d.big ? 30 : 8;
+    let n = 0;
+    for (const p of people) {
+      if (p.hit || p.state !== "walk") continue;
+      if (Math.hypot(p.x - d.tx, p.y - d.ty) < R + 5 * p.T.size * PS) {
+        p.hit = 1; p.state = "stop"; p.stopT = 0.9; p.look = 1; p.splat = { big: d.big, seed: d.seed };
+        p.bubble = { text: p.T.lines[Math.floor(Math.random() * p.T.lines.length)] };
+        n++; tally[p.kind]++;
+      }
+    }
+    if (n) {
+      score += n; sfx.hit(); setTimeout(sfx.yuck, 150);
+      floaters.push({ x: d.tx, y: d.ty - 10, text: n > 1 ? `+${n} 一次打中 ${n} 個！` : "+1", t: 1.1, color: "#ffb547" });
+      kid.cheek = 1;
+    } else {
+      sfx.splat(d.big);
+      splats.push({ x: d.tx, y: d.ty, big: d.big, t: 4, seed: d.seed });
+    }
+    updateHud();
+  }
+
+  // ---------- game state ----------
+  let running = false, score = 0, timeLeft = ROUND, spitCount = 0, phlegm = 0, cool = 0, tally = { boy: 0, girl: 0, teacher: 0 };
+  const keys = { left: false, right: false };
+  let charging = null;   // { big, t }
+  function reset() {
+    score = 0; timeLeft = ROUND; spitCount = 0; phlegm = 0; cool = 0; tally = { boy: 0, girl: 0, teacher: 0 };
+    people = []; drops = []; splats = []; floaters = []; kid.x = W / 2; charging = null; spawnT = 0;
+    for (let i = 0; i < 5; i++) { const k = ["boy", "girl", "boy", "teacher", "girl"][i]; spawnPerson(k, { x: 40 + Math.random() * (W - 80) }); }
+    updateHud();
+  }
+  function updateHud() {
+    $("score").textContent = score; $("time").textContent = Math.ceil(timeLeft); $("phlegm").textContent = phlegm;
+    const dots = $("dots"); if (dots.children.length !== PER_PHLEGM) { dots.innerHTML = ""; for (let i = 0; i < PER_PHLEGM; i++) dots.appendChild(document.createElement("i")); }
+    [...dots.children].forEach((d, i) => d.classList.toggle("on", i < spitCount % PER_PHLEGM));
+    const pb = $("phlegmBtn"); pb.disabled = phlegm <= 0; pb.innerHTML = `濃痰<br>×${phlegm}`;
+  }
+  function startCharge(big) {
+    if (!running || charging || cool > 0) return;
+    if (big && phlegm <= 0) return;
+    audio(); charging = { big, t: 0 };
+    if (big) sfx.phlegm();
+  }
+  function release() {
+    if (!charging) return;
+    const c = charging; charging = null; $("charge").style.height = "0%";
+    if (!running) return;
+    const power = Math.min(1, 0.12 + c.t / 1.1);
+    if (c.big) { phlegm--; } else { spitCount++; if (spitCount % PER_PHLEGM === 0) { phlegm++; floaters.push({ x: kid.x, y: WALL - 40, text: "存到一口濃痰！", t: 1.4, color: "#c9d86a" }); } sfx.spit(); }
+    launch(c.big, power); cool = COOLDOWN; updateHud();
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (running) update(dt);
+    draw();
+    requestAnimationFrame(frame);
+  }
+  function update(dt) {
+    timeLeft -= dt; if (timeLeft <= 0) { timeLeft = 0; return end(); }
+    const mv = (keys.left ? -1 : 0) + (keys.right ? 1 : 0);
+    kid.x = Math.max(30, Math.min(W - 30, kid.x + mv * 170 * dt));
+    kid.lean = Math.max(0, kid.lean - dt * 3); kid.cheek = Math.max(0, kid.cheek - dt * 1.5);
+    cool = Math.max(0, cool - dt);
+    if (charging) { charging.t += dt; $("charge").style.height = Math.min(100, (0.12 + charging.t / 1.1) * 100) + "%"; }
+    spawnTick(dt);
+    for (const p of people) {
+      p.t += dt;
+      if (p.state === "walk") { p.x += p.vx * dt; p.y += p.vy * dt; if (p.y < WALL + 30 || p.y > H - 24) p.vy = -p.vy; }
+      else if (p.state === "stop") { p.stopT -= dt; if (p.stopT <= 0) { p.state = "run"; p.vx = Math.sign(p.vx || 1) * 120; } }
+      else { p.x += p.vx * dt; if (p.bubble && p.t > 0) p.bubbleT = (p.bubbleT || 1.6) - dt; if (p.bubbleT <= 0) p.bubble = null; }
+    }
+    people = people.filter(p => p.x > -40 && p.x < W + 40);
+    for (const d of drops) { d.t += dt; if (d.t >= d.T) { d.done = true; land(d); } }
+    drops = drops.filter(d => !d.done);
+    for (const s of splats) s.t -= dt; splats = splats.filter(s => s.t > 0);
+    for (const f of floaters) { f.t -= dt; f.y -= 18 * dt; } floaters = floaters.filter(f => f.t > 0);
+    $("time").textContent = Math.ceil(timeLeft);
+  }
+  function draw() {
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    if (ground) g.drawImage(ground, 0, 0);
+    g.setTransform(scale, 0, 0, scale, 0, 0);
+    for (const s of splats) { g.globalAlpha = Math.min(1, s.t / 1.5) * 0.85; g.fillStyle = s.big ? "#b9c95e" : "#e8f6ff"; blob(g, s.x, s.y, s.big ? 12 : 5, s.seed); }
+    g.globalAlpha = 1;
+    // aim marker while charging
+    if (charging) {
+      const p = Math.min(1, 0.12 + charging.t / 1.1), ty = landingY(p), r = charging.big ? 30 : 10;
+      g.setLineDash([4, 4]); g.lineWidth = 1.6; g.strokeStyle = charging.big ? "#e6f07a" : "#ffffff";
+      g.beginPath(); g.arc(kid.x, ty, r, 0, 7); g.stroke(); g.setLineDash([]);
+      g.beginPath(); g.moveTo(kid.x - 4, ty); g.lineTo(kid.x + 4, ty); g.moveTo(kid.x, ty - 4); g.lineTo(kid.x, ty + 4); g.stroke();
+    }
+    const sorted = people.slice().sort((a, b) => a.y - b.y);
+    for (const p of sorted) drawPerson(p);
+    // tree canopies are taller than the people
+    for (const tr of trees) {
+      g.fillStyle = "rgba(0,0,0,0.18)"; g.beginPath(); g.arc(tr.x + 8, tr.y + 8, tr.r, 0, 7); g.fill();
+      for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; g.fillStyle = i % 2 ? "#3f7d3a" : "#4f9445"; g.beginPath(); g.arc(tr.x + Math.cos(a) * tr.r * 0.45, tr.y + Math.sin(a) * tr.r * 0.45, tr.r * 0.62, 0, 7); g.fill(); }
+      g.fillStyle = "#5aa34e"; g.beginPath(); g.arc(tr.x - 6, tr.y - 6, tr.r * 0.5, 0, 7); g.fill();
+    }
+    drawCorridor();
+    drawKid();
+    // falling drops: big near the camera, smaller as they fall away
+    for (const d of drops) {
+      const u = d.t / d.T, e = u * u * (3 - 2 * u);
+      const x = d.sx + (d.tx - d.sx) * e, y = d.sy + (d.ty - d.sy) * e, k = 1.7 - 1.1 * u;
+      g.fillStyle = "rgba(0,0,0,0.15)"; g.beginPath(); g.arc(d.tx, d.ty, (d.big ? 6 : 3) * (0.4 + u * 0.6), 0, 7); g.fill();
+      g.fillStyle = d.big ? "rgba(201,216,106,0.95)" : "rgba(223,243,255,0.92)";
+      blob(g, x, y, (d.big ? 7 : 3.6) * k, d.seed);
+      g.fillStyle = "rgba(255,255,255,0.8)"; g.beginPath(); g.arc(x - 1.2 * k, y - 1.2 * k, 1.1 * k, 0, 7); g.fill();
+    }
+    for (const f of floaters) {
+      g.globalAlpha = Math.min(1, f.t * 2); g.font = `900 15px ${getComputedStyle(document.body).fontFamily}`; g.textAlign = "center";
+      g.lineWidth = 3; g.strokeStyle = "rgba(0,0,0,0.6)"; g.strokeText(f.text, f.x, f.y); g.fillStyle = f.color; g.fillText(f.text, f.x, f.y);
+    }
+    g.globalAlpha = 1;
+  }
+
+  function start() {
+    audio(); reset(); running = true;
+    $("startScreen").hidden = true; $("overScreen").hidden = true;
+  }
+  function end() {
+    running = false; charging = null; sfx.bell();
+    const best = Math.max(score, +(store.get("spit-best") || 0)), isNew = score > 0 && score >= best && score > +(store.get("spit-best") || 0);
+    store.set("spit-best", String(best));
+    $("resScore").textContent = score; $("resBest").textContent = best; $("resNew").hidden = !isNew;
+    $("resTally").textContent = `打中同學 ${tally.boy} 個、女同學 ${tally.girl} 個、老師 ${tally.teacher} 個，總共吐了 ${spitCount} 口口水`;
+    setTimeout(() => { $("overScreen").hidden = false; $("againBtn").focus(); }, 700);
+  }
+
+  // ---------- input ----------
+  addEventListener("keydown", e => {
+    if (e.code === "ArrowLeft" || e.code === "KeyA") { keys.left = true; e.preventDefault(); }
+    if (e.code === "ArrowRight" || e.code === "KeyD") { keys.right = true; e.preventDefault(); }
+    if (e.code === "Space" && !e.repeat) { e.preventDefault(); if (!running && !$("startScreen").hidden) return start(); startCharge(false); }
+    if (e.code === "KeyX" && !e.repeat) startCharge(true);
+  });
+  addEventListener("keyup", e => {
+    if (e.code === "ArrowLeft" || e.code === "KeyA") keys.left = false;
+    if (e.code === "ArrowRight" || e.code === "KeyD") keys.right = false;
+    if ((e.code === "Space" && charging && !charging.big) || (e.code === "KeyX" && charging && charging.big)) release();
+  });
+  function holdBtn(el, down, up) {
+    el.addEventListener("pointerdown", e => { e.preventDefault(); el.classList.add("on"); try { el.setPointerCapture(e.pointerId); } catch (_) {} down(); });
+    const off = () => { el.classList.remove("on"); up(); };
+    el.addEventListener("pointerup", off); el.addEventListener("pointercancel", off); el.addEventListener("lostpointercapture", off);
+    el.addEventListener("contextmenu", e => e.preventDefault());
+  }
+  holdBtn($("leftBtn"), () => (keys.left = true), () => (keys.left = false));
+  holdBtn($("rightBtn"), () => (keys.right = true), () => (keys.right = false));
+  holdBtn($("spitBtn"), () => startCharge(false), () => { if (charging && !charging.big) release(); });
+  holdBtn($("phlegmBtn"), () => startCharge(true), () => { if (charging && charging.big) release(); });
+  // drag on the screen to move the kid as well
+  cv.addEventListener("pointermove", e => { if (running && e.buttons && e.pointerType !== "mouse") kid.x = Math.max(30, Math.min(W - 30, e.clientX * dpr / scale)); });
+  $("startBtn").addEventListener("click", start);
+  $("againBtn").addEventListener("click", start);
+  addEventListener("blur", () => { keys.left = keys.right = false; release(); });
+  addEventListener("resize", resize);
+
+  const best = +(store.get("spit-best") || 0);
+  if (best) $("bestLine").textContent = `最高紀錄：${best} 分`;
+  resize(); reset(); updateHud();
+  window.__spit = { people: () => people, kid, landingY, score: () => score, W: () => W, H: () => H };   // for automated tests
+  requestAnimationFrame(frame);
+})();
+</script>
