@@ -48,15 +48,17 @@ for w in ways:
     ug = '地下道' in t.get('name', '')
     if ug and t['highway'] != 'secondary':
         continue
-    if not ug and t.get('tunnel') in ('yes', 'building_passage'):
+    # mountain tunnels (辛亥隧道, 文山隧道, ...) stay as ordinary roads: the game world is flat
+    if not ug and t.get('tunnel') in ('yes', 'building_passage') and not t.get('name', '').endswith('隧道'):
         continue
     layer = int(t.get('layer', '0')) if t.get('layer', '0').lstrip('-').isdigit() else 0
-    if not ug and layer < 0:
+    if not ug and layer < 0 and not t.get('name', '').endswith('隧道'):
         continue
-    if layer >= 1 or t.get('bridge') == 'viaduct':
-        continue  # elevated expressways (建國高架, 市民大道高架) would sit on top of the streets below
-    if t['highway'].endswith('_link') and t.get('bridge'):
-        continue
+    if layer >= 1 or t.get('bridge'):
+        # elevated expressways (建國高架, 市民大道高架) would sit on top of the streets below; short river bridges stay
+        wl = sum(math.hypot(nodes[a][0] - nodes[b][0], nodes[a][1] - nodes[b][1]) for a, b in zip(w['nodes'], w['nodes'][1:]) if a in nodes and b in nodes)
+        if t['highway'] in ('trunk', 'trunk_link') or t.get('bridge') == 'viaduct' or wl > 350 or t['highway'].endswith('_link'):
+            continue
     pts = [n for n in w['nodes'] if n in nodes]
     if len(pts) < 2:
         continue
@@ -324,6 +326,99 @@ for e in edges:
     if e['ug']:
         e['ys'] = [round(DEEP * ss(dS.get(key(p), 1e9) / DOWN) * ss(dB.get(key(p), 1e9) / UP), 2) for p in e['poly']]
 
+# real road widths from Taipei open data (optional 3rd argument, made by tools/road_widths.py)
+WIDTHS = sys.argv[3] if len(sys.argv) > 3 else None
+def road_base(nm):
+    return re.sub(r'[一二三四五六七八九]段$', '', nm or '')
+import re
+if WIDTHS:
+    W = json.load(open(WIDTHS))
+    wpolys = []
+    for width, nm, flat in W['polys']:
+        pts = [proj(flat[i], flat[i + 1]) for i in range(0, len(flat), 2)]
+        xs = [q[0] for q in pts]; zs = [q[1] for q in pts]
+        wpolys.append((width, nm, pts, min(xs), min(zs), max(xs), max(zs)))
+    pg = collections.defaultdict(list)
+    for k, wp in enumerate(wpolys):
+        for gx in range(int(wp[3] // 50), int(wp[5] // 50) + 1):
+            for gz in range(int(wp[4] // 50), int(wp[6] // 50) + 1):
+                pg[(gx, gz)].append(k)
+    lg = collections.defaultdict(list)
+    for lat, lon, w in W['labels']:
+        x, z = proj(lat, lon); lg[(int(x // 20), int(z // 20))].append((x, z, w))
+    def in_poly(x, z, pts):
+        c = False; j = len(pts) - 1
+        for i in range(len(pts)):
+            xi, zi = pts[i]; xj, zj = pts[j]
+            if (zi > z) != (zj > z) and x < (xj - xi) * (z - zi) / (zj - zi) + xi: c = not c
+            j = i
+        return c
+    def samples(e, step=8.0, skip=12.0):
+        poly = e['poly']; out = []; acc = 0.0
+        L = sum(math.hypot(poly[i+1][0]-poly[i][0], poly[i+1][1]-poly[i][1]) for i in range(len(poly)-1))
+        s_ = min(skip, L / 2)
+        for i in range(len(poly) - 1):
+            (ax, az), (bx, bz) = poly[i], poly[i + 1]; seg = math.hypot(bx - ax, bz - az)
+            while s_ <= acc + seg and s_ <= L - min(skip, L / 2):
+                u = (s_ - acc) / seg if seg else 0
+                out.append((ax + (bx - ax) * u, az + (bz - az) * u)); s_ += step
+            acc += seg
+        return out or [((poly[0][0] + poly[-1][0]) / 2, (poly[0][1] + poly[-1][1]) / 2)]
+    def seg_dist(x, z, poly):
+        best = 1e9
+        for i in range(len(poly) - 1):
+            (ax, az), (bx, bz) = poly[i], poly[i + 1]; dx, dz = bx - ax, bz - az; L2 = dx * dx + dz * dz or 1e-9
+            u = max(0, min(1, ((x - ax) * dx + (z - az) * dz) / L2)); best = min(best, math.hypot(x - ax - dx * u, z - az - dz * u))
+        return best
+    same_name = collections.defaultdict(list)
+    for e in edges:
+        if not e['ug'] and e['oneway']: same_name[road_base(e['name'])].append(e)
+    changed = 0
+    for e in edges:
+        if e['ug']:
+            continue
+        S = samples(e); ws = []; wl = []
+        base = road_base(e['name'])
+        for x, z in S:
+            hit = None
+            for k in pg.get((int(x // 50), int(z // 50)), []):
+                wp = wpolys[k]
+                if wp[3] <= x <= wp[5] and wp[4] <= z <= wp[6] and in_poly(x, z, wp[2]):
+                    if hit is None or (road_base(wp[1]) == base and road_base(wpolys[hit][1]) != base): hit = k
+            if hit is not None:
+                ws.append(wpolys[hit][0]); continue
+            best = None
+            for i in (-1, 0, 1):
+                for j in (-1, 0, 1):
+                    for lx, lz, w in lg.get((int(x // 20) + i, int(z // 20) + j), []):
+                        d = math.hypot(lx - x, lz - z)
+                        if d < 12 and (best is None or d < best[0]): best = (d, w)
+            if best: wl.append(best[1])
+        vals = ws if len(ws) >= max(1, len(S) // 3) else wl if wl else ws
+        if not vals:
+            continue
+        vals.sort(); Wd = vals[len(vals) // 2]
+        n = e['lanes']; LANE = 3.2
+        if e['oneway']:
+            # divided road: another one-way carriageway with the same name runs alongside
+            gaps = []
+            for o in same_name.get(base, []):
+                if o is e: continue
+                d = [seg_dist(x, z, o['poly']) for x, z in S[::3]]
+                d = [v for v in d if v < Wd]
+                if len(d) >= max(1, len(S[::3]) // 2): gaps.append(sum(d) / len(d))
+            if gaps:
+                gap = min(gaps); hw = min((Wd - gap) / 2, n * LANE / 2 + 3.5)
+            else:
+                hw = min(Wd / 2, n * LANE / 2 + 2.5)   # a one-way street, or a carriageway we could not pair
+            hw = max(n * LANE / 2 + 0.4, hw)
+        else:
+            hw = max(n * LANE + 0.4, min(Wd / 2, n * LANE + 7))
+        hw = max(2.6, min(20.0, hw))
+        if abs(hw - e['hw']) > 0.2:
+            e['hw'] = hw; changed += 1
+    print('road widths: adjusted', changed, 'of', len(edges), 'edges from Taipei data')
+
 # node radius and signals
 for n in cnodes:
     hws = [edges[e]['hw'] for e in n['edges'] if not edges[e]['ug']] or [edges[e]['hw'] for e in n['edges']]
@@ -386,6 +481,35 @@ for w in ways:
     for x, z in pts:
         flat += [round(x, 1), round(z, 1)]
     blds.append([None if h is None else round(h, 1), nid(t.get('name', '')), flat, cx, cz, A, t.get('building', 'yes')])
+
+# drop buildings that sit on a road's centre line (passages under buildings, or mapping errors):
+# otherwise cars would drive straight through their walls
+road_pts = collections.defaultdict(list)
+for e in edges:
+    if e['ug']:
+        continue
+    poly = e['poly']
+    for i in range(len(poly) - 1):
+        (ax, az), (bx, bz) = poly[i], poly[i + 1]; seg = math.hypot(bx - ax, bz - az); n = max(1, int(seg // 4))
+        for k in range(n + 1):
+            x, z = ax + (bx - ax) * k / n, az + (bz - az) * k / n
+            road_pts[(int(x // 25), int(z // 25))].append((x, z))
+def on_road_count(flat):
+    xs = flat[0::2]; zs = flat[1::2]; pts = list(zip(xs, zs)); hits = 0
+    for gx in range(int(min(xs) // 25), int(max(xs) // 25) + 1):
+        for gz in range(int(min(zs) // 25), int(max(zs) // 25) + 1):
+            for x, z in road_pts.get((gx, gz), []):
+                if min(xs) < x < max(xs) and min(zs) < z < max(zs):
+                    c = False; j = len(pts) - 1
+                    for i in range(len(pts)):
+                        xi, zi = pts[i]; xj, zj = pts[j]
+                        if (zi > z) != (zj > z) and x < (xj - xi) * (z - zi) / (zj - zi) + xi: c = not c
+                        j = i
+                    hits += c
+    return hits
+before = len(blds)
+blds = [b for b in blds if b[1] >= 0 and '101' in names[b[1]] or on_road_count(b[2]) < 2]
+print('dropped', before - len(blds), 'buildings sitting on road centre lines')
 
 # buildings without a height or floor count: estimate from their type, footprint and the known heights nearby
 known = collections.defaultdict(list)
