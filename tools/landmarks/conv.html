@@ -1,0 +1,63 @@
+<!doctype html><meta charset="utf-8"><script src="three.min.js"></script><script src="TGALoader.js"></script><script src="ColladaLoader.js"></script>
+<script>
+// Load one COLLADA model, bake transforms, group triangles by material, shrink textures.
+window.convert = (path, maxTex) => new Promise((res, rej) => {
+  const mgr = new THREE.LoadingManager(); let scene = null, missing = [];
+  mgr.onError = u => missing.push(u);
+  
+  const loader = new THREE.ColladaLoader(mgr);
+  loader.load(path, c => { scene = c.scene;
+    const t0 = Date.now();
+    const wait = () => { let pending = 0; scene.traverse(o => { if (!o.isMesh) return; (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (m.map && !(m.map.image && m.map.image.complete && m.map.image.naturalWidth)) pending++; }); });
+      if (!pending || Date.now() - t0 > 20000) done(); else setTimeout(wait, 200); };
+    wait(); }, undefined, e => rej(String(e)));
+  let fired = false;
+  function done() {
+    if (fired) return; fired = true;
+    scene.updateMatrixWorld(true);
+    const groups = new Map();   // key -> {mat, pos:[], uv:[]}
+    const v = new THREE.Vector3();
+    scene.traverse(o => {
+      if (!o.isMesh) return;
+      let g = o.geometry; if (g.index) g = g.toNonIndexed();
+      const P = g.attributes.position, U = g.attributes.uv;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      const ranges = g.groups && g.groups.length ? g.groups : [{ start: 0, count: P.count, materialIndex: 0 }];
+      const flip = o.matrixWorld.determinant() < 0;
+      for (const r of ranges) {
+        const m = mats[r.materialIndex] || mats[0];
+        const tex = m.map && m.map.image ? m.map : null;
+        const key = tex ? 't' + tex.uuid : 'c' + m.color.getHexString();
+        if (!groups.has(key)) groups.set(key, { m, tex, pos: [], uv: [], alpha: m.transparent || m.opacity < 1 });
+        const G = groups.get(key);
+        for (let i = r.start; i < r.start + r.count; i += 3) {
+          const order = flip ? [0, 2, 1] : [0, 1, 2];
+          for (const q of order) {
+            v.fromBufferAttribute(P, i + q).applyMatrix4(o.matrixWorld);
+            G.pos.push(Math.round(v.x * 50), Math.round(v.y * 50), Math.round(v.z * 50));   // 2 cm units
+            if (U) G.uv.push(+U.getX(i + q).toFixed(4), +U.getY(i + q).toFixed(4)); else G.uv.push(0, 0);
+          }
+        }
+      }
+    });
+    const parts = [];
+    for (const G of groups.values()) {
+      const part = { pos: G.pos, color: G.m.color.getHex() };
+      if (G.tex) {
+        const img = G.tex.image, w = img.width, h = img.height, s = Math.min(1, maxTex / Math.max(w, h));
+        const cv = document.createElement('canvas'); cv.width = Math.max(4, Math.round(w * s)); cv.height = Math.max(4, Math.round(h * s));
+        const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0, cv.width, cv.height);
+        const px = cx.getImageData(0, 0, cv.width, cv.height).data; let clear = 0;
+        for (let i = 3; i < px.length; i += 4) if (px[i] < 128) clear++;
+        const transp = clear > px.length / 4 * 0.03;   // only textures with real see-through parts keep alpha
+        if (transp && Math.max(cv.width, cv.height) > 192) { const k = 192 / Math.max(cv.width, cv.height), c2 = document.createElement('canvas'); c2.width = Math.max(4, Math.round(cv.width * k)); c2.height = Math.max(4, Math.round(cv.height * k)); c2.getContext('2d').drawImage(cv, 0, 0, c2.width, c2.height); part.tex = c2.toDataURL('image/png'); }
+        else part.tex = transp ? cv.toDataURL('image/png') : cv.toDataURL('image/jpeg', 0.62);
+        part.alpha = transp; part.uv = G.uv; part.color = 0xffffff;
+        part.flipY = G.tex.flipY;
+      }
+      parts.push(part);
+    }
+    res({ parts, missing, tris: parts.reduce((a, p) => a + p.pos.length / 9, 0) });
+  }
+});
+</script>
