@@ -1,0 +1,549 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}[hidden]{display:none!important}</style>
+<title>病菌大進化</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="瘟疫公司（Plague Inc.）桌遊規則的網頁版：和電腦瘟疫比賽感染、進化、讓國家滅亡，拿最多 DNA。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&family=IBM+Plex+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: an outbreak-control monitor — rivals strip, world board of six continents (country cards with city slots), your plague panel, fixed phase bar at the bottom. Single dark lab theme. */
+:root {
+  color-scheme: dark;
+  --bg: #121417; --panel: #1b1f24; --panel2: #232930; --line: #343c46; --ink: #e9edf1; --muted: #93a0ad;
+  --acc: #e5484d;         /* outbreak red */
+  --dna: #4fd1c5;         /* DNA teal */
+  --hot: #ff9d4d; --cold: #7cc4ff; --ok: #6ee7a0;
+  --p0: #e5484d; --p1: #4f8cff; --p2: #3fbf6f; --p3: #f2c94c;
+  --f-ui: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --f-num: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-ui); -webkit-tap-highlight-color: transparent;
+  background-image: radial-gradient(90% 50% at 50% 0%, #1d232a, var(--bg) 70%); }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--dna); outline-offset: 2px; }
+.wrap { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px;
+  padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); padding-block: 12px 150px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+header h1 { margin: 0; font-size: 22px; font-weight: 900; letter-spacing: 0.08em; }
+header h1 span { color: var(--acc); }
+.ghost { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; font-size: 13px; }
+
+.rivals { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.pchip { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; display: grid; gap: 4px; min-width: 0; border-left: 5px solid var(--c); }
+.pchip.turn { box-shadow: 0 0 0 2px var(--c) inset; }
+.pchip .nm { font-weight: 700; font-size: 13px; display: flex; justify-content: space-between; gap: 6px; }
+.pchip .st { font-family: var(--f-num); font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.pchip .st b { color: var(--ink); }
+
+.board { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.cont { background: linear-gradient(180deg, #172433, #131c27); border: 1px solid #263547; border-radius: 14px; padding: 8px; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.cont h3 { margin: 0; font-size: 13px; display: flex; justify-content: space-between; color: #b9cde3; letter-spacing: 0.06em; }
+.cont h3 small { font-family: var(--f-num); color: var(--muted); font-weight: 500; }
+.ctry { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 7px; display: grid; gap: 5px; text-align: left; min-width: 0; width: 100%; }
+.ctry .top { display: flex; justify-content: space-between; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; }
+.ctry .tags { display: flex; gap: 3px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+.tag { padding: 0 4px; border-radius: 5px; background: var(--panel2); color: var(--muted); }
+.tag.hot { color: var(--hot); } .tag.cold { color: var(--cold); }
+.slots { display: flex; gap: 4px; flex-wrap: wrap; }
+.slot { width: 18px; height: 18px; border-radius: 50%; border: 2px dashed #4a5563; }
+.slot.f { border: 2px solid rgba(0,0,0,0.35); background: var(--c); }
+.ctry.ctl { border-color: var(--c); }
+.ctry.can { border-color: var(--ok); box-shadow: 0 0 0 2px rgba(110, 231, 160, 0.35); }
+.ctry.can:active { transform: scale(0.98); }
+.ctry .owner { font-size: 11px; color: var(--muted); }
+.empty { font-size: 12px; color: var(--muted); padding: 4px 2px; }
+
+.me { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px; display: grid; gap: 10px; }
+.me h2 { margin: 0; font-size: 15px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.stats { display: flex; flex-wrap: wrap; gap: 6px; }
+.stat { background: var(--panel2); border-radius: 10px; padding: 5px 9px; font-size: 12px; color: var(--muted); }
+.stat b { font-family: var(--f-num); font-size: 16px; color: var(--ink); margin-left: 4px; }
+.stat.dna b { color: var(--dna); }
+.row-label { font-size: 12px; color: var(--muted); letter-spacing: 0.06em; }
+.cards { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.card { flex: none; width: 112px; min-height: 120px; background: linear-gradient(180deg, #24303b, #1c242d); border: 1px solid var(--line); border-radius: 12px; padding: 8px; display: grid; grid-template-rows: auto 1fr auto; gap: 4px; text-align: left; }
+.card .cn { font-weight: 900; font-size: 14px; }
+.card .ce { font-size: 11px; color: var(--muted); line-height: 1.45; }
+.card .cc { display: flex; justify-content: space-between; font-family: var(--f-num); font-size: 12px; }
+.card .cc .cost { color: var(--dna); }
+.card.ev { background: linear-gradient(180deg, #3a2430, #2a1b23); }
+.card.sel { outline: 2px solid var(--dna); }
+.card.dim { opacity: 0.45; }
+.card.slotEmpty { border-style: dashed; display: grid; place-items: center; color: var(--muted); font-size: 12px; min-height: 120px; }
+
+.log { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 8px 10px; font-size: 12px; color: var(--muted); display: grid; gap: 3px; max-height: 150px; overflow-y: auto; }
+.log b { color: var(--ink); }
+
+.bar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(18, 20, 23, 0.96); border-top: 1px solid var(--line); z-index: 5;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); padding-top: 8px; padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); }
+.bar .in { max-width: 760px; margin: 0 auto; display: grid; gap: 6px; }
+.phases { display: flex; gap: 4px; }
+.phases span { flex: 1; text-align: center; font-size: 11px; padding: 3px 0; border-radius: 6px; background: var(--panel2); color: var(--muted); }
+.phases span.on { background: var(--acc); color: #fff; font-weight: 700; }
+.msg { font-size: 14px; line-height: 1.5; min-height: 21px; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { background: var(--acc); border: 0; border-radius: 12px; padding: 10px 16px; font-weight: 900; color: #fff; }
+.btn.alt { background: var(--panel2); border: 1px solid var(--line); color: var(--ink); font-weight: 700; }
+.btn[disabled] { opacity: 0.4; }
+
+.modal { position: fixed; inset: 0; background: rgba(5, 7, 9, 0.72); z-index: 10; display: grid; place-items: center; overflow-y: auto;
+  padding-block: calc(env(safe-area-inset-top, 0px) + 16px) calc(env(safe-area-inset-bottom, 0px) + 16px); padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px)); }
+.sheet { width: min(560px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 16px; display: grid; gap: 12px; }
+.sheet h2 { margin: 0; font-size: 20px; font-weight: 900; text-wrap: balance; }
+.sheet p { margin: 0; line-height: 1.7; font-size: 14px; color: #cfd6dd; }
+.sheet ol, .sheet ul { margin: 0; padding-left: 20px; line-height: 1.75; font-size: 14px; color: #cfd6dd; }
+.sheet b { color: var(--ink); }
+.choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.choice { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 10px; text-align: left; display: grid; gap: 4px; }
+.choice small { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.choice.no { opacity: 0.45; }
+.opts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.seg { display: flex; gap: 6px; }
+.seg button { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; }
+.seg button.on { background: var(--acc); border-color: var(--acc); color: #fff; font-weight: 700; }
+.die { font-family: var(--f-num); font-size: 40px; font-weight: 700; text-align: center; }
+.score { width: 100%; border-collapse: collapse; font-size: 14px; }
+.score th, .score td { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: right; font-variant-numeric: tabular-nums; }
+.score th:first-child, .score td:first-child { text-align: left; }
+.note { font-size: 12px !important; color: var(--muted) !important; }
+@media (max-width: 380px) { .board { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .ctry.can:active { transform: none; } }
+</style>
+
+<div class="wrap">
+  <header><h1>病菌<span>大進化</span></h1><div class="opts"><button class="ghost" id="rulesBtn" type="button">規則</button><button class="ghost" id="newBtn" type="button">重新開始</button></div></header>
+  <div class="rivals" id="rivals"></div>
+  <div class="board" id="board"></div>
+  <section class="me" id="me"></section>
+  <div class="log" id="log" aria-live="polite"></div>
+</div>
+
+<div class="bar"><div class="in">
+  <div class="phases" id="phases"><span>DNA</span><span>國家</span><span>進化</span><span>感染</span><span>死亡</span></div>
+  <div class="msg" id="msg"></div>
+  <div class="btns" id="btns"></div>
+</div></div>
+
+<div class="modal" id="modal" hidden><div class="sheet" id="sheet"></div></div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const rnd = n => Math.floor(Math.random() * n);
+  const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  // ---------- content (self-made cards, played with the Plague Inc. board game rules) ----------
+  const CONTS = [
+    { id: "na", name: "北美洲", cap: 4 }, { id: "sa", name: "南美洲", cap: 3 }, { id: "eu", name: "歐洲", cap: 5 },
+    { id: "af", name: "非洲", cap: 5 }, { id: "as", name: "亞洲", cap: 6 }, { id: "oc", name: "大洋洲", cap: 2 },
+  ];
+  // [name, continent, cities, climate (t temperate / h hot / c cold), airport, port]
+  const COUNTRIES = [
+    ["美國", "na", 4, "t", 1, 1], ["加拿大", "na", 3, "c", 1, 1], ["墨西哥", "na", 3, "h", 1, 1], ["古巴", "na", 2, "h", 0, 1], ["格陵蘭", "na", 2, "c", 0, 1],
+    ["巴西", "sa", 4, "h", 1, 1], ["阿根廷", "sa", 3, "t", 1, 1], ["秘魯", "sa", 2, "h", 0, 1], ["哥倫比亞", "sa", 3, "h", 1, 0], ["智利", "sa", 2, "t", 0, 1],
+    ["英國", "eu", 3, "t", 1, 1], ["法國", "eu", 3, "t", 1, 1], ["德國", "eu", 3, "t", 1, 0], ["義大利", "eu", 3, "t", 1, 1], ["俄羅斯", "eu", 4, "c", 1, 1], ["挪威", "eu", 2, "c", 0, 1], ["西班牙", "eu", 3, "t", 0, 1],
+    ["埃及", "af", 3, "h", 1, 1], ["奈及利亞", "af", 3, "h", 1, 1], ["南非", "af", 3, "t", 1, 1], ["肯亞", "af", 2, "h", 1, 0], ["摩洛哥", "af", 2, "h", 0, 1], ["剛果", "af", 2, "h", 0, 0],
+    ["中國", "as", 4, "t", 1, 1], ["印度", "as", 4, "h", 1, 1], ["日本", "as", 3, "t", 1, 1], ["台灣", "as", 2, "t", 1, 1], ["泰國", "as", 3, "h", 1, 1], ["沙烏地阿拉伯", "as", 2, "h", 1, 0], ["蒙古", "as", 2, "c", 0, 0], ["印尼", "as", 3, "h", 0, 1],
+    ["澳洲", "oc", 3, "t", 1, 1], ["紐西蘭", "oc", 2, "t", 0, 1], ["巴布亞紐幾內亞", "oc", 2, "h", 0, 1],
+    ["哈薩克", "as", 2, "c", 0, 0], ["波蘭", "eu", 2, "t", 0, 0], ["衣索比亞", "af", 2, "h", 0, 0],
+  ].map(([name, cont, cities, clim, air, port], i) => ({ id: i, name, cont, cities, clim, air: !!air, port: !!port }));
+  // trait cards: [key, name, cost, points, count, effect text]
+  const TRAITS = [
+    ["inf1", "飛沫傳染", 3, 1, 6, "感染力 +1"], ["inf2", "超級傳播", 6, 2, 3, "感染力 +2"],
+    ["let1", "器官衰竭", 3, 1, 5, "致死率 +1"], ["let2", "全身性休克", 6, 2, 3, "致死率 +2"],
+    ["heat", "耐熱", 4, 1, 4, "可以感染炎熱國家"], ["cold", "耐寒", 4, 1, 4, "可以感染寒冷國家"],
+    ["air", "空氣傳播", 5, 2, 4, "從有機場的國家跳到任何有機場的國家"], ["water", "水傳播", 4, 1, 4, "從有港口的國家跳到任何有港口的國家"],
+    ["resist", "抗藥性", 5, 2, 3, "死亡骰失敗時可以重擲一次"], ["latent", "潛伏期", 2, 0, 4, "每回合 DNA 階段多拿 1 DNA"],
+    ["mut", "基因重組", 4, 1, 3, "感染力 +1、致死率 +1"], ["clim", "環境適應", 7, 2, 2, "可以感染炎熱和寒冷國家"],
+  ];
+  const TRAIT = Object.fromEntries(TRAITS.map(([k, n, c, p, , e]) => [k, { key: k, name: n, cost: c, pts: p, eff: e }]));
+  const EVENTS = [
+    ["mutation", "突變", 3, "立刻得到 3 DNA"], ["flight", "跨國航班", 2, "這回合感染不需要相連，只看氣候"], ["crowd", "大型集會", 3, "這回合感染力 +2"],
+    ["collapse", "醫療崩潰", 2, "這回合每次死亡骰的成功點數 +2"], ["antiviral", "抗病毒藥物", 2, "移除一個國家裡某位對手最多 2 個標記"], ["leak", "實驗室外洩", 2, "立刻抽 2 張特性卡"],
+  ];
+  const EVENT = Object.fromEntries(EVENTS.map(([k, n, , e]) => [k, { key: k, name: n, eff: e }]));
+  const CLIM = { t: "溫和", h: "炎熱", c: "寒冷" };
+  const COLORS = ["var(--p0)", "var(--p1)", "var(--p2)", "var(--p3)"];
+  const NAMES = ["你的病菌", "紅潮病毒", "綠影真菌", "黃沙細菌"];
+  const PHASES = ["dna", "country", "evolve", "infect", "death"];
+  const HAND = 5, BOARD_SLOTS = 5, EV_LIMIT = 3, TURN_CAP = 120;
+
+  // ---------- state ----------
+  let S = null, busy = false, nPlayers = 3;
+  function newGame(n) {
+    nPlayers = n;
+    const tdeck = []; for (const [k, , , , cnt] of TRAITS) for (let i = 0; i < cnt; i++) tdeck.push(k);
+    const edeck = []; for (const [k, , cnt] of EVENTS) for (let i = 0; i < cnt; i++) edeck.push(k);
+    const cdeck = shuffle(COUNTRIES.map(c => c.id));
+    S = { players: [], board: Object.fromEntries(CONTS.map(c => [c.id, []])), cdeck, faceUp: [], tdeck: shuffle(tdeck), tdisc: [], edeck: shuffle(edeck),
+      cur: 0, phase: "dna", turn: 1, sudden: false, ended: false, log: [], flags: {}, infectLeft: 0, picked: null, pendingEnd: false };
+    for (let i = 0; i < n; i++) S.players.push({ i, name: NAMES[i], color: COLORS[i], human: i === 0, dna: 5, traits: [], hand: [], events: [], killed: [] });
+    // starting countries: temperate, one per player, in different continents where possible
+    const used = new Set();
+    for (const p of S.players) {
+      let pick = S.cdeck.find(id => COUNTRIES[id].clim === "t" && !used.has(COUNTRIES[id].cont) && S.board[COUNTRIES[id].cont].length < contCap(COUNTRIES[id].cont));
+      if (pick == null) pick = S.cdeck.find(id => COUNTRIES[id].clim === "t");
+      S.cdeck.splice(S.cdeck.indexOf(pick), 1); used.add(COUNTRIES[pick].cont);
+      const pc = place(pick); pc.slots[0] = p.i; pc.slots[1] = p.i;
+      for (let k = 0; k < HAND; k++) drawTrait(p);
+    }
+    refillFaceUp();
+    S.log = []; log(`遊戲開始：${n} 種瘟疫比賽，誰最後 DNA 最多誰贏。`);
+    render(); startTurn();
+  }
+  const contCap = id => CONTS.find(c => c.id === id).cap;
+  function place(id) { const c = COUNTRIES[id], pc = { id, c, slots: Array(c.cities).fill(null) }; S.board[c.cont].push(pc); return pc; }
+  function refillFaceUp() { while (S.faceUp.length < 3 && S.cdeck.length) S.faceUp.push(S.cdeck.shift()); if (!S.cdeck.length && !S.faceUp.length && !S.sudden) { S.sudden = true; log("<b>國家卡用完了，進入「突然死亡」</b>：有人的標記全部消失，或有人無法行動，遊戲就結束。"); } }
+  function drawTrait(p) { if (!S.tdeck.length) { S.tdeck = shuffle(S.tdisc); S.tdisc = []; } if (S.tdeck.length) p.hand.push(S.tdeck.shift()); }
+  function drawEvent(p) { if (!S.edeck.length) return; if (p.events.length >= EV_LIMIT) return; p.events.push({ key: S.edeck.shift(), got: S.turn }); }
+  const allPlaced = () => CONTS.flatMap(c => S.board[c.id]);
+  function stats(p) {
+    const has = k => p.traits.includes(k);
+    let inf = 2, let_ = 1;
+    for (const k of p.traits) { if (k === "inf1" || k === "mut") inf++; if (k === "inf2") inf += 2; if (k === "let1" || k === "mut") let_++; if (k === "let2") let_ += 2; }
+    return { inf, let: let_, heat: has("heat") || has("clim"), cold: has("cold") || has("clim"), air: has("air"), water: has("water"), resist: has("resist"), latent: p.traits.filter(k => k === "latent").length };
+  }
+  const tokensOf = p => allPlaced().reduce((a, pc) => a + pc.slots.filter(s => s === p.i).length, 0);
+  function controller(pc) {
+    const cnt = {}; for (const s of pc.slots) if (s != null) cnt[s] = (cnt[s] || 0) + 1;
+    let best = null, bv = 0, tie = false; for (const k in cnt) { if (cnt[k] > bv) { bv = cnt[k]; best = +k; tie = false; } else if (cnt[k] === bv) tie = true; }
+    return tie ? null : best;
+  }
+  const full = pc => pc.slots.every(s => s != null);
+  function climateOk(p, c) { const st = stats(p); return c.clim === "t" || (c.clim === "h" && st.heat) || (c.clim === "c" && st.cold); }
+  function reachable(p, pc) {
+    if (!climateOk(p, pc.c)) return false;
+    if (S.flags.anywhere && S.players[S.cur] === p) return true;
+    const mine = allPlaced().filter(q => q.slots.includes(p.i));
+    if (!mine.length) return true;   // a plague with no tokens left may start again anywhere it can live
+    if (pc.slots.includes(p.i)) return true;
+    if (mine.some(q => q.c.cont === pc.c.cont)) return true;
+    const st = stats(p);
+    if (st.air && pc.c.air && mine.some(q => q.c.air)) return true;
+    if (st.water && pc.c.port && mine.some(q => q.c.port)) return true;
+    return false;
+  }
+  const canInfect = (p, pc) => pc.slots.includes(null) && reachable(p, pc);
+  const anyInfect = p => allPlaced().some(pc => canInfect(p, pc));
+  const deathTargets = p => allPlaced().filter(pc => full(pc) && controller(pc) === p.i);
+
+  // ---------- log & render ----------
+  function log(t) { S.log.unshift(t); S.log = S.log.slice(0, 40); }
+  function render() {
+    const cur = S.players[S.cur];
+    $("rivals").innerHTML = S.players.map(p => { const st = stats(p); return `<div class="pchip ${p === cur && !S.ended ? "turn" : ""}" style="--c:${p.color}"><div class="nm"><span>${p.name}${p.human ? "（你）" : ""}</span><span style="color:var(--dna);font-family:var(--f-num)">${p.dna} DNA</span></div><div class="st"><span>標記 <b>${tokensOf(p)}</b></span><span>感染 <b>${st.inf}</b></span><span>致死 <b>${st.let}</b></span><span>滅亡 <b>${p.killed.length}</b></span></div></div>`; }).join("");
+    const me = S.players[0], myInfect = S.phase === "infect" && cur.human && S.infectLeft > 0 && !busy;
+    $("board").innerHTML = CONTS.map(ct => {
+      const list = S.board[ct.id];
+      return `<div class="cont"><h3>${ct.name}<small>${list.length}/${ct.cap}</small></h3>${list.map(pc => {
+        const ctl = controller(pc), can = myInfect && canInfect(me, pc);
+        const tags = `<span class="tag ${pc.c.clim === "h" ? "hot" : pc.c.clim === "c" ? "cold" : ""}">${CLIM[pc.c.clim]}</span>${pc.c.air ? '<span class="tag">✈</span>' : ""}${pc.c.port ? '<span class="tag">⚓</span>' : ""}`;
+        return `<button class="ctry ${ctl != null ? "ctl" : ""} ${can ? "can" : ""}" style="--c:${ctl != null ? S.players[ctl].color : "var(--line)"}" data-pc="${pc.id}" ${can ? "" : "tabindex=\"-1\""} type="button" aria-label="${pc.c.name}"><div class="top"><span>${pc.c.name}</span><span class="tags">${tags}</span></div><div class="slots">${pc.slots.map(s => `<i class="slot ${s != null ? "f" : ""}" style="${s != null ? `--c:${S.players[s].color}` : ""}"></i>`).join("")}</div><div class="owner">${ctl != null ? `${S.players[ctl].name}控制${full(pc) ? "・已滿" : ""}` : pc.slots.some(s => s != null) ? "勢均力敵" : "尚未感染"}</div></button>`;
+      }).join("") || '<div class="empty">還沒有國家</div>'}</div>`;
+    }).join("");
+    const st = stats(me);
+    const abil = [st.heat && "耐熱", st.cold && "耐寒", st.air && "空氣傳播", st.water && "水傳播", st.resist && "抗藥性", st.latent && `潛伏 ×${st.latent}`].filter(Boolean).join("、") || "還沒有";
+    const canEvolve = cur.human && S.phase === "evolve" && !busy;
+    $("me").innerHTML = `<h2><span style="color:var(--p0)">● ${me.name}</span><span class="stat dna">DNA<b>${me.dna}</b></span></h2>
+      <div class="stats"><span class="stat">感染力<b>${st.inf}</b></span><span class="stat">致死率<b>${st.let}</b></span><span class="stat">死亡骰成功<b>1–${Math.min(6, st.let + 1 + (S.flags.deathBonus && cur.human ? S.flags.deathBonus : 0))}</b></span><span class="stat">已滅亡國家<b>${me.killed.length}</b></span></div>
+      <div class="row-label">能力：${abil}</div>
+      <div class="row-label">進化板（${me.traits.length}/${BOARD_SLOTS}）</div>
+      <div class="cards">${me.traits.map(k => cardHtml(TRAIT[k], false)).join("")}${Array(BOARD_SLOTS - me.traits.length).fill('<div class="card slotEmpty">空位</div>').join("")}</div>
+      <div class="row-label">手上的特性卡 ${canEvolve ? "（點一張進化）" : ""}</div>
+      <div class="cards">${me.hand.map((k, i) => cardHtml(TRAIT[k], canEvolve, i, canEvolve && TRAIT[k].cost > me.dna)).join("") || '<span class="empty">沒有</span>'}</div>
+      <div class="row-label">事件卡（最多 ${EV_LIMIT} 張，拿到的那回合不能用）</div>
+      <div class="cards">${me.events.map((e, i) => { const usable = cur.human && !busy && S.phase !== "dna" && e.got !== S.turn; return `<button class="card ev ${usable ? "" : "dim"}" data-ev="${i}" type="button" ${usable ? "" : "disabled"}><div class="cn">${EVENT[e.key].name}</div><div class="ce">${EVENT[e.key].eff}</div><div class="cc"><span>${usable ? "點一下使用" : e.got === S.turn ? "下回合可用" : ""}</span></div></button>`; }).join("") || '<span class="empty">沒有</span>'}</div>`;
+    $("log").innerHTML = S.log.map(t => `<div>${t}</div>`).join("");
+    [...$("phases").children].forEach((el, i) => el.classList.toggle("on", PHASES[i] === S.phase && !S.ended));
+  }
+  function cardHtml(t, clickable, idx, dim) {
+    const tag = clickable ? "button" : "div";
+    return `<${tag} class="card ${dim ? "dim" : ""}" ${clickable ? `data-tr="${idx}" type="button"` : ""}><div class="cn">${t.name}</div><div class="ce">${t.eff}</div><div class="cc"><span class="cost">${t.cost} DNA</span><span>${t.pts} 分</span></div></${tag}>`;
+  }
+  function bar(msg, buttons = []) {
+    $("msg").innerHTML = msg;
+    $("btns").innerHTML = buttons.map((b, i) => `<button class="btn ${b.alt ? "alt" : ""}" data-b="${i}" type="button" ${b.disabled ? "disabled" : ""}>${b.label}</button>`).join("");
+    [...$("btns").children].forEach((el, i) => el.onclick = () => { if (!busy) buttons[i].on(); });
+  }
+  function modal(html, wire) { $("sheet").innerHTML = html; $("modal").hidden = false; if (wire) wire($("sheet")); }
+  const closeModal = () => { $("modal").hidden = true; };
+
+  // ---------- turn flow ----------
+  async function startTurn() {
+    if (S.ended) return;
+    const p = S.players[S.cur];
+    S.flags = {}; S.phase = "dna";
+    const st = stats(p), ctl = allPlaced().filter(pc => controller(pc) === p.i).length, gain = ctl + st.latent;
+    p.dna += gain;
+    log(`<b>${p.name}</b> 的回合：控制 ${ctl} 國${st.latent ? `、潛伏 ${st.latent}` : ""}，得到 ${gain} DNA。`);
+    render();
+    if (p.human) { await sleep(250); countryPhase(); } else { await sleep(500); aiTurn(p); }
+  }
+  function nextPhase(ph) { S.phase = ph; render(); }
+  // ----- human: country phase -----
+  function countryPhase() {
+    nextPhase("country");
+    if (!S.faceUp.length && !S.cdeck.length) { log("國家卡已經用完，跳過國家階段。"); return evolvePhase(); }
+    bar("國家階段：從 3 張翻開的國家卡或牌堆頂拿一張，放到地圖上，或棄掉它把手上的特性卡全部換新。", [{ label: "選國家卡", on: openCountryPick }]);
+    openCountryPick();
+  }
+  function openCountryPick() {
+    const me = S.players[0];
+    const cards = S.faceUp.map((id, i) => { const c = COUNTRIES[id], room = S.board[c.cont].length < contCap(c.cont); return `<button class="choice" data-fu="${i}" type="button"><b>${c.name}</b><small>${CONTS.find(x => x.id === c.cont).name}・${c.cities} 城・${CLIM[c.clim]}${c.air ? "・✈" : ""}${c.port ? "・⚓" : ""}<br>${room ? (climateOk(me, c) ? "你能感染" : `你還不能感染（要${c.clim === "h" ? "耐熱" : "耐寒"}）`) : "這洲已滿，只能棄掉"}</small></button>`; }).join("");
+    modal(`<h2>國家階段</h2><p>選一張國家卡。放到地圖上，所有瘟疫都能感染它；棄掉的話，你手上的 ${me.hand.length} 張特性卡會全部換成新的 ${HAND} 張。</p>
+      <div class="choices">${cards}${S.cdeck.length ? `<button class="choice" data-fu="deck" type="button"><b>牌堆頂（看不到）</b><small>剩 ${S.cdeck.length} 張</small></button>` : ""}</div>`, sh => {
+      sh.querySelectorAll("[data-fu]").forEach(b => b.onclick = () => { const v = b.dataset.fu; let id; if (v === "deck") id = S.cdeck.shift(); else { id = S.faceUp.splice(+v, 1)[0]; } S.picked = id; decideCountry(id); });
+    });
+  }
+  function decideCountry(id) {
+    const c = COUNTRIES[id], room = S.board[c.cont].length < contCap(c.cont);
+    modal(`<h2>${c.name}</h2><p>${CONTS.find(x => x.id === c.cont).name}・${c.cities} 個城市・${CLIM[c.clim]}${c.air ? "・有機場 ✈" : ""}${c.port ? "・有港口 ⚓" : ""}</p>
+      <div class="btns"><button class="btn" id="cPlace" type="button" ${room ? "" : "disabled"}>放到地圖上</button><button class="btn alt" id="cDisc" type="button">棄掉，換新特性卡</button></div>${room ? "" : '<p class="note">這洲已經滿了，只能棄掉。</p>'}`, sh => {
+      sh.querySelector("#cPlace").onclick = () => { closeModal(); place(id); log(`你把 <b>${c.name}</b> 放到${CONTS.find(x => x.id === c.cont).name}。`); refillFaceUp(); evolvePhase(); };
+      sh.querySelector("#cDisc").onclick = () => { closeModal(); discardCountry(S.players[0], id); refillFaceUp(); evolvePhase(); };
+    });
+  }
+  function discardCountry(p, id) {
+    S.tdisc.push(...p.hand); p.hand = []; for (let k = 0; k < HAND; k++) drawTrait(p);
+    log(`${p.human ? "你" : `<b>${p.name}</b>`}棄掉 ${COUNTRIES[id].name}，特性卡全部換新。`);
+  }
+  // ----- human: evolve -----
+  function evolvePhase() {
+    nextPhase("evolve");
+    bar("進化階段：點手上一張特性卡付 DNA 進化（每回合最多一張），或跳過。", [{ label: "不進化，去感染", alt: true, on: infectPhase }]);
+  }
+  function evolve(p, idx, replaceIdx) {
+    const k = p.hand[idx], t = TRAIT[k];
+    p.dna -= t.cost; p.hand.splice(idx, 1);
+    if (replaceIdx != null) { const old = p.traits.splice(replaceIdx, 1)[0]; S.tdisc.push(old); }
+    p.traits.push(k);
+    log(`${p.human ? "你" : `<b>${p.name}</b>`}進化了 <b>${t.name}</b>（${t.eff}）。`);
+  }
+  function tryEvolve(idx) {
+    const me = S.players[0], t = TRAIT[me.hand[idx]];
+    if (t.cost > me.dna) return bar(`DNA 不夠：<b>${t.name}</b> 要 ${t.cost} DNA，你只有 ${me.dna}。換一張，或跳過。`, [{ label: "不進化，去感染", alt: true, on: infectPhase }]);
+    if (me.traits.length < BOARD_SLOTS) { evolve(me, idx); return infectPhase(); }
+    modal(`<h2>進化板滿了</h2><p>選一張舊的特性卡換掉，換成 <b>${t.name}</b>。</p><div class="choices">${me.traits.map((k, i) => `<button class="choice" data-rp="${i}" type="button"><b>${TRAIT[k].name}</b><small>${TRAIT[k].eff}・${TRAIT[k].pts} 分</small></button>`).join("")}</div><button class="btn alt" id="rpNo" type="button">算了</button>`, sh => {
+      sh.querySelectorAll("[data-rp]").forEach(b => b.onclick = () => { closeModal(); evolve(me, idx, +b.dataset.rp); infectPhase(); });
+      sh.querySelector("#rpNo").onclick = closeModal;
+    });
+  }
+  // ----- human: infect -----
+  function infectPhase() {
+    const me = S.players[0];
+    nextPhase("infect");
+    S.infectLeft = stats(me).inf + (S.flags.infectBonus || 0);
+    if (S.sudden && !anyInfect(me) && !deathTargets(me).length) return endGame(`${me.name}無法放標記也不能擲死亡骰`);
+    infectPrompt();
+  }
+  function infectPrompt() {
+    const me = S.players[0];
+    if (S.infectLeft <= 0 || !anyInfect(me)) { S.infectLeft = 0; render(); return deathPhase(); }
+    render();
+    bar(`感染階段：還可以放 <b>${S.infectLeft}</b> 個標記，點地圖上發亮的國家。`, [{ label: "不放了，去死亡階段", alt: true, on: () => { S.infectLeft = 0; render(); deathPhase(); } }]);
+  }
+  function infectAt(p, pc) { const i = pc.slots.indexOf(null); pc.slots[i] = p.i; S.infectLeft--; }
+  // ----- human: death -----
+  function deathPhase() {
+    nextPhase("death");
+    const me = S.players[0], tg = deathTargets(me);
+    if (!tg.length) { bar("死亡階段：你沒有控制任何已經滿了的國家，不能擲死亡骰。", [{ label: "結束回合", on: endTurn }]); return; }
+    bar(`死亡階段：你控制 ${tg.length} 個滿了的國家，每個可以擲一次死亡骰（擲出 1–${Math.min(6, stats(me).let + 1 + (S.flags.deathBonus || 0))} 就滅亡）。`, [
+      { label: "全部擲骰", on: async () => { busy = true; for (const pc of tg) await rollDeath(me, pc); busy = false; render(); endTurnPrompt(); } },
+      { label: "不擲，結束回合", alt: true, on: endTurn }]);
+  }
+  function endTurnPrompt() { bar("死亡階段完成。", [{ label: "結束回合", on: endTurn }]); }
+  async function rollDeath(p, pc) {
+    const st = stats(p), need = Math.min(6, st.let + 1 + (S.flags.deathBonus || 0));
+    let r = 1 + rnd(6), ok = r <= need, txt = `${r}`;
+    if (!ok && st.resist) { const r2 = 1 + rnd(6); txt += ` → 重擲 ${r2}`; ok = r2 <= need; r = r2; }
+    if (p.human) { modal(`<h2>${pc.c.name}</h2><div class="die">🎲 ${txt}</div><p style="text-align:center">${ok ? `<b>滅亡了！</b>` : "撐過去了"}（擲出 1–${need} 才成功）</p>`); await sleep(1100); closeModal(); }
+    else await sleep(350);
+    if (!ok) { log(`${p.human ? "你" : `<b>${p.name}</b>`}對 ${pc.c.name} 擲死亡骰 ${txt}，失敗。`); return; }
+    // the country dies: tokens go home and score 1 DNA each for their owners
+    const back = {}; for (const s of pc.slots) back[s] = (back[s] || 0) + 1;
+    for (const k in back) S.players[k].dna += back[k];
+    const list = S.board[pc.c.cont]; list.splice(list.indexOf(pc), 1);
+    p.killed.push(pc.id); drawEvent(p);
+    log(`💀 <b>${pc.c.name}</b> 滅亡（${p.human ? "你" : p.name}擲出 ${txt}）。${Object.entries(back).map(([k, v]) => `${S.players[k].name} +${v}`).join("、")} DNA。`);
+    render();
+  }
+  async function endTurn() {
+    closeModal();
+    if (S.sudden && S.players.some(p => tokensOf(p) === 0)) return endGame(`${S.players.find(p => tokensOf(p) === 0).name}的標記全部消失了`);
+    if (S.turn >= TURN_CAP) return endGame("回合數到了上限");
+    S.cur = (S.cur + 1) % S.players.length; S.turn++;
+    render(); startTurn();
+  }
+
+  // ---------- events ----------
+  function useEvent(p, idx, target) {
+    const e = p.events.splice(idx, 1)[0], who = p.human ? "你" : `<b>${p.name}</b>`;
+    switch (e.key) {
+      case "mutation": p.dna += 3; break;
+      case "flight": S.flags.anywhere = true; break;
+      case "crowd": S.flags.infectBonus = (S.flags.infectBonus || 0) + 2; if (S.phase === "infect") S.infectLeft += 2; break;
+      case "collapse": S.flags.deathBonus = (S.flags.deathBonus || 0) + 2; break;
+      case "leak": drawTrait(p); drawTrait(p); break;
+      case "antiviral": if (target) { let n = 0; for (let i = target.pc.slots.length - 1; i >= 0 && n < 2; i--) if (target.pc.slots[i] === target.who) { target.pc.slots[i] = null; n++; } log(`${who}用 <b>抗病毒藥物</b> 移除了 ${S.players[target.who].name} 在 ${target.pc.c.name} 的 ${n} 個標記。`); render(); return; } break;
+    }
+    log(`${who}使用事件卡 <b>${EVENT[e.key].name}</b>：${EVENT[e.key].eff}。`);
+    render();
+  }
+  function humanEvent(idx) {
+    const me = S.players[0], e = me.events[idx];
+    if (e.key === "antiviral") {
+      const opts = []; for (const pc of allPlaced()) for (const p of S.players) if (p !== me && pc.slots.includes(p.i)) opts.push({ pc, who: p.i });
+      if (!opts.length) { log("現在沒有對手的標記可以移除。"); return resumePhase(); }
+      modal(`<h2>抗病毒藥物</h2><p>選一個國家和一位對手，移除他在那裡最多 2 個標記。</p><div class="choices">${opts.map((o, i) => `<button class="choice" data-av="${i}" type="button"><b>${o.pc.c.name}</b><small style="color:${S.players[o.who].color}">${S.players[o.who].name}：${o.pc.slots.filter(s => s === o.who).length} 個</small></button>`).join("")}</div><button class="btn alt" id="avNo" type="button">算了</button>`, sh => {
+        sh.querySelectorAll("[data-av]").forEach(b => b.onclick = () => { closeModal(); useEvent(me, idx, opts[+b.dataset.av]); resumePhase(); });
+        sh.querySelector("#avNo").onclick = closeModal;
+      });
+      return;
+    }
+    useEvent(me, idx); resumePhase();
+  }
+  function resumePhase() { if (S.phase === "infect") infectPrompt(); else if (S.phase === "evolve") evolvePhase(); else if (S.phase === "death") deathPhase(); else render(); }
+
+  // ---------- computer plagues ----------
+  async function aiTurn(p) {
+    busy = true;
+    // country phase: open a country it can use, otherwise refresh a weak hand
+    nextPhase("country"); await sleep(450);
+    if (S.faceUp.length || S.cdeck.length) {
+      const mineConts = new Set(allPlaced().filter(pc => pc.slots.includes(p.i)).map(pc => pc.c.cont));
+      const value = id => { const c = COUNTRIES[id]; if (S.board[c.cont].length >= contCap(c.cont)) return -1; let v = c.cities; if (climateOk(p, c)) v += 2; else v -= 4; if (mineConts.has(c.cont)) v += 3; return v; };
+      let bi = -1, bv = -1; S.faceUp.forEach((id, i) => { const v = value(id); if (v > bv) { bv = v; bi = i; } });
+      const handGood = p.hand.some(k => TRAIT[k].cost <= p.dna + 3);
+      if (bv >= 4 || (bi >= 0 && handGood)) { const id = S.faceUp.splice(bi, 1)[0]; place(id); log(`<b>${p.name}</b> 把 ${COUNTRIES[id].name} 放到地圖上。`); }
+      else { const id = S.faceUp.length ? S.faceUp.splice(rnd(S.faceUp.length), 1)[0] : S.cdeck.shift(); if (value(id) >= 3) { place(id); log(`<b>${p.name}</b> 把 ${COUNTRIES[id].name} 放到地圖上。`); } else discardCountry(p, id); }
+      refillFaceUp();
+    }
+    render(); await sleep(450);
+    // events that help right away
+    for (let i = p.events.length - 1; i >= 0; i--) { const e = p.events[i]; if (e.got === S.turn) continue; if (e.key === "mutation" || e.key === "leak") useEvent(p, i); }
+    // evolve: what does this plague need most?
+    nextPhase("evolve"); await sleep(400);
+    const st = stats(p), blocked = { h: 0, c: 0 };
+    for (const pc of allPlaced()) if (pc.slots.includes(null) && !climateOk(p, pc.c)) blocked[pc.c.clim]++;
+    const want = k => {
+      let v = TRAIT[k].pts;
+      if (k === "inf1" || k === "inf2" || k === "mut") v += st.inf < 5 ? 4 : 1;
+      if (k === "let1" || k === "let2" || k === "mut") v += st.let < 3 ? 3 : 1;
+      if (k === "heat" && !st.heat) v += blocked.h * 2; if (k === "cold" && !st.cold) v += blocked.c * 2;
+      if (k === "clim" && !(st.heat && st.cold)) v += (blocked.h + blocked.c) * 1.5;
+      if (k === "air" && !st.air) v += 3; if (k === "water" && !st.water) v += 2;
+      if (k === "resist" && !st.resist) v += 2; if (k === "latent") v += S.turn < 12 ? 3 : 0;
+      if (p.traits.includes(k) && ["heat", "cold", "air", "water", "resist", "clim"].includes(k)) v = -5;
+      return v;
+    };
+    let bi = -1, bv = 0;
+    p.hand.forEach((k, i) => { if (TRAIT[k].cost <= p.dna) { const v = want(k) / Math.sqrt(TRAIT[k].cost); if (v > bv) { bv = v; bi = i; } } });
+    if (bi >= 0) {
+      let rep = null;
+      if (p.traits.length >= BOARD_SLOTS) { let wv = Infinity; p.traits.forEach((k, i) => { const v = TRAIT[k].pts + (k === "latent" ? 0 : 1); if (v < wv) { wv = v; rep = i; } }); if (wv >= TRAIT[p.hand[bi]].pts + 1) rep = -1; }
+      if (rep !== -1) evolve(p, bi, rep);
+    }
+    render(); await sleep(400);
+    // infect
+    nextPhase("infect");
+    for (let i = p.events.length - 1; i >= 0; i--) { const e = p.events[i]; if (e.got === S.turn) continue; if (e.key === "crowd" || e.key === "flight") useEvent(p, i); else if (e.key === "antiviral") { const t = bestAntiviral(p); if (t) useEvent(p, i, t); } }
+    S.infectLeft = stats(p).inf + (S.flags.infectBonus || 0);
+    if (S.sudden && !anyInfect(p) && !deathTargets(p).length) { busy = false; return endGame(`${p.name}無法放標記也不能擲死亡骰`); }
+    let placed = 0;
+    while (S.infectLeft > 0) {
+      const cand = allPlaced().filter(pc => canInfect(p, pc)); if (!cand.length) break;
+      let best = null, bs = -Infinity;
+      for (const pc of cand) {
+        const mine = pc.slots.filter(s => s === p.i).length, ctl = controller(pc), free = pc.slots.filter(s => s == null).length;
+        const others = Math.max(0, ...S.players.filter(q => q !== p).map(q => pc.slots.filter(s => s === q.i).length));
+        let s = 1 + Math.random() * 0.5;
+        if (mine + 1 > others && ctl !== p.i) s += 5;           // take control
+        if (ctl === p.i && free === 1) s += 4;                    // fill a country it controls (ready to die)
+        if (ctl !== null && ctl !== p.i && free === 1) s -= 4;    // do not hand a rival a full country
+        if (ctl === p.i && mine - others >= 2) s -= 1.5;          // already safe here
+        s += (pc.c.cities - free) * 0.2;
+        if (s > bs) { bs = s; best = pc; }
+      }
+      infectAt(p, best); placed++;
+    }
+    log(`<b>${p.name}</b> 放了 ${placed} 個標記。`);
+    render(); await sleep(500);
+    // death
+    nextPhase("death");
+    for (let i = p.events.length - 1; i >= 0; i--) { const e = p.events[i]; if (e.got !== S.turn && e.key === "collapse" && deathTargets(p).length) useEvent(p, i); }
+    for (const pc of deathTargets(p)) await rollDeath(p, pc);
+    busy = false;
+    render(); await sleep(400);
+    endTurn();
+  }
+  function bestAntiviral(p) {
+    let best = null, bv = 0;
+    for (const pc of allPlaced()) for (const q of S.players) { if (q === p) continue; const n = pc.slots.filter(s => s === q.i).length; if (!n) continue; const v = (controller(pc) === q.i ? 3 : 0) + (full(pc) ? 2 : 0) + Math.min(2, n); if (v > bv) { bv = v; best = { pc, who: q.i }; } }
+    return bv >= 4 ? best : null;
+  }
+
+  // ---------- end ----------
+  function endGame(reason) {
+    if (S.ended) return; S.ended = true; busy = false;
+    const rows = S.players.map(p => { const tp = p.traits.reduce((a, k) => a + TRAIT[k].pts, 0); return { p, dna: p.dna, tp, total: p.dna + tp }; }).sort((a, b) => b.total - a.total);
+    log(`<b>遊戲結束</b>：${reason}。`);
+    render();
+    bar(`遊戲結束：${reason}。`, [{ label: "看結果", on: showResult }, { label: "再玩一局", alt: true, on: openSetup }]);
+    function showResult() {
+      modal(`<h2>${rows[0].p.human ? "你贏了！🧬" : `${rows[0].p.name}贏了`}</h2><p>${reason}。最終分數＝DNA＋進化板上特性卡的分數。</p>
+        <table class="score"><tr><th>瘟疫</th><th>DNA</th><th>特性分</th><th>總分</th></tr>${rows.map(r => `<tr><td style="color:${r.p.color}">${r.p.name}</td><td>${r.dna}</td><td>${r.tp}</td><td><b>${r.total}</b></td></tr>`).join("")}</table>
+        <div class="btns"><button class="btn" id="rAgain" type="button">再玩一局</button><button class="btn alt" id="rClose" type="button">看地圖</button></div>`, sh => { sh.querySelector("#rAgain").onclick = openSetup; sh.querySelector("#rClose").onclick = closeModal; });
+    }
+    showResult();
+  }
+
+  // ---------- setup & rules ----------
+  const RULES = `<h2>規則（依瘟疫公司桌遊）</h2>
+    <p>每個人扮演一種瘟疫，在世界地圖上感染國家、進化、讓國家滅亡，最後 <b>DNA 最多</b>的人贏。每個人的回合依序有 5 個階段：</p>
+    <ol>
+      <li><b>DNA</b>：你控制的每個國家給 1 DNA（標記最多的人控制那個國家，同數就沒人控制）。</li>
+      <li><b>國家</b>：從 3 張翻開的國家卡或牌堆頂拿一張，放到它所屬的洲（每洲有國家數上限），或棄掉它，把手上的特性卡全部換新。</li>
+      <li><b>進化</b>：付 DNA 把手上一張特性卡放到進化板（最多 ${BOARD_SLOTS} 張），每回合最多一張，也可以跳過。</li>
+      <li><b>感染</b>：放「感染力」那麼多個標記到國家的空城市。只能感染：你已經在的國家、和你的標記同一洲的國家，或用空氣傳播（機場 ✈）、水傳播（港口 ⚓）跨洲。炎熱國家要耐熱、寒冷國家要耐寒。</li>
+      <li><b>死亡</b>：你控制、而且城市全滿的國家，各擲一次死亡骰，擲出 1 到「致死率＋1」就滅亡。滅亡的國家拿走，每個標記回到主人手上，<b>每個標記給主人 1 DNA</b>；擲成功的人拿一張事件卡。</li>
+    </ol>
+    <p><b>事件卡</b>：手上最多 ${EV_LIMIT} 張，拿到的那回合不能用，之後在自己的回合隨時可以用。</p>
+    <p><b>結束</b>：國家卡全部用完後進入「突然死亡」。之後只要有人地圖上一個標記都沒有，那個回合結束後遊戲就結束；有人在自己回合既不能放標記也不能擲死亡骰，遊戲立刻結束。最終分數＝DNA＋進化板上特性卡的分數。</p>
+    <p class="note">網頁版說明：桌遊的回合流程、控制、死亡骰、滅亡給 DNA、事件卡限制和結束條件照規則做；國家卡、特性卡、事件卡的內容和數值是自製的。每回合進化一張、跨洲要靠機場或港口、標記全部消失可以重新開始、擲成功拿事件卡，這幾項是網頁版自訂的細節。</p>
+    <button class="btn" id="rulesOk" type="button">知道了</button>`;
+  function openRules() { modal(RULES, sh => sh.querySelector("#rulesOk").onclick = () => { closeModal(); if (!S) openSetup(); }); }
+  function openSetup() {
+    let n = nPlayers;
+    modal(`<h2>病菌大進化</h2><p>瘟疫公司（Plague Inc.）桌遊規則的網頁版。你和電腦瘟疫比賽感染世界、讓國家滅亡，最後 DNA 最多的人贏。</p>
+      <div class="opts"><span>對手數量</span><div class="seg" id="segN">${[1, 2, 3].map(k => `<button type="button" data-n="${k + 1}" class="${k + 1 === n ? "on" : ""}">${k} 個電腦</button>`).join("")}</div></div>
+      <div class="btns"><button class="btn" id="goBtn" type="button">開始感染</button><button class="btn alt" id="setRules" type="button">先看規則</button></div>
+      <p class="note">國家、特性、事件卡的內容是自製的，不是官方卡牌。</p>`, sh => {
+      sh.querySelectorAll("[data-n]").forEach(b => b.onclick = () => { n = +b.dataset.n; sh.querySelectorAll("[data-n]").forEach(x => x.classList.toggle("on", x === b)); });
+      sh.querySelector("#goBtn").onclick = () => { closeModal(); newGame(n); };
+      sh.querySelector("#setRules").onclick = openRules;
+    });
+  }
+
+  // ---------- clicks ----------
+  document.addEventListener("click", e => {
+    if (!S || busy || S.ended) return;
+    const cur = S.players[S.cur]; if (!cur.human) return;
+    const c = e.target.closest("[data-pc]");
+    if (c && S.phase === "infect" && S.infectLeft > 0) {
+      const pc = allPlaced().find(x => x.id === +c.dataset.pc);
+      if (pc && canInfect(cur, pc)) { infectAt(cur, pc); infectPrompt(); }
+      return;
+    }
+    const t = e.target.closest("[data-tr]"); if (t && S.phase === "evolve") return tryEvolve(+t.dataset.tr);
+    const ev = e.target.closest("[data-ev]"); if (ev) return humanEvent(+ev.dataset.ev);
+  });
+  $("rulesBtn").onclick = openRules;
+  $("newBtn").onclick = openSetup;
+  window.__plague = { S: () => S, newGame, aiTurn, stats, controller, endTurn };   // for automated tests
+  openSetup();
+})();
+</script>
+</html>
