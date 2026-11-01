@@ -1,0 +1,376 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>免疫力大作戰</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="當一顆白血球保護身體：吃掉病菌，撿起好習慣讓免疫力變強，避開熬夜和垃圾食物。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<style>
+/* Layout: one full-screen canvas inside a blood vessel (flowing top to bottom), status chips on top, wave tip cards as overlays */
+:root {
+  --vessel: #6b1d2a;      /* deep vessel wall */
+  --plasma: #b8414f;      /* blood plasma */
+  --cell: #fff8f0;        /* white blood cell */
+  --good: #7fd37a;        /* healthy habit */
+  --bad: #ffb44c;         /* unhealthy habit */
+  --germ: #9be564;
+  --ink: #fff6ee;
+  --panel: #3b1220;
+  --f-display: "Zen Maru Gothic", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var(--f-display); overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+.hud { position: fixed; left: 0; right: 0; top: 0; display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; pointer-events: none; align-items: start;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 10px); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.chip { background: rgba(59, 18, 32, 0.85); border: 2px solid rgba(255, 246, 238, 0.25); border-radius: 14px; padding: 6px 10px; display: grid; gap: 4px; min-width: 0; }
+.chip small { font-size: 11px; opacity: 0.85; letter-spacing: 0.06em; display: flex; justify-content: space-between; gap: 6px; }
+.chip b { font-size: 20px; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+.bar { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.15); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 100%; transform-origin: left; transition: transform 0.2s; }
+#hpBar i { background: linear-gradient(90deg, #ff6b7a, #ffb3a7); }
+#imBar i { background: linear-gradient(90deg, #66c2ff, var(--good)); }
+.buffs { position: fixed; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + 70px); display: flex; justify-content: center; gap: 6px; pointer-events: none; flex-wrap: wrap; padding-inline: 16px; }
+.buff { font-size: 12px; background: rgba(59, 18, 32, 0.8); border-radius: 10px; padding: 3px 8px; border: 1px solid rgba(255, 255, 255, 0.25); }
+
+.screen { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(40, 8, 18, 0.72); overflow-y: auto;
+  padding-block: calc(env(safe-area-inset-top, 0px) + 16px) calc(env(safe-area-inset-bottom, 0px) + 16px); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.card { width: min(440px, 100%); background: var(--panel); border: 2px solid rgba(255, 246, 238, 0.25); border-radius: 22px; padding: 22px 20px; display: grid; gap: 12px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); }
+.card h1 { margin: 0; font-size: clamp(36px, 10vw, 50px); font-weight: 900; letter-spacing: 0.06em; text-align: center; line-height: 1.1; text-wrap: balance; color: var(--cell); }
+.card h2 { margin: 0; font-size: 24px; font-weight: 900; text-align: center; text-wrap: balance; }
+.card .tag { margin: 0; text-align: center; font-size: 12px; letter-spacing: 0.25em; opacity: 0.75; }
+.card p { margin: 0; font-size: 14px; line-height: 1.75; }
+.legend { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; font-size: 13px; }
+.legend span { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.legend i { flex: none; width: 14px; height: 14px; border-radius: 50%; }
+.g { background: var(--good); } .b { background: var(--bad); } .v { background: var(--germ); }
+.btn { font: 900 20px var(--f-display); letter-spacing: 0.1em; color: #3b1220; background: var(--cell); border: 0; border-radius: 16px; padding: 12px 30px; cursor: pointer; justify-self: center; box-shadow: 0 4px 0 #d9c2b0; }
+.btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #d9c2b0; }
+.btn:focus-visible { outline: 3px solid var(--good); outline-offset: 3px; }
+.tip { background: rgba(255, 255, 255, 0.06); border-radius: 14px; padding: 12px 14px; border-left: 4px solid var(--good); }
+.tip b { color: var(--good); }
+.note { font-size: 12px !important; opacity: 0.7; text-align: center; }
+.result { display: flex; justify-content: center; gap: 24px; text-align: center; }
+.result small { display: block; font-size: 12px; opacity: 0.8; }
+.result b { font-size: 38px; font-weight: 900; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .btn:active { transform: none; } }
+</style>
+
+<canvas id="game" aria-label="血管裡的白血球和病菌"></canvas>
+<div class="hud">
+  <div class="chip"><small><span>身體健康</span><span id="hpNum">100</span></small><div class="bar" id="hpBar"><i></i></div></div>
+  <div class="chip"><small><span>免疫力</span><span id="imNum">40</span></small><div class="bar" id="imBar"><i></i></div></div>
+  <div class="chip"><small><span>第 <span id="wave">1</span>/5 波</span><span>得分</span></small><b id="score">0</b></div>
+</div>
+<div class="buffs" id="buffs"></div>
+
+<div class="screen" id="startScreen">
+  <div class="card">
+    <p class="tag">WHITE BLOOD CELL ON DUTY</p>
+    <h1>免疫力大作戰</h1>
+    <p>你是一顆白血球。用手指拖曳（電腦用方向鍵）移動，碰到病菌就把它吃掉。病菌溜到最下面，身體健康就會下降。</p>
+    <div class="legend">
+      <span><i class="g"></i>蔬果：免疫力上升</span>
+      <span><i class="g"></i>睡飽：恢復健康</span>
+      <span><i class="g"></i>運動：移動變快</span>
+      <span><i class="g"></i>洗手：暫時沒有新病菌</span>
+      <span><i class="g"></i>疫苗：抗體自動攻擊</span>
+      <span><i class="b"></i>熬夜、含糖飲料、垃圾食物：免疫力下降</span>
+    </div>
+    <p>免疫力越高，白血球越大、越有力，到 60 會有輔助 T 細胞來幫忙。撐過 5 波就贏了。</p>
+    <button class="btn" id="startBtn" type="button">出動！</button>
+    <p class="note">這是遊戲，玩它不會讓免疫力變強；裡面的小知識是一般健康建議，身體不舒服請看醫生。</p>
+    <p class="note" id="bestLine"></p>
+  </div>
+</div>
+
+<div class="screen" id="tipScreen" hidden>
+  <div class="card">
+    <p class="tag" id="tipTag">第 1 波完成</p>
+    <h2 id="tipTitle">好習慣小知識</h2>
+    <div class="tip"><p id="tipText"></p></div>
+    <button class="btn" id="nextBtn" type="button">下一波</button>
+  </div>
+</div>
+
+<div class="screen" id="overScreen" hidden>
+  <div class="card">
+    <p class="tag" id="overTag">GAME OVER</p>
+    <h2 id="overTitle">身體被病菌打敗了</h2>
+    <div class="result"><div><small>得分</small><b id="resScore">0</b></div><div><small>最高紀錄</small><b id="resBest">0</b></div></div>
+    <p id="overText" style="text-align:center"></p>
+    <button class="btn" id="againBtn" type="button">再玩一次</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $("game"), g = cv.getContext("2d");
+  const W = 400; let H = 700, scale = 1, dpr = 1;
+  const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
+  const TIPS = [
+    ["洗手", "用肥皂和清水搓洗<b>至少 20 秒</b>，手心、手背、指縫、指尖和手腕都要洗到。飯前、上完廁所、從外面回家都要洗。"],
+    ["睡眠", "睡飽對免疫系統很重要。一般建議 <b>6 到 12 歲每天睡 9 到 12 小時</b>，青少年 8 到 10 小時，成人至少 7 小時。"],
+    ["蔬果", "每天吃多種顏色的蔬菜和水果，台灣衛福部建議成人<b>每天至少 3 份蔬菜、2 份水果</b>，少喝含糖飲料。"],
+    ["運動", "規律運動對身體好。成人建議<b>每週至少 150 分鐘</b>中等強度運動，兒童和青少年每天累積 60 分鐘活動。"],
+    ["疫苗", "疫苗讓免疫系統<b>先認得病菌的樣子</b>，真的遇到時就能更快反應。記得按照醫師建議按時接種。"],
+  ];
+  const ITEMS = {
+    veg:    { label: "蔬果", good: true,  color: "#7fd37a" },
+    sleep:  { label: "睡飽", good: true,  color: "#8fb7ff" },
+    sport:  { label: "運動", good: true,  color: "#ffd166" },
+    wash:   { label: "洗手", good: true,  color: "#7fe0e0" },
+    vax:    { label: "疫苗", good: true,  color: "#d6a6ff" },
+    late:   { label: "熬夜", good: false, color: "#ff9f6b" },
+    sugar:  { label: "含糖飲料", good: false, color: "#ff9f6b" },
+    junk:   { label: "垃圾食物", good: false, color: "#ff9f6b" },
+  };
+
+  // ---------- sound ----------
+  let ac = null;
+  const audio = () => { if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (ac && ac.state === "suspended") ac.resume(); return ac; };
+  function tone(f0, f1, dur, vol, type = "sine") {
+    const a = audio(); if (!a) return;
+    const o = a.createOscillator(), gn = a.createGain(); o.type = type;
+    o.frequency.setValueAtTime(f0, a.currentTime); o.frequency.exponentialRampToValueAtTime(f1, a.currentTime + dur);
+    gn.gain.setValueAtTime(vol, a.currentTime); gn.gain.exponentialRampToValueAtTime(0.001, a.currentTime + dur);
+    o.connect(gn); gn.connect(a.destination); o.start(); o.stop(a.currentTime + dur);
+  }
+  const sfx = { eat: () => tone(420, 820, 0.08, 0.08, "triangle"), good: () => { tone(660, 990, 0.12, 0.07, "triangle"); setTimeout(() => tone(990, 1320, 0.12, 0.06, "triangle"), 90); },
+    bad: () => tone(300, 140, 0.25, 0.08, "sawtooth"), hurt: () => tone(180, 90, 0.2, 0.09, "square"), zap: () => tone(1500, 700, 0.06, 0.03, "square"), wave: () => [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, f, 0.18, 0.07, "triangle"), i * 110)) };
+
+  // ---------- state ----------
+  let running = false, wave = 1, waveT = 0, score = 0, hp = 100, im = 40;
+  let germs = [], items = [], shots = [], rbcs = [], pops = [], helpers = [];
+  const cell = { x: W / 2, y: 0, tx: W / 2, ty: 0, wob: 0 };
+  const buff = { sport: 0, wash: 0, vax: 0 };
+  const keys = {};
+  const WAVE_LEN = 40;
+
+  function resize() {
+    dpr = Math.min(2, devicePixelRatio || 1);
+    cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr);
+    scale = cv.width / W; H = cv.height / scale;
+    if (!cell.y) { cell.y = cell.ty = H * 0.72; }
+    rbcs = []; for (let i = 0; i < 26; i++) rbcs.push({ x: Math.random() * W, y: Math.random() * H, r: 10 + Math.random() * 8, a: Math.random() * 6, v: 30 + Math.random() * 40 });
+  }
+  const cellR = () => 14 + im * 0.12;
+  const speed = () => (170 + im * 0.9) * (buff.sport > 0 ? 1.5 : 1);
+
+  function reset() {
+    wave = 1; waveT = 0; score = 0; hp = 100; im = 40; germs = []; items = []; shots = []; pops = []; helpers = [];
+    buff.sport = buff.wash = buff.vax = 0; cell.x = cell.tx = W / 2; cell.y = cell.ty = H * 0.72;
+    hud();
+  }
+
+  // ---------- spawning ----------
+  let germT = 0, itemT = 2;
+  function spawnGerm() {
+    const boss = wave === 5 && !germs.some(q => q.boss) && waveT > 8;
+    const kind = boss ? "flu" : Math.random() < 0.55 ? "virus" : "bact";
+    const base = { virus: { r: 9, hp: 1, v: 38, pts: 10 }, bact: { r: 13, hp: 2, v: 26, pts: 20 }, flu: { r: 30, hp: 14, v: 12, pts: 150 } }[kind];
+    germs.push({ kind, boss, x: 20 + Math.random() * (W - 40), y: -base.r - 10, r: base.r, hp: base.hp + (kind !== "flu" ? Math.floor((wave - 1) / 2) * (kind === "bact" ? 1 : 0) : 0), maxHp: 0, v: base.v * (1 + (wave - 1) * 0.12) * (0.8 + Math.random() * 0.4), pts: base.pts, t: Math.random() * 6, hitT: 0 });
+    germs[germs.length - 1].maxHp = germs[germs.length - 1].hp;
+  }
+  function spawnItem() {
+    const goodRate = 0.62;
+    const goods = ["veg", "veg", "sleep", "sport", "wash", "vax"], bads = ["late", "sugar", "junk"];
+    const kind = Math.random() < goodRate ? goods[Math.floor(Math.random() * goods.length)] : bads[Math.floor(Math.random() * bads.length)];
+    items.push({ kind, x: 30 + Math.random() * (W - 60), y: -20, v: 45 + Math.random() * 20, t: Math.random() * 6 });
+  }
+
+  // ---------- update ----------
+  function pop(x, y, text, color) { pops.push({ x, y, text, color, t: 1 }); }
+  function update(dt) {
+    waveT += dt;
+    // move the white blood cell toward the finger / keys
+    if (keys.left || keys.right || keys.up || keys.down) { cell.tx = cell.x + ((keys.right ? 1 : 0) - (keys.left ? 1 : 0)) * 60; cell.ty = cell.y + ((keys.down ? 1 : 0) - (keys.up ? 1 : 0)) * 60; }
+    const dx = cell.tx - cell.x, dy = cell.ty - cell.y, d = Math.hypot(dx, dy), step = Math.min(d, speed() * dt);
+    if (d > 0.5) { cell.x += dx / d * step; cell.y += dy / d * step; }
+    const R = cellR(); cell.x = Math.max(R, Math.min(W - R, cell.x)); cell.y = Math.max(110, Math.min(H - R - 10, cell.y)); cell.wob += dt * (2 + step);
+    for (const k in buff) buff[k] = Math.max(0, buff[k] - dt);
+    // spawn germs (handwashing pauses new ones) and habits
+    germT -= dt;
+    const rate = Math.max(0.35, 1.25 - wave * 0.16);
+    if (germT <= 0 && waveT < WAVE_LEN) { germT = rate * (0.6 + Math.random() * 0.8); if (buff.wash <= 0) spawnGerm(); }
+    itemT -= dt; if (itemT <= 0 && waveT < WAVE_LEN) { itemT = 2.2 + Math.random() * 1.6; spawnItem(); }
+    // helpers: T cells at immunity 60+ (one more at 85+)
+    const want = im >= 85 ? 2 : im >= 60 ? 1 : 0;
+    while (helpers.length < want) helpers.push({ a: helpers.length * Math.PI, cd: 0 });
+    while (helpers.length > want) helpers.pop();
+    for (const h of helpers) {
+      h.a += dt * 2.2; h.cd -= dt; h.x = cell.x + Math.cos(h.a) * (R + 22); h.y = cell.y + Math.sin(h.a) * (R + 22);
+      if (h.cd <= 0) { const tgt = nearest(h.x, h.y, 170); if (tgt) { shots.push({ x: h.x, y: h.y, tgt, v: 360, dmg: 1, color: "#9fd3ff" }); h.cd = 0.9; sfx.zap(); } }
+    }
+    // vaccine: antibodies fly out from the cell
+    if (buff.vax > 0) { cell.ab = (cell.ab || 0) - dt; if (cell.ab <= 0) { const tgt = nearest(cell.x, cell.y, 260); if (tgt) { shots.push({ x: cell.x, y: cell.y, tgt, v: 300, dmg: 1, color: "#e3c2ff", y_: true }); cell.ab = 0.35; } } }
+    for (const s of shots) {
+      if (!germs.includes(s.tgt)) { s.dead = true; continue; }
+      const ex = s.tgt.x - s.x, ey = s.tgt.y - s.y, dd = Math.hypot(ex, ey);
+      if (dd < s.tgt.r) { s.dead = true; damage(s.tgt, s.dmg); continue; }
+      s.x += ex / dd * s.v * dt; s.y += ey / dd * s.v * dt;
+    }
+    shots = shots.filter(s => !s.dead);
+    // germs drift down; eaten on contact; ones that reach the bottom hurt the body
+    for (const q of germs) {
+      q.t += dt; q.hitT = Math.max(0, q.hitT - dt);
+      q.y += q.v * dt; q.x += Math.sin(q.t * 1.7) * 18 * dt;
+      if (Math.hypot(q.x - cell.x, q.y - cell.y) < R + q.r * 0.8 && q.hitT <= 0) { damage(q, q.boss ? 2 : 2 + Math.floor(im / 50)); q.hitT = 0.25; if (q.boss && q.hp > 0) { const a = Math.atan2(cell.y - q.y, cell.x - q.x); cell.x += Math.cos(a) * 14; cell.y += Math.sin(a) * 14; } }
+      if (q.y - q.r > H) { q.dead = true; const dmg = q.boss ? 30 : q.kind === "bact" ? 8 : 5; hp -= dmg; sfx.hurt(); pop(q.x, H - 30, `健康 -${dmg}`, "#ff8a8a"); im = Math.max(0, im - 2); }
+    }
+    germs = germs.filter(q => !q.dead);
+    for (const it of items) {
+      it.t += dt; it.y += it.v * dt; it.x += Math.sin(it.t * 2) * 10 * dt;
+      if (Math.hypot(it.x - cell.x, it.y - cell.y) < R + 16) { it.dead = true; collect(it); }
+      if (it.y > H + 30) it.dead = true;
+    }
+    items = items.filter(i => !i.dead);
+    for (const r of rbcs) { r.y += r.v * dt; r.a += dt * 0.5; if (r.y - r.r > H) { r.y = -r.r; r.x = Math.random() * W; } }
+    for (const p of pops) { p.t -= dt * 0.9; p.y -= 26 * dt; } pops = pops.filter(p => p.t > 0);
+    if (hp <= 0) { hp = 0; return gameOver(false); }
+    if (waveT >= WAVE_LEN && germs.length === 0) return waveDone();
+    hud();
+  }
+  function nearest(x, y, range) { let best = null, bd = range; for (const q of germs) { const d = Math.hypot(q.x - x, q.y - y); if (d < bd) { bd = d; best = q; } } return best; }
+  function damage(q, n) {
+    q.hp -= n;
+    if (q.hp <= 0 && !q.dead) { q.dead = true; score += q.pts; sfx.eat(); pop(q.x, q.y, `+${q.pts}`, "#fff6ee"); if (q.boss) { pop(q.x, q.y - 24, "打敗流感病毒！", "#9be564"); im = Math.min(100, im + 15); } }
+  }
+  function collect(it) {
+    const I = ITEMS[it.kind];
+    if (I.good) sfx.good(); else sfx.bad();
+    switch (it.kind) {
+      case "veg": im = Math.min(100, im + 12); pop(it.x, it.y, "免疫力 +12", "#7fd37a"); break;
+      case "sleep": hp = Math.min(100, hp + 15); im = Math.min(100, im + 5); pop(it.x, it.y, "健康 +15", "#8fb7ff"); break;
+      case "sport": buff.sport = 8; im = Math.min(100, im + 5); pop(it.x, it.y, "移動變快 8 秒", "#ffd166"); break;
+      case "wash": buff.wash = 6; pop(it.x, it.y, "6 秒內沒有新病菌", "#7fe0e0"); break;
+      case "vax": buff.vax = 10; im = Math.min(100, im + 8); pop(it.x, it.y, "抗體出動 10 秒", "#d6a6ff"); break;
+      default: im = Math.max(0, im - 15); pop(it.x, it.y, `${I.label}：免疫力 -15`, "#ffb44c");
+    }
+    score += I.good ? 5 : 0;
+    hud();
+  }
+
+  // ---------- draw ----------
+  function draw() {
+    g.setTransform(scale, 0, 0, scale, 0, 0);
+    const bg = g.createLinearGradient(0, 0, W, 0); bg.addColorStop(0, "#5b1622"); bg.addColorStop(0.18, "#b8414f"); bg.addColorStop(0.82, "#b8414f"); bg.addColorStop(1, "#5b1622");
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    // red blood cells flowing past
+    for (const r of rbcs) {
+      g.save(); g.translate(r.x, r.y); g.rotate(r.a); g.scale(1, 0.62);
+      g.fillStyle = "rgba(214, 62, 72, 0.75)"; g.beginPath(); g.arc(0, 0, r.r, 0, 7); g.fill();
+      g.fillStyle = "rgba(150, 30, 45, 0.6)"; g.beginPath(); g.arc(0, 0, r.r * 0.45, 0, 7); g.fill(); g.restore();
+    }
+    // the body tissue at the bottom that the germs must not reach
+    const tg = g.createLinearGradient(0, H - 40, 0, H); tg.addColorStop(0, "rgba(255, 200, 190, 0)"); tg.addColorStop(1, "rgba(255, 200, 190, 0.35)");
+    g.fillStyle = tg; g.fillRect(0, H - 40, W, 40);
+    for (const it of items) drawItem(it);
+    for (const q of germs) drawGerm(q);
+    for (const s of shots) { g.strokeStyle = s.color; g.lineWidth = 2.5; g.beginPath(); g.moveTo(s.x - 4, s.y - 4); g.lineTo(s.x, s.y); g.lineTo(s.x + 4, s.y - 4); g.moveTo(s.x, s.y); g.lineTo(s.x, s.y + 6); g.stroke(); }
+    for (const h of helpers) { g.fillStyle = "#9fd3ff"; g.beginPath(); g.arc(h.x, h.y, 8, 0, 7); g.fill(); g.fillStyle = "#1e3a5f"; g.font = "900 9px sans-serif"; g.textAlign = "center"; g.fillText("T", h.x, h.y + 3); }
+    drawCell();
+    for (const p of pops) { g.globalAlpha = Math.min(1, p.t * 1.6); g.font = `900 14px ${getComputedStyle(document.body).fontFamily}`; g.textAlign = "center"; g.lineWidth = 3; g.strokeStyle = "rgba(40,8,18,0.8)"; g.strokeText(p.text, p.x, p.y); g.fillStyle = p.color; g.fillText(p.text, p.x, p.y); }
+    g.globalAlpha = 1;
+  }
+  function drawCell() {
+    const R = cellR(), x = cell.x, y = cell.y;
+    if (buff.sport > 0) { g.strokeStyle = "rgba(255, 209, 102, 0.7)"; g.lineWidth = 3; g.beginPath(); g.arc(x, y, R + 6, 0, 7); g.stroke(); }
+    if (buff.vax > 0) { g.strokeStyle = "rgba(214, 166, 255, 0.8)"; g.setLineDash([3, 4]); g.lineWidth = 2; g.beginPath(); g.arc(x, y, R + 10, 0, 7); g.stroke(); g.setLineDash([]); }
+    g.fillStyle = "rgba(255, 248, 240, 0.95)"; g.beginPath();
+    for (let i = 0; i <= 24; i++) { const a = i / 24 * Math.PI * 2, rr = R * (1 + 0.08 * Math.sin(a * 5 + cell.wob)); g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
+    g.fill();
+    g.fillStyle = "rgba(190, 160, 220, 0.55)"; g.beginPath(); g.ellipse(x + R * 0.25, y + R * 0.2, R * 0.38, R * 0.28, 0.6, 0, 7); g.fill();
+    // a determined little face
+    g.fillStyle = "#3b1220"; g.beginPath(); g.arc(x - R * 0.3, y - R * 0.15, R * 0.11, 0, 7); g.arc(x + R * 0.3, y - R * 0.15, R * 0.11, 0, 7); g.fill();
+    g.strokeStyle = "#3b1220"; g.lineWidth = 2; g.beginPath(); g.arc(x, y + R * 0.08, R * 0.25, 0.15 * Math.PI, 0.85 * Math.PI); g.stroke();
+  }
+  function drawGerm(q) {
+    g.save(); g.translate(q.x, q.y); g.rotate(q.t * (q.kind === "virus" ? 1.2 : 0.3));
+    const flash = q.hitT > 0;
+    if (q.kind === "bact") {
+      g.fillStyle = flash ? "#ffffff" : "#b07ae0"; g.beginPath(); g.ellipse(0, 0, q.r * 1.3, q.r * 0.7, 0, 0, 7); g.fill();
+      g.strokeStyle = "#7b4fb0"; g.lineWidth = 1.5; for (let i = -2; i <= 2; i++) { g.beginPath(); g.moveTo(i * 4, -q.r * 0.7); g.lineTo(i * 4 + 2, -q.r * 1.1); g.stroke(); }
+    } else {
+      const spikes = q.kind === "flu" ? 16 : 9;
+      g.strokeStyle = flash ? "#ffffff" : q.kind === "flu" ? "#ff7a59" : "#79c94a"; g.lineWidth = q.kind === "flu" ? 3 : 2;
+      for (let i = 0; i < spikes; i++) { const a = i / spikes * Math.PI * 2; g.beginPath(); g.moveTo(Math.cos(a) * q.r * 0.8, Math.sin(a) * q.r * 0.8); g.lineTo(Math.cos(a) * q.r * 1.25, Math.sin(a) * q.r * 1.25); g.stroke(); g.fillStyle = g.strokeStyle; g.beginPath(); g.arc(Math.cos(a) * q.r * 1.3, Math.sin(a) * q.r * 1.3, q.kind === "flu" ? 3 : 2, 0, 7); g.fill(); }
+      g.fillStyle = flash ? "#ffffff" : q.kind === "flu" ? "#e0503a" : "#9be564"; g.beginPath(); g.arc(0, 0, q.r * 0.85, 0, 7); g.fill();
+    }
+    g.rotate(-q.t * (q.kind === "virus" ? 1.2 : 0.3));
+    g.fillStyle = "#2a1630"; g.beginPath(); g.arc(-q.r * 0.3, -q.r * 0.1, q.r * 0.12, 0, 7); g.arc(q.r * 0.3, -q.r * 0.1, q.r * 0.12, 0, 7); g.fill();
+    g.strokeStyle = "#2a1630"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-q.r * 0.5, -q.r * 0.35); g.lineTo(-q.r * 0.15, -q.r * 0.25); g.moveTo(q.r * 0.5, -q.r * 0.35); g.lineTo(q.r * 0.15, -q.r * 0.25); g.stroke();
+    g.restore();
+    if (q.maxHp > 1) { const w = q.r * 2; g.fillStyle = "rgba(0,0,0,0.4)"; g.fillRect(q.x - w / 2, q.y - q.r - 10, w, 4); g.fillStyle = "#9be564"; g.fillRect(q.x - w / 2, q.y - q.r - 10, w * Math.max(0, q.hp) / q.maxHp, 4); }
+    if (q.boss) { g.font = `900 12px ${getComputedStyle(document.body).fontFamily}`; g.textAlign = "center"; g.fillStyle = "#fff"; g.fillText("流感病毒", q.x, q.y - q.r - 14); }
+  }
+  function drawItem(it) {
+    const I = ITEMS[it.kind];
+    g.font = `900 13px ${getComputedStyle(document.body).fontFamily}`;
+    const w = Math.max(44, g.measureText(I.label).width + 20), h = 28, x = it.x - w / 2, y = it.y - h / 2;
+    g.fillStyle = "rgba(40,8,18,0.35)"; roundRect(x + 2, y + 3, w, h, 14); g.fill();
+    g.fillStyle = I.color; roundRect(x, y, w, h, 14); g.fill();
+    g.strokeStyle = I.good ? "rgba(255,255,255,0.9)" : "rgba(80,20,10,0.8)"; g.lineWidth = 2; if (!I.good) g.setLineDash([4, 3]); roundRect(x, y, w, h, 14); g.stroke(); g.setLineDash([]);
+    g.fillStyle = "#2a0f18"; g.textAlign = "center"; g.fillText(I.label, it.x, it.y + 5);
+    if (!I.good) { g.fillStyle = "#fff"; g.font = "900 11px sans-serif"; g.fillText("✕", x + w - 7, y + 9); }
+  }
+  function roundRect(x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+
+  // ---------- flow ----------
+  function hud() {
+    $("hpNum").textContent = Math.round(hp); $("imNum").textContent = Math.round(im); $("wave").textContent = wave; $("score").textContent = score;
+    $("hpBar").firstElementChild.style.transform = `scaleX(${hp / 100})`; $("imBar").firstElementChild.style.transform = `scaleX(${im / 100})`;
+    const b = [];
+    if (buff.sport > 0) b.push(`運動加速 ${Math.ceil(buff.sport)}`);
+    if (buff.wash > 0) b.push(`洗手：暫停病菌 ${Math.ceil(buff.wash)}`);
+    if (buff.vax > 0) b.push(`抗體 ${Math.ceil(buff.vax)}`);
+    if (im >= 60) b.push(im >= 85 ? "T 細胞 ×2" : "T 細胞 ×1");
+    const html = b.map(s => `<span class="buff">${s}</span>`).join("");
+    if ($("buffs").innerHTML !== html) $("buffs").innerHTML = html;
+  }
+  function waveDone() {
+    running = false; sfx.wave();
+    if (wave >= 5) return gameOver(true);
+    const [title, text] = TIPS[(wave - 1) % TIPS.length];
+    $("tipTag").textContent = `第 ${wave} 波完成！健康 ${Math.round(hp)}、免疫力 ${Math.round(im)}`;
+    $("tipTitle").textContent = `好習慣小知識：${title}`; $("tipText").innerHTML = text;
+    $("tipScreen").hidden = false; $("nextBtn").focus();
+  }
+  function nextWave() { wave++; waveT = 0; items = []; germT = 0.5; itemT = 1.5; $("tipScreen").hidden = true; running = true; hud(); }
+  function gameOver(win) {
+    running = false;
+    const prev = +(store.get("immune-best") || 0), best = Math.max(prev, score); store.set("immune-best", String(best));
+    $("overTag").textContent = win ? "YOU WIN" : "GAME OVER";
+    $("overTitle").textContent = win ? "撐過 5 波，身體守住了！" : `第 ${wave} 波，身體被病菌打敗了`;
+    $("overText").innerHTML = win ? `最後的免疫力是 <b>${Math.round(im)}</b>。好習慣要天天做，不只在遊戲裡。` : "多撿好習慣、避開熬夜和垃圾食物，免疫力高的白血球比較厲害。";
+    $("resScore").textContent = score; $("resBest").textContent = best;
+    setTimeout(() => { $("overScreen").hidden = false; $("againBtn").focus(); }, 500);
+  }
+  function start() { audio(); reset(); running = true; germT = 0.6; itemT = 2; $("startScreen").hidden = true; $("overScreen").hidden = true; $("tipScreen").hidden = true; }
+
+  let last = performance.now();
+  function frame(now) { const dt = Math.min(0.05, (now - last) / 1000); last = now; if (running) update(dt); draw(); requestAnimationFrame(frame); }
+
+  // ---------- input ----------
+  const toWorld = e => [e.clientX * dpr / scale, e.clientY * dpr / scale];
+  cv.addEventListener("pointerdown", e => { const [x, y] = toWorld(e); cell.tx = x; cell.ty = y - 30; cv.setPointerCapture?.(e.pointerId); });
+  cv.addEventListener("pointermove", e => { if (e.buttons || e.pointerType === "touch") { const [x, y] = toWorld(e); cell.tx = x; cell.ty = y - 30; } });
+  const keyMap = { ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "right", ArrowUp: "up", KeyW: "up", ArrowDown: "down", KeyS: "down" };
+  addEventListener("keydown", e => { const k = keyMap[e.code]; if (k) { keys[k] = true; e.preventDefault(); } });
+  addEventListener("keyup", e => { const k = keyMap[e.code]; if (k) keys[k] = false; if (k && !Object.values(keys).some(Boolean)) { cell.tx = cell.x; cell.ty = cell.y; } });
+  addEventListener("blur", () => { for (const k in keys) keys[k] = false; });
+  $("startBtn").addEventListener("click", start);
+  $("againBtn").addEventListener("click", start);
+  $("nextBtn").addEventListener("click", nextWave);
+  addEventListener("resize", resize);
+
+  const best = +(store.get("immune-best") || 0); if (best) $("bestLine").textContent = `最高紀錄：${best} 分`;
+  resize(); reset();
+  window.__immune = { state: () => ({ running, wave, waveT, hp, im, score, germs: germs.length, items: items.length, helpers: helpers.length }), cell, skip: () => { waveT = WAVE_LEN; germs = []; } };  // for automated tests
+  requestAnimationFrame(frame);
+})();
+</script>
