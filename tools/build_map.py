@@ -418,31 +418,42 @@ for b in blds:
 blds = [b[:3] for b in blds]
 print('estimated heights for', filled, 'buildings')
 
-# start: on 和平東路三段, heading east toward the 基隆路 junction, middle lane, a few metres before the stop line
-# (falls back to the westmost eastbound 信義路五段 edge, the old start near Taipei 101)
+# start: on START_ROAD, a few metres before its junction with START_CROSS, heading toward the junction
+# (the right-hand lane on two-way streets); falls back to the old start near Taipei 101
+START_ROAD, START_CROSS = '臥龍街', '樂業街'
+import re
+def road_is(name, base):
+    return name == base or (name.startswith(base) and re.match(r'[一二三四五六七八九]段', name[len(base):]) is not None)
 start = None
-for e in edges:
-    if e['ug'] or not e['oneway'] or not e['name'].startswith('和平東路三段'):
-        continue
-    nb = cnodes[e['b']]
-    if not any(edges[j]['name'].startswith('基隆路') and not edges[j]['ug'] for j in nb['edges']):
-        continue
-    (x1, z1), (x2, z2) = e['poly'][0], e['poly'][-1]
-    if x2 <= x1:
-        continue  # want the eastbound carriageway
-    poly = e['poly']; L = sum(math.hypot(poly[i+1][0]-poly[i][0], poly[i+1][1]-poly[i][1]) for i in range(len(poly)-1))
-    back = nb['r'] + 4.6 + 6            # distance from the junction centre
-    s_ = max(1.0, L - back)
+cands = []
+for n_i, n in enumerate(cnodes):
+    es = [edges[j] for j in n['edges'] if not edges[j]['ug']]
+    if any(road_is(e['name'], START_ROAD) for e in es) and any(road_is(e['name'], START_CROSS) for e in es):
+        for e in es:
+            if not road_is(e['name'], START_ROAD):
+                continue
+            toward_b = e['b'] == n_i
+            if e['oneway'] and not toward_b:
+                continue
+            poly = e['poly'] if toward_b else e['poly'][::-1]
+            L = sum(math.hypot(poly[i+1][0]-poly[i][0], poly[i+1][1]-poly[i][1]) for i in range(len(poly)-1))
+            cands.append((e['hw'], L, poly, n, e))
+if cands:
+    cands.sort(key=lambda c: (-c[0], -c[1]))
+    hw, L, poly, n, e = cands[0]
+    s_ = max(1.0, L - (n['r'] + 4.6 + 6))
     acc = 0.0
     for i in range(len(poly) - 1):
         (ax, az), (bx, bz) = poly[i], poly[i + 1]; seg = math.hypot(bx - ax, bz - az)
         if acc + seg >= s_ or i == len(poly) - 2:
             u = min(1.0, (s_ - acc) / seg) if seg else 0
-            sx, sz = ax + (bx - ax) * u, az + (bz - az) * u
-            start = [round(sx, 1), round(sz, 1), round(math.atan2(bx - ax, bz - az), 4)]
+            tx, tz = (bx - ax) / (seg or 1), (bz - az) / (seg or 1)
+            off = 0 if e['oneway'] else 1.6          # half a lane to the right on two-way streets
+            sx, sz = ax + (bx - ax) * u - tz * off, az + (bz - az) * u + tx * off
+            start = [round(sx, 1), round(sz, 1), round(math.atan2(tx, tz), 4)]
             break
         acc += seg
-    break
+    print('start on', e['name'], 'toward', START_CROSS)
 if start is None:
     best = None
     for e in edges:

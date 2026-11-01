@@ -176,7 +176,7 @@
      ```
 
      用 `curl --data-urlencode "data=<查詢>" https://overpass-api.de/api/interpreter -o xinyi.json` 下載。伺服器忙的時候會回 502，要隔一段時間再試，間隔逐次加倍。
-  2. `python3 tools/build_map.py xinyi.json xinyi_map.json`。如果下載的資料裡有行政區界（`rel` 加上 `out tags bb`），原點和裁切範圍會自動用行政區的範圍；沒有的話用原本 101 附近的範圍。起點會自動挑「和平東路三段往東、接近基隆路口」的中間車道、停止線後約 6 公尺（2026-10-30 依使用者要求調整）；找不到時才用原本信義路五段 101 附近的起點。換區域時要改。
+  2. `python3 tools/build_map.py xinyi.json xinyi_map.json`。如果下載的資料裡有行政區界（`rel` 加上 `out tags bb`），原點和裁切範圍會自動用行政區的範圍；沒有的話用原本 101 附近的範圍。起點由 `build_map.py` 開頭附近的 `START_ROAD, START_CROSS` 決定（目前是 `'臥龍街', '樂業街'`，2026-11-01 依使用者要求調整；之前是和平東路三段、基隆路口）：在 START_ROAD 上、往兩條路的路口開，停在停止線後約 6 公尺，雙向道放在右側車道；同名路段有好幾段時挑最寬、最長的那段。找不到路口時才用原本信義路五段 101 附近的起點。要換起點只改這兩個名字、重新產生地圖資料，再改 `racing.html` 裡開始時的提示文字。
      - 信義區＋大安區用的查詢在下面「大地圖查詢」。overpass-api.de 很忙時可以改用 overpass.kumi.systems 或 overpass.private.coffee（雲端環境的允許網域已經加了這兩個）。
   3. 把輸出的 JSON 換進 `racing.html` 的 `#xinyiMap` 區塊。
 - 大地圖查詢（信義區＋大安區，約 16 MB）：
