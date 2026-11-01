@@ -96,7 +96,7 @@ body { margin: 0; background: #1d2b23; color: var(--chalk-ink); font-family: var
     <p>趴在走廊矮牆上，對樓下經過的人吐口水。口水要掉一下才會到地面，記得算好提前量。</p>
     <ul>
       <li>打中一個人得 <b>1 分</b>，同學、女同學、老師都算。</li>
-      <li><b>按住</b>吐口水鍵蓄力，按越久吐越遠，地上的圓圈是落點。</li>
+      <li>輕點吐口水鍵，口水幾乎直直往下掉；<b>按住</b>越久吐越遠，地上的圓圈是落點。</li>
       <li>每吐 <b>10 次口水</b>換一口<b>濃痰</b>：落點範圍大，可以一次打中好幾個人。</li>
       <li>口水卡在樹上就不算。一局 90 秒。</li>
     </ul>
@@ -306,7 +306,9 @@ body { margin: 0; background: #1d2b23; color: var(--chalk-ink); font-family: var
 
   // ---------- spit ----------
   let drops = [], splats = [], floaters = [];
-  function landingY(power) { return WALL + 26 + power * (H - WALL - 110); }
+  // power 0 drops almost straight down (just past the wall), power 1 reaches the far side of the courtyard
+  function landingY(power) { return WALL + 16 + power * (H - WALL - 100); }
+  const powerOf = t => Math.max(0, Math.min(1, (t - 0.15) / 1.0));   // a quick tap (under 0.15 s) is a straight drop
   function launch(big, power) {
     const sx = kid.x + (Math.random() - 0.5) * 3, sy = WALL + 6;
     const ty = landingY(power), tx = sx + (Math.random() - 0.5) * (big ? 6 : 8);
@@ -363,7 +365,7 @@ body { margin: 0; background: #1d2b23; color: var(--chalk-ink); font-family: var
     if (!charging) return;
     const c = charging; charging = null; $("charge").style.height = "0%";
     if (!running) return;
-    const power = Math.min(1, 0.12 + c.t / 1.1);
+    const power = powerOf(c.t);
     if (c.big) { phlegm--; } else { spitCount++; if (spitCount % PER_PHLEGM === 0) { phlegm++; floaters.push({ x: kid.x, y: WALL - 40, text: "存到一口濃痰！", t: 1.4, color: "#c9d86a" }); } sfx.spit(); }
     launch(c.big, power); cool = COOLDOWN; updateHud();
   }
@@ -381,7 +383,7 @@ body { margin: 0; background: #1d2b23; color: var(--chalk-ink); font-family: var
     kid.x = Math.max(30, Math.min(W - 30, kid.x + mv * 170 * dt));
     kid.lean = Math.max(0, kid.lean - dt * 3); kid.cheek = Math.max(0, kid.cheek - dt * 1.5);
     cool = Math.max(0, cool - dt);
-    if (charging) { charging.t += dt; $("charge").style.height = Math.min(100, (0.12 + charging.t / 1.1) * 100) + "%"; }
+    if (charging) { charging.t += dt; $("charge").style.height = Math.max(4, powerOf(charging.t) * 100) + "%"; }
     spawnTick(dt);
     for (const p of people) {
       p.t += dt;
@@ -404,7 +406,7 @@ body { margin: 0; background: #1d2b23; color: var(--chalk-ink); font-family: var
     g.globalAlpha = 1;
     // aim marker while charging
     if (charging) {
-      const p = Math.min(1, 0.12 + charging.t / 1.1), ty = landingY(p), r = charging.big ? 30 : 10;
+      const p = powerOf(charging.t), ty = landingY(p), r = charging.big ? 30 : 10;
       g.setLineDash([4, 4]); g.lineWidth = 1.6; g.strokeStyle = charging.big ? "#e6f07a" : "#ffffff";
       g.beginPath(); g.arc(kid.x, ty, r, 0, 7); g.stroke(); g.setLineDash([]);
       g.beginPath(); g.moveTo(kid.x - 4, ty); g.lineTo(kid.x + 4, ty); g.moveTo(kid.x, ty - 4); g.lineTo(kid.x, ty + 4); g.stroke();
