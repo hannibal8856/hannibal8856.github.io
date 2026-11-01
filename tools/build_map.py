@@ -48,15 +48,17 @@ for w in ways:
     ug = '地下道' in t.get('name', '')
     if ug and t['highway'] != 'secondary':
         continue
-    if not ug and t.get('tunnel') in ('yes', 'building_passage'):
+    # mountain tunnels (辛亥隧道, 文山隧道, ...) stay as ordinary roads: the game world is flat
+    if not ug and t.get('tunnel') in ('yes', 'building_passage') and not t.get('name', '').endswith('隧道'):
         continue
     layer = int(t.get('layer', '0')) if t.get('layer', '0').lstrip('-').isdigit() else 0
-    if not ug and layer < 0:
+    if not ug and layer < 0 and not t.get('name', '').endswith('隧道'):
         continue
-    if layer >= 1 or t.get('bridge') == 'viaduct':
-        continue  # elevated expressways (建國高架, 市民大道高架) would sit on top of the streets below
-    if t['highway'].endswith('_link') and t.get('bridge'):
-        continue
+    if layer >= 1 or t.get('bridge'):
+        # elevated expressways (建國高架, 市民大道高架) would sit on top of the streets below; short river bridges stay
+        wl = sum(math.hypot(nodes[a][0] - nodes[b][0], nodes[a][1] - nodes[b][1]) for a, b in zip(w['nodes'], w['nodes'][1:]) if a in nodes and b in nodes)
+        if t['highway'] in ('trunk', 'trunk_link') or t.get('bridge') == 'viaduct' or wl > 350 or t['highway'].endswith('_link'):
+            continue
     pts = [n for n in w['nodes'] if n in nodes]
     if len(pts) < 2:
         continue
@@ -479,6 +481,35 @@ for w in ways:
     for x, z in pts:
         flat += [round(x, 1), round(z, 1)]
     blds.append([None if h is None else round(h, 1), nid(t.get('name', '')), flat, cx, cz, A, t.get('building', 'yes')])
+
+# drop buildings that sit on a road's centre line (passages under buildings, or mapping errors):
+# otherwise cars would drive straight through their walls
+road_pts = collections.defaultdict(list)
+for e in edges:
+    if e['ug']:
+        continue
+    poly = e['poly']
+    for i in range(len(poly) - 1):
+        (ax, az), (bx, bz) = poly[i], poly[i + 1]; seg = math.hypot(bx - ax, bz - az); n = max(1, int(seg // 4))
+        for k in range(n + 1):
+            x, z = ax + (bx - ax) * k / n, az + (bz - az) * k / n
+            road_pts[(int(x // 25), int(z // 25))].append((x, z))
+def on_road_count(flat):
+    xs = flat[0::2]; zs = flat[1::2]; pts = list(zip(xs, zs)); hits = 0
+    for gx in range(int(min(xs) // 25), int(max(xs) // 25) + 1):
+        for gz in range(int(min(zs) // 25), int(max(zs) // 25) + 1):
+            for x, z in road_pts.get((gx, gz), []):
+                if min(xs) < x < max(xs) and min(zs) < z < max(zs):
+                    c = False; j = len(pts) - 1
+                    for i in range(len(pts)):
+                        xi, zi = pts[i]; xj, zj = pts[j]
+                        if (zi > z) != (zj > z) and x < (xj - xi) * (z - zi) / (zj - zi) + xi: c = not c
+                        j = i
+                    hits += c
+    return hits
+before = len(blds)
+blds = [b for b in blds if b[1] >= 0 and '101' in names[b[1]] or on_road_count(b[2]) < 2]
+print('dropped', before - len(blds), 'buildings sitting on road centre lines')
 
 # buildings without a height or floor count: estimate from their type, footprint and the known heights nearby
 known = collections.defaultdict(list)
