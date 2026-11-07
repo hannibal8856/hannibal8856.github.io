@@ -41,8 +41,10 @@ addEventListener('DOMContentLoaded', function () {
 html, body { height: 100%; }
 [hidden] { display: none !important; }
 body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var(--f-display); overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
-#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
-.hud { position: fixed; left: 0; right: 0; top: 0; display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; pointer-events: none; align-items: start;
+/* 遊戲是直式畫面：寬螢幕（電腦、平板橫放）時維持直式比例，放在正中間 */
+:root { --col: min(100vw, 66vh); }
+#game { position: fixed; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); width: var(--col); height: 100%; display: block; box-shadow: 0 0 60px rgba(0,0,0,0.5); }
+.hud { position: fixed; left: 50%; transform: translateX(-50%); width: var(--col); box-sizing: border-box; top: 0; display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; pointer-events: none; align-items: start;
   padding-top: calc(env(safe-area-inset-top, 0px) + 10px); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .chip { background: rgba(59, 18, 32, 0.85); border: 2px solid rgba(255, 246, 238, 0.25); border-radius: 14px; padding: 6px 10px; display: grid; gap: 4px; min-width: 0; }
 .chip small { font-size: 11px; opacity: 0.85; letter-spacing: 0.06em; display: flex; justify-content: space-between; gap: 6px; }
@@ -51,7 +53,7 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
 .bar i { display: block; height: 100%; width: 100%; transform-origin: left; transition: transform 0.2s; }
 #hpBar i { background: linear-gradient(90deg, #ff6b7a, #ffb3a7); }
 #imBar i { background: linear-gradient(90deg, #66c2ff, var(--good)); }
-.buffs { position: fixed; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + 70px); display: flex; justify-content: center; gap: 6px; pointer-events: none; flex-wrap: wrap; padding-inline: 16px; }
+.buffs { position: fixed; left: 50%; transform: translateX(-50%); width: var(--col); box-sizing: border-box; top: calc(env(safe-area-inset-top, 0px) + 70px); display: flex; justify-content: center; gap: 6px; pointer-events: none; flex-wrap: wrap; padding-inline: 16px; }
 .buff { font-size: 12px; background: rgba(59, 18, 32, 0.8); border-radius: 10px; padding: 3px 8px; border: 1px solid rgba(255, 255, 255, 0.25); }
 
 .screen { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(40, 8, 18, 0.72); overflow-y: auto;
@@ -171,7 +173,7 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
 
   function resize() {
     dpr = Math.min(2, devicePixelRatio || 1);
-    cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr);
+    cv.width = Math.round((cv.clientWidth || innerWidth) * dpr); cv.height = Math.round((cv.clientHeight || innerHeight) * dpr);
     scale = cv.width / W; H = cv.height / scale;
     if (!cell.y) { cell.y = cell.ty = H * 0.72; }
     rbcs = []; for (let i = 0; i < 26; i++) rbcs.push({ x: Math.random() * W, y: Math.random() * H, r: 10 + Math.random() * 8, a: Math.random() * 6, v: 30 + Math.random() * 40 });
@@ -374,7 +376,7 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
   function frame(now) { const dt = Math.min(0.05, (now - last) / 1000); last = now; if (running) update(dt); draw(); requestAnimationFrame(frame); }
 
   // ---------- input ----------
-  const toWorld = e => [e.clientX * dpr / scale, e.clientY * dpr / scale];
+  const toWorld = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * dpr / scale, (e.clientY - r.top) * dpr / scale]; };
   cv.addEventListener("pointerdown", e => { const [x, y] = toWorld(e); cell.tx = x; cell.ty = y - 30; cv.setPointerCapture?.(e.pointerId); });
   cv.addEventListener("pointermove", e => { if (e.buttons || e.pointerType === "touch") { const [x, y] = toWorld(e); cell.tx = x; cell.ty = y - 30; } });
   const keyMap = { ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "right", ArrowUp: "up", KeyW: "up", ArrowDown: "down", KeyS: "down" };
