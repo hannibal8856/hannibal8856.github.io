@@ -17,7 +17,7 @@ addEventListener('DOMContentLoaded', function () {
 });
 </script>
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}[hidden]{display:none!important}img{max-width:100%}</style>
-<title>奎德林堡的鍊金術師</title>
+<title>羅騰堡的鍊金術師</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&display=swap">
 <style>
@@ -711,7 +711,7 @@ function render() {
   const app = $('#app'), me = viewerIdx(), p = P(me);
   const brewing = S.phase === 'brew' || S.phase === 'score' || S.phase === 'over';
   app.innerHTML = `
-  <div class="top"><h1>奎德林堡的鍊金術師<small>郎中闖江湖規則</small></h1><div class="row">${NET.role ? chatBtnHTML() : ''}<button class="pill" id="booksBtn">藥典</button><button class="pill" id="rulesBtn">規則</button><button class="pill" id="quitBtn">${S.online ? '離開' : '重新開始'}</button></div></div>
+  <div class="top"><h1>羅騰堡的鍊金術師<small>郎中闖江湖規則</small></h1><div class="row">${NET.role ? chatBtnHTML() : ''}<button class="pill" id="booksBtn">藥典</button><button class="pill" id="rulesBtn">規則</button><button class="pill" id="quitBtn">${S.online ? '離開' : '重新開始'}</button></div></div>
   ${S.online ? `<div class="small muted">房號 <b style="color:var(--acc)">${esc(NET.code)}</b>・點上方郎中可以看他的大釜</div>` : ''}
   <div class="rounds">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(r => `<span class="rd ${r === S.round ? 'on' : r < S.round ? 'done' : ''}">${r}</span>`).join('')}<span class="muted" style="margin-left:4px">${S.round >= 2 ? '' : '第 2 輪人參、第 3 輪鬼魂陰氣上市'}</span></div>
   ${S.card ? `<div class="card">🔮 本輪占卜牌 <b>${S.card.n}</b>：${S.card.d}</div>` : ''}
@@ -850,7 +850,7 @@ function sheetRoundEnd() {
 }
 function sheetEnd() {
   const order = S.players.map((p, i) => i).sort((a, b) => P(b).vp - P(a).vp);
-  const m = openSheet(`<h2>🏆 ${S.winners.map(nm).map(esc).join('、')} 獲勝！</h2><p class="small muted">九輪結束，分數最高的人成為奎德林堡最優秀的名醫。平手時，最後一輪大釜裡藥材較多的人獲勝。</p>
+  const m = openSheet(`<h2>🏆 ${S.winners.map(nm).map(esc).join('、')} 獲勝！</h2><p class="small muted">九輪結束，分數最高的人成為羅騰堡最優秀的鍊金術師。平手時，最後一輪大釜裡藥材較多的人獲勝。</p>
     <table class="res"><tr><th>郎中</th><th>分數</th><th>最後一輪藥材數</th></tr>${order.map(i => `<tr><td>${esc(nm(i))}</td><td>${P(i).vp}</td><td>${P(i).pot.length}</td></tr>`).join('')}</table>
     <div class="row">${NET.role === 'client' ? '' : `<button class="btn" id="again">${S.online ? '回到房間' : '再玩一次'}</button>`}<button class="btn alt" id="close">看大釜</button></div>`, { keep: true });
   const ag = $('#again', m); if (ag) ag.onclick = () => { closeSheet(); if (S.online) backToLobbyOrSetup(); else { S = null; render(); } };
@@ -931,7 +931,7 @@ function renderSetup() {
   const c = setupCfg;
   if (c.play !== 'local') return renderNetSetup();
   $('#app').innerHTML = `
-  <div class="top"><h1>奎德林堡的鍊金術師<small>郎中闖江湖規則</small></h1><button class="pill" id="rulesBtn">規則</button></div>
+  <div class="top"><h1>羅騰堡的鍊金術師<small>郎中闖江湖規則</small></h1><button class="pill" id="rulesBtn">規則</button></div>
   <p style="margin:0;color:var(--muted);line-height:1.6">從布袋抽藥材調製藥水——再抽一個，還是見好就收？白色櫻桃炸彈太多，整鍋藥就爆了！</p>
   ${playSegHTML()}
   <div class="setup">
@@ -1267,7 +1267,7 @@ function renderNetSetup() {
   const c = setupCfg, host = c.play === 'host';
   const name = c.netName ?? store.get('quacks-name');
   $('#app').innerHTML = `
-  <div class="top"><h1>奎德林堡的鍊金術師<small>郎中闖江湖規則</small></h1><button class="pill" id="rulesBtn">規則</button></div>
+  <div class="top"><h1>羅騰堡的鍊金術師<small>郎中闖江湖規則</small></h1><button class="pill" id="rulesBtn">規則</button></div>
   <p style="margin:0;color:var(--muted);line-height:1.6">從布袋抽藥材調製藥水——再抽一個，還是見好就收？</p>
   ${playSegHTML()}
   <div class="setup">
@@ -1308,7 +1308,7 @@ function renderLobby() {
       : `<p class="small muted" style="margin:0">共 ${n} 位郎中・藥典第 ${L.preset} 組・${L.adv ? '進階面' : '基本面'}大釜。等房主開始…</p>`}`;
   }
   $('#app').innerHTML = `
-  <div class="top"><h1>奎德林堡的鍊金術師<small>線上房間</small></h1><div class="row">${chatBtnHTML()}<button class="pill" id="rulesBtn">規則</button><button class="pill" id="leave">離開</button></div></div>
+  <div class="top"><h1>羅騰堡的鍊金術師<small>線上房間</small></h1><div class="row">${chatBtnHTML()}<button class="pill" id="rulesBtn">規則</button><button class="pill" id="leave">離開</button></div></div>
   <div class="setup">${body}</div>`;
   $('#rulesBtn').onclick = showRules;
   bindChatBtn();
@@ -1320,7 +1320,7 @@ function renderLobby() {
   const sh = $('#share'); if (sh) sh.onclick = async () => {
     const link = location.href.split('?')[0].split('#')[0] + '?room=' + NET.code;
     const text = `來當郎中！房號 ${NET.code}`;
-    try { if (navigator.share) { await navigator.share({ title: '奎德林堡的鍊金術師', text, url: link }); return; } } catch { return; }
+    try { if (navigator.share) { await navigator.share({ title: '羅騰堡的鍊金術師', text, url: link }); return; } } catch { return; }
     try { await navigator.clipboard.writeText(text + ' ' + link); sh.textContent = '已複製連結'; } catch { sh.textContent = '房號：' + NET.code; }
   };
   syncSoon();
