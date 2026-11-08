@@ -72,6 +72,7 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
 .btn:focus-visible { outline: 3px solid var(--good); outline-offset: 3px; }
 .tip { background: rgba(255, 255, 255, 0.06); border-radius: 14px; padding: 12px 14px; border-left: 4px solid var(--good); }
 .tip b { color: var(--good); }
+.tip.warn { border-left-color: #ff5c8a; background: rgba(255, 92, 138, 0.12); } .tip.warn b { color: #ff8fb0; }
 .note { font-size: 12px !important; opacity: 0.7; text-align: center; }
 .diff { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .diff button { font: 900 16px var(--f-display); color: var(--ink); background: rgba(255,255,255,0.08); border: 2px solid rgba(255,246,238,0.25); border-radius: 12px; padding: 8px 0; cursor: pointer; }
@@ -123,6 +124,7 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
     <p class="tag" id="tipTag">第 1 波完成</p>
     <h2 id="tipTitle">好習慣小知識</h2>
     <div class="tip"><p id="tipText"></p></div>
+    <div class="tip warn" id="bossWarn" hidden><p id="bossText"></p></div>
     <button class="btn" id="nextBtn" type="button">下一波</button>
   </div>
 </div>
@@ -426,6 +428,9 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
     const [title, text] = TIPS[(wave - 1) % TIPS.length];
     $("tipTag").textContent = `第 ${wave} 波完成！健康 ${Math.round(hp)}、免疫力 ${Math.round(im)}`;
     $("tipTitle").textContent = `好習慣小知識：${title}`; $("tipText").innerHTML = text;
+    const warn = wave === 4 && diff !== "easy";
+    $("bossWarn").hidden = !warn;
+    if (warn) $("bossText").innerHTML = `⚠️ 下一波有<b>流感</b>和<b>新冠病毒</b>兩隻魔王！新冠魔王會一直生小病毒，建議先靠疫苗集滿 5 個 T 細胞，也要避開熬夜。<br>目前疫苗 T 細胞：<b>${vaxT}／5</b>`;
     $("tipScreen").hidden = false; $("nextBtn").focus();
   }
   function nextWave() { wave++; waveT = 0; items = []; germT = 0.5; itemT = 1.5; $("tipScreen").hidden = true; running = true; hud(); }
