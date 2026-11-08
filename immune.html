@@ -73,6 +73,13 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
 .tip { background: rgba(255, 255, 255, 0.06); border-radius: 14px; padding: 12px 14px; border-left: 4px solid var(--good); }
 .tip b { color: var(--good); }
 .note { font-size: 12px !important; opacity: 0.7; text-align: center; }
+.diff { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.diff button { font: 900 16px var(--f-display); color: var(--ink); background: rgba(255,255,255,0.08); border: 2px solid rgba(255,246,238,0.25); border-radius: 12px; padding: 8px 0; cursor: pointer; }
+.diff button[aria-pressed="true"] { background: var(--cell); color: #3b1220; border-color: var(--cell); }
+.diff button:focus-visible { outline: 3px solid var(--good); outline-offset: 2px; }
+.diffNote { font-size: 13px !important; text-align: center; opacity: 0.9; min-height: 3.5em; }
+.cold { background: #6ec6ff; } .staph { background: #f2c14e; } .covid { background: #ff5c8a; }
+.btn2 { font: 700 15px var(--f-display); color: var(--ink); background: transparent; border: 2px solid rgba(255,246,238,0.35); border-radius: 14px; padding: 8px 20px; cursor: pointer; justify-self: center; }
 .result { display: flex; justify-content: center; gap: 24px; text-align: center; }
 .result small { display: block; font-size: 12px; opacity: 0.8; }
 .result b { font-size: 38px; font-weight: 900; font-variant-numeric: tabular-nums; }
@@ -101,6 +108,10 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
       <span><i class="b"></i>熬夜、含糖飲料、垃圾食物：免疫力下降</span>
     </div>
     <p>免疫力越高，白血球越大、越有力，到 60 會有輔助 T 細胞來幫忙。撐過 5 波就贏了。</p>
+    <div class="diff" role="group" aria-label="難度">
+      <button type="button" data-d="easy">簡單</button><button type="button" data-d="normal">普通</button><button type="button" data-d="hard">困難</button>
+    </div>
+    <p class="diffNote" id="diffNote"></p>
     <button class="btn" id="startBtn" type="button">出動！</button>
     <p class="note">這是遊戲，玩它不會讓免疫力變強；裡面的小知識是一般健康建議，身體不舒服請看醫生。</p>
     <p class="note" id="bestLine"></p>
@@ -123,6 +134,7 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
     <div class="result"><div><small>得分</small><b id="resScore">0</b></div><div><small>最高紀錄</small><b id="resBest">0</b></div></div>
     <p id="overText" style="text-align:center"></p>
     <button class="btn" id="againBtn" type="button">再玩一次</button>
+    <button class="btn2" id="menuBtn" type="button">換難度</button>
   </div>
 </div>
 
@@ -170,6 +182,15 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
   const buff = { sport: 0, wash: 0, vax: 0 };
   const keys = {};
   const WAVE_LEN = 40;
+  // 難度：easy 是原本的玩法；normal 第 2 波起有感冒病毒、第 4 波起有金黃色葡萄球菌、第 5 波多一隻新冠病毒魔王，疫苗比較多而且能增加 T 細胞；hard 第 1 波起什麼都有
+  const DIFFS = {
+    easy:   { name: "簡單", note: "病毒和細菌，第 5 波有流感病毒魔王。" },
+    normal: { name: "普通", note: "第 2 波起有<b>感冒病毒</b>，第 4 波起有難打的<b>金黃色葡萄球菌</b>，第 5 波加上<b>新冠病毒魔王</b>。疫苗比較多，每個疫苗多一個 T 細胞（最多 +3）。" },
+    hard:   { name: "困難", note: "<b>第 1 波起</b>就有各種病菌和比較多的疫苗，病菌來得更快；第 5 波有流感和新冠兩隻魔王。" },
+  };
+  let diff = DIFFS[store.get("immune-diff")] ? store.get("immune-diff") : "easy";
+  let vaxT = 0, bossDone = {};
+  const bestKey = () => diff === "easy" ? "immune-best" : "immune-best-" + diff;
 
   function resize() {
     dpr = Math.min(2, devicePixelRatio || 1);
@@ -183,22 +204,48 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
 
   function reset() {
     wave = 1; waveT = 0; score = 0; hp = 100; im = 40; germs = []; items = []; shots = []; pops = []; helpers = [];
-    buff.sport = buff.wash = buff.vax = 0; cell.x = cell.tx = W / 2; cell.y = cell.ty = H * 0.72;
+    buff.sport = buff.wash = buff.vax = 0; vaxT = 0; bossDone = {}; cell.x = cell.tx = W / 2; cell.y = cell.ty = H * 0.72;
     hud();
   }
 
   // ---------- spawning ----------
   let germT = 0, itemT = 2;
+  const GERMS = {
+    virus: { r: 9, hp: 1, v: 38, pts: 10, bottom: 5 },
+    bact:  { r: 13, hp: 2, v: 26, pts: 20, bottom: 8 },
+    cold:  { r: 8, hp: 1, v: 50, pts: 15, bottom: 6, wiggle: 70 },
+    staph: { r: 16, hp: 5, v: 22, pts: 40, bottom: 12, push: true },
+    flu:   { r: 30, hp: 14, v: 12, pts: 150, bottom: 30, name: "流感病毒" },
+    covid: { r: 34, hp: 24, v: 10, pts: 300, bottom: 40, name: "新冠病毒", kids: true },
+  };
+  function pickKind() {
+    const r = Math.random();
+    const all = diff === "hard" || (diff === "normal" && wave >= 4);
+    if (all) return r < 0.3 ? "virus" : r < 0.55 ? "cold" : r < 0.8 ? "bact" : "staph";
+    if (diff === "normal" && wave >= 2) return r < 0.4 ? "virus" : r < 0.7 ? "cold" : "bact";
+    return r < 0.55 ? "virus" : "bact";
+  }
+  function addGerm(kind, x, y) {
+    const base = GERMS[kind], boss = !!base.name;
+    let hp = base.hp;
+    if (kind === "bact" || kind === "staph") hp += Math.floor((wave - 1) / 2);
+    if (kind === "covid" && diff === "hard") hp += 6;
+    const q = { kind, boss, x: x ?? 20 + Math.random() * (W - 40), y: y ?? -base.r - 10, r: base.r, hp, maxHp: hp, v: base.v * (1 + (wave - 1) * 0.12) * (diff === "hard" ? 1.1 : 1) * (0.8 + Math.random() * 0.4), pts: base.pts, t: Math.random() * 6, hitT: 0, kidT: 3 };
+    germs.push(q); return q;
+  }
   function spawnGerm() {
-    const boss = wave === 5 && !germs.some(q => q.boss) && waveT > 8;
-    const kind = boss ? "flu" : Math.random() < 0.55 ? "virus" : "bact";
-    const base = { virus: { r: 9, hp: 1, v: 38, pts: 10 }, bact: { r: 13, hp: 2, v: 26, pts: 20 }, flu: { r: 30, hp: 14, v: 12, pts: 150 } }[kind];
-    germs.push({ kind, boss, x: 20 + Math.random() * (W - 40), y: -base.r - 10, r: base.r, hp: base.hp + (kind !== "flu" ? Math.floor((wave - 1) / 2) * (kind === "bact" ? 1 : 0) : 0), maxHp: 0, v: base.v * (1 + (wave - 1) * 0.12) * (0.8 + Math.random() * 0.4), pts: base.pts, t: Math.random() * 6, hitT: 0 });
-    germs[germs.length - 1].maxHp = germs[germs.length - 1].hp;
+    if (wave === 5) {
+      if (diff === "easy") { if (!germs.some(q => q.boss) && waveT > 8) return addGerm("flu"); }
+      else {
+        if (!bossDone.flu && waveT > 8) { bossDone.flu = true; return addGerm("flu"); }
+        if (!bossDone.covid && waveT > 18) { bossDone.covid = true; pop(W / 2, 160, "新冠病毒魔王來了！", "#ff8fb0"); return addGerm("covid"); }
+      }
+    }
+    addGerm(pickKind());
   }
   function spawnItem() {
     const goodRate = 0.62;
-    const goods = ["veg", "veg", "sleep", "sport", "wash", "vax"], bads = ["late", "sugar", "junk"];
+    const goods = diff === "easy" ? ["veg", "veg", "sleep", "sport", "wash", "vax"] : ["veg", "veg", "sleep", "sport", "wash", "vax", "vax", "vax"], bads = ["late", "sugar", "junk"];
     const kind = Math.random() < goodRate ? goods[Math.floor(Math.random() * goods.length)] : bads[Math.floor(Math.random() * bads.length)];
     items.push({ kind, x: 30 + Math.random() * (W - 60), y: -20, v: 45 + Math.random() * 20, t: Math.random() * 6 });
   }
@@ -215,12 +262,12 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
     for (const k in buff) buff[k] = Math.max(0, buff[k] - dt);
     // spawn germs (handwashing pauses new ones) and habits
     germT -= dt;
-    const rate = Math.max(0.35, 1.25 - wave * 0.16);
+    const rate = Math.max(0.35, 1.25 - wave * 0.16) * (diff === "hard" ? 0.85 : 1);
     if (germT <= 0 && waveT < WAVE_LEN) { germT = rate * (0.6 + Math.random() * 0.8); if (buff.wash <= 0) spawnGerm(); }
     itemT -= dt; if (itemT <= 0 && waveT < WAVE_LEN) { itemT = 2.2 + Math.random() * 1.6; spawnItem(); }
     // helpers: T cells at immunity 60+ (one more at 85+)
-    const want = im >= 85 ? 2 : im >= 60 ? 1 : 0;
-    while (helpers.length < want) helpers.push({ a: helpers.length * Math.PI, cd: 0 });
+    const want = (im >= 85 ? 2 : im >= 60 ? 1 : 0) + vaxT;
+    while (helpers.length < want) helpers.push({ a: helpers.length * 1.3, cd: 0 });
     while (helpers.length > want) helpers.pop();
     for (const h of helpers) {
       h.a += dt * 2.2; h.cd -= dt; h.x = cell.x + Math.cos(h.a) * (R + 22); h.y = cell.y + Math.sin(h.a) * (R + 22);
@@ -238,9 +285,11 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
     // germs drift down; eaten on contact; ones that reach the bottom hurt the body
     for (const q of germs) {
       q.t += dt; q.hitT = Math.max(0, q.hitT - dt);
-      q.y += q.v * dt; q.x += Math.sin(q.t * 1.7) * 18 * dt;
-      if (Math.hypot(q.x - cell.x, q.y - cell.y) < R + q.r * 0.8 && q.hitT <= 0) { damage(q, q.boss ? 2 : 2 + Math.floor(im / 50)); q.hitT = 0.25; if (q.boss && q.hp > 0) { const a = Math.atan2(cell.y - q.y, cell.x - q.x); cell.x += Math.cos(a) * 14; cell.y += Math.sin(a) * 14; } }
-      if (q.y - q.r > H) { q.dead = true; const dmg = q.boss ? 30 : q.kind === "bact" ? 8 : 5; hp -= dmg; sfx.hurt(); pop(q.x, H - 30, `健康 -${dmg}`, "#ff8a8a"); im = Math.max(0, im - 2); }
+      const G = GERMS[q.kind];
+      q.y += q.v * dt; q.x += Math.sin(q.t * (G.wiggle ? 3.2 : 1.7)) * (G.wiggle || 18) * dt; q.x = Math.max(q.r, Math.min(W - q.r, q.x));
+      if (G.kids && q.y > 0) { q.kidT -= dt; if (q.kidT <= 0) { q.kidT = 3; for (const s of [-1, 1]) addGerm("virus", q.x + s * q.r, q.y + q.r * 0.5); } }
+      if (Math.hypot(q.x - cell.x, q.y - cell.y) < R + q.r * 0.8 && q.hitT <= 0) { damage(q, q.boss || q.kind === "staph" ? 2 : 2 + Math.floor(im / 50)); q.hitT = q.kind === "staph" ? 0.4 : 0.25; if ((q.boss || G.push) && q.hp > 0) { const a = Math.atan2(cell.y - q.y, cell.x - q.x); cell.x += Math.cos(a) * 14; cell.y += Math.sin(a) * 14; } }
+      if (q.y - q.r > H) { q.dead = true; const dmg = GERMS[q.kind].bottom; hp -= dmg; sfx.hurt(); pop(q.x, H - 30, `健康 -${dmg}`, "#ff8a8a"); im = Math.max(0, im - 2); }
     }
     germs = germs.filter(q => !q.dead);
     for (const it of items) {
@@ -258,7 +307,7 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
   function nearest(x, y, range) { let best = null, bd = range; for (const q of germs) { const d = Math.hypot(q.x - x, q.y - y); if (d < bd) { bd = d; best = q; } } return best; }
   function damage(q, n) {
     q.hp -= n;
-    if (q.hp <= 0 && !q.dead) { q.dead = true; score += q.pts; sfx.eat(); pop(q.x, q.y, `+${q.pts}`, "#fff6ee"); if (q.boss) { pop(q.x, q.y - 24, "打敗流感病毒！", "#9be564"); im = Math.min(100, im + 15); } }
+    if (q.hp <= 0 && !q.dead) { q.dead = true; score += q.pts; sfx.eat(); pop(q.x, q.y, `+${q.pts}`, "#fff6ee"); if (q.boss) { pop(q.x, q.y - 24, `打敗${GERMS[q.kind].name}！`, "#9be564"); im = Math.min(100, im + 15); } }
   }
   function collect(it) {
     const I = ITEMS[it.kind];
@@ -268,7 +317,8 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
       case "sleep": hp = Math.min(100, hp + 15); im = Math.min(100, im + 5); pop(it.x, it.y, "健康 +15", "#8fb7ff"); break;
       case "sport": buff.sport = 8; im = Math.min(100, im + 5); pop(it.x, it.y, "移動變快 8 秒", "#ffd166"); break;
       case "wash": buff.wash = 6; pop(it.x, it.y, "6 秒內沒有新病菌", "#7fe0e0"); break;
-      case "vax": buff.vax = 10; im = Math.min(100, im + 8); pop(it.x, it.y, "抗體出動 10 秒", "#d6a6ff"); break;
+      case "vax": buff.vax = 10; im = Math.min(100, im + 8);
+        if (diff !== "easy" && vaxT < 3) { vaxT++; pop(it.x, it.y, "抗體出動＋T 細胞 +1", "#d6a6ff"); } else pop(it.x, it.y, "抗體出動 10 秒", "#d6a6ff"); break;
       default: im = Math.max(0, im - 15); pop(it.x, it.y, `${I.label}：免疫力 -15`, "#ffb44c");
     }
     score += I.good ? 5 : 0;
@@ -312,21 +362,26 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
   function drawGerm(q) {
     g.save(); g.translate(q.x, q.y); g.rotate(q.t * (q.kind === "virus" ? 1.2 : 0.3));
     const flash = q.hitT > 0;
-    if (q.kind === "bact") {
+    if (q.kind === "staph") {
+      // 金黃色葡萄球菌：一串金色小球
+      const balls = [[0, 0], [-0.55, -0.35], [0.55, -0.35], [-0.6, 0.4], [0.6, 0.4], [0, -0.7], [0, 0.72]];
+      for (const [bx, by] of balls) { g.fillStyle = flash ? "#ffffff" : "#f2c14e"; g.beginPath(); g.arc(bx * q.r, by * q.r, q.r * 0.42, 0, 7); g.fill(); g.strokeStyle = "#b8862a"; g.lineWidth = 1.2; g.stroke(); }
+    } else if (q.kind === "bact") {
       g.fillStyle = flash ? "#ffffff" : "#b07ae0"; g.beginPath(); g.ellipse(0, 0, q.r * 1.3, q.r * 0.7, 0, 0, 7); g.fill();
       g.strokeStyle = "#7b4fb0"; g.lineWidth = 1.5; for (let i = -2; i <= 2; i++) { g.beginPath(); g.moveTo(i * 4, -q.r * 0.7); g.lineTo(i * 4 + 2, -q.r * 1.1); g.stroke(); }
     } else {
-      const spikes = q.kind === "flu" ? 16 : 9;
-      g.strokeStyle = flash ? "#ffffff" : q.kind === "flu" ? "#ff7a59" : "#79c94a"; g.lineWidth = q.kind === "flu" ? 3 : 2;
-      for (let i = 0; i < spikes; i++) { const a = i / spikes * Math.PI * 2; g.beginPath(); g.moveTo(Math.cos(a) * q.r * 0.8, Math.sin(a) * q.r * 0.8); g.lineTo(Math.cos(a) * q.r * 1.25, Math.sin(a) * q.r * 1.25); g.stroke(); g.fillStyle = g.strokeStyle; g.beginPath(); g.arc(Math.cos(a) * q.r * 1.3, Math.sin(a) * q.r * 1.3, q.kind === "flu" ? 3 : 2, 0, 7); g.fill(); }
-      g.fillStyle = flash ? "#ffffff" : q.kind === "flu" ? "#e0503a" : "#9be564"; g.beginPath(); g.arc(0, 0, q.r * 0.85, 0, 7); g.fill();
+      const C = { virus: ["#79c94a", "#9be564"], cold: ["#3f9fe0", "#6ec6ff"], flu: ["#ff7a59", "#e0503a"], covid: ["#ff3d77", "#ff7aa2"] }[q.kind];
+      const big = q.boss, spikes = q.kind === "covid" ? 20 : big ? 16 : 9;
+      g.strokeStyle = flash ? "#ffffff" : C[0]; g.lineWidth = big ? 3 : 2;
+      for (let i = 0; i < spikes; i++) { const a = i / spikes * Math.PI * 2; g.beginPath(); g.moveTo(Math.cos(a) * q.r * 0.8, Math.sin(a) * q.r * 0.8); g.lineTo(Math.cos(a) * q.r * 1.25, Math.sin(a) * q.r * 1.25); g.stroke(); g.fillStyle = g.strokeStyle; g.beginPath(); g.arc(Math.cos(a) * q.r * 1.3, Math.sin(a) * q.r * 1.3, q.kind === "covid" ? 4 : big ? 3 : 2, 0, 7); g.fill(); }
+      g.fillStyle = flash ? "#ffffff" : C[1]; g.beginPath(); g.arc(0, 0, q.r * 0.85, 0, 7); g.fill();
     }
     g.rotate(-q.t * (q.kind === "virus" ? 1.2 : 0.3));
     g.fillStyle = "#2a1630"; g.beginPath(); g.arc(-q.r * 0.3, -q.r * 0.1, q.r * 0.12, 0, 7); g.arc(q.r * 0.3, -q.r * 0.1, q.r * 0.12, 0, 7); g.fill();
     g.strokeStyle = "#2a1630"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-q.r * 0.5, -q.r * 0.35); g.lineTo(-q.r * 0.15, -q.r * 0.25); g.moveTo(q.r * 0.5, -q.r * 0.35); g.lineTo(q.r * 0.15, -q.r * 0.25); g.stroke();
     g.restore();
     if (q.maxHp > 1) { const w = q.r * 2; g.fillStyle = "rgba(0,0,0,0.4)"; g.fillRect(q.x - w / 2, q.y - q.r - 10, w, 4); g.fillStyle = "#9be564"; g.fillRect(q.x - w / 2, q.y - q.r - 10, w * Math.max(0, q.hp) / q.maxHp, 4); }
-    if (q.boss) { g.font = `900 12px ${getComputedStyle(document.body).fontFamily}`; g.textAlign = "center"; g.fillStyle = "#fff"; g.fillText("流感病毒", q.x, q.y - q.r - 14); }
+    if (q.boss) { g.font = `900 12px ${getComputedStyle(document.body).fontFamily}`; g.textAlign = "center"; g.fillStyle = "#fff"; g.fillText(GERMS[q.kind].name, q.x, q.y - q.r - 14); }
   }
   function drawItem(it) {
     const I = ITEMS[it.kind];
@@ -348,7 +403,7 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
     if (buff.sport > 0) b.push(`運動加速 ${Math.ceil(buff.sport)}`);
     if (buff.wash > 0) b.push(`洗手：暫停病菌 ${Math.ceil(buff.wash)}`);
     if (buff.vax > 0) b.push(`抗體 ${Math.ceil(buff.vax)}`);
-    if (im >= 60) b.push(im >= 85 ? "T 細胞 ×2" : "T 細胞 ×1");
+    if (helpers.length) b.push(`T 細胞 ×${helpers.length}`);
     const html = b.map(s => `<span class="buff">${s}</span>`).join("");
     if ($("buffs").innerHTML !== html) $("buffs").innerHTML = html;
   }
@@ -363,8 +418,8 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
   function nextWave() { wave++; waveT = 0; items = []; germT = 0.5; itemT = 1.5; $("tipScreen").hidden = true; running = true; hud(); }
   function gameOver(win) {
     running = false;
-    const prev = +(store.get("immune-best") || 0), best = Math.max(prev, score); store.set("immune-best", String(best));
-    $("overTag").textContent = win ? "YOU WIN" : "GAME OVER";
+    const prev = +(store.get(bestKey()) || 0), best = Math.max(prev, score); store.set(bestKey(), String(best));
+    $("overTag").textContent = (win ? "YOU WIN" : "GAME OVER") + "・" + DIFFS[diff].name;
     $("overTitle").textContent = win ? "撐過 5 波，身體守住了！" : `第 ${wave} 波，身體被病菌打敗了`;
     $("overText").innerHTML = win ? `最後的免疫力是 <b>${Math.round(im)}</b>。好習慣要天天做，不只在遊戲裡。` : "多撿好習慣、避開熬夜和垃圾食物，免疫力高的白血球比較厲害。";
     $("resScore").textContent = score; $("resBest").textContent = best;
@@ -388,9 +443,17 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
   $("nextBtn").addEventListener("click", nextWave);
   addEventListener("resize", resize);
 
-  const best = +(store.get("immune-best") || 0); if (best) $("bestLine").textContent = `最高紀錄：${best} 分`;
+  function setDiff(d) {
+    diff = d; store.set("immune-diff", d);
+    document.querySelectorAll(".diff button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.d === d)));
+    $("diffNote").innerHTML = DIFFS[d].note;
+    const best = +(store.get(bestKey()) || 0); $("bestLine").textContent = best ? `${DIFFS[d].name}最高紀錄：${best} 分` : "";
+  }
+  document.querySelectorAll(".diff button").forEach(b => b.addEventListener("click", () => setDiff(b.dataset.d)));
+  $("menuBtn").addEventListener("click", () => { $("overScreen").hidden = true; setDiff(diff); $("startScreen").hidden = false; });
+  setDiff(diff);
   resize(); reset();
-  window.__immune = { state: () => ({ running, wave, waveT, hp, im, score, germs: germs.length, items: items.length, helpers: helpers.length }), cell, skip: () => { waveT = WAVE_LEN; germs = []; } };  // for automated tests
+  window.__immune = { setDiff, kinds: () => germs.map(q => q.kind), state: () => ({ diff, vaxT, running, wave, waveT, hp, im, score, germs: germs.length, items: items.length, helpers: helpers.length }), cell, skip: () => { waveT = WAVE_LEN; germs = []; } };  // for automated tests
   requestAnimationFrame(frame);
 })();
 </script>
