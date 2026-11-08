@@ -1,0 +1,589 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="遊戲廳">
+<meta name="theme-color" content="#12202c">
+<script>
+addEventListener('DOMContentLoaded', function () {
+  if (!(navigator.standalone || matchMedia('(display-mode: standalone)').matches)) return;
+  var a = document.createElement('a');
+  a.id = 'hg-home'; a.href = './'; a.textContent = '⌂';
+  a.onclick = function (e) { if (!confirm('回遊戲大廳？這一局的進度會消失。')) e.preventDefault(); }; a.setAttribute('aria-label', '回遊戲大廳');
+  a.style.cssText = 'position:fixed;left:env(safe-area-inset-left);top:50%;transform:translateY(-50%);z-index:2147483647;padding:10px 6px 10px 4px;border-radius:0 10px 10px 0;background:rgba(0,0,0,.5);color:#fff;font:600 15px/1 system-ui,-apple-system,sans-serif;text-decoration:none;opacity:.55;-webkit-tap-highlight-color:transparent';
+  document.body.appendChild(a);
+});
+</script>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}[hidden]{display:none!important}img{max-width:100%}</style><title>豐富之城</title>
+<meta name="description" content="富饒之城2（Oriflamme）規則的練習版：蓋牌排成佇列、決定何時翻開，暗殺對手、累積影響力，6 輪後影響力最多的家族獲勝。">
+<style>
+:root {
+  --bg: #f4ecdc; --paper: #fffaf0; --ink: #2b2118; --muted: #7a6a58; --line: #d9c9ac;
+  --acc: #8b2f2f; --gold: #c9962a; --table: #3d2f24; --table2: #4e3d2f;
+  --ui: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --serif: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+}
+* { box-sizing: border-box; }
+html, body { background: var(--bg); }
+body { margin: 0; color: var(--ink); font-family: var(--ui); -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+button { font-family: var(--ui); }
+.wrap { max-width: 760px; margin: 0 auto; padding: 10px 14px 220px; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.top h1 { margin: 4px 0; font-family: var(--serif); font-size: 1.55rem; color: var(--acc); letter-spacing: .08em; }
+.top h1 small { font-family: var(--ui); font-size: .72rem; color: var(--muted); letter-spacing: 0; margin-left: 6px; font-weight: 400; }
+.pill { border: 1px solid var(--line); background: var(--paper); color: var(--ink); border-radius: 999px; padding: 6px 12px; font-size: .85rem; cursor: pointer; }
+.row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.status { font-size: .9rem; color: var(--muted); margin: 4px 0 8px; }
+.status b { color: var(--ink); }
+.players { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; margin-bottom: 10px; }
+.pl { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 6px 9px; font-size: .82rem; display: grid; gap: 2px; border-left: 6px solid var(--c); }
+.pl b { font-size: .92rem; }
+.pl .inf { font-weight: 800; font-size: 1.05rem; color: var(--acc); }
+.pl.me { box-shadow: 0 0 0 2px var(--c) inset; }
+.pl .first { font-size: .72rem; color: var(--gold); font-weight: 700; }
+.tablebox { background: radial-gradient(120% 120% at 50% 0%, var(--table2), var(--table)); border-radius: 16px; padding: 10px 8px 12px; color: #f3e7d3; }
+.tablebox .lbl { font-size: .78rem; opacity: .85; display: flex; justify-content: space-between; padding: 0 4px 6px; }
+.queue { display: flex; gap: 8px; overflow-x: auto; padding: 14px 6px 10px; min-height: 150px; align-items: flex-start; scroll-behavior: smooth; }
+.queue .empty { opacity: .6; font-size: .9rem; margin: auto; }
+.slot { position: relative; flex: none; display: grid; gap: 4px; justify-items: center; }
+.card { position: relative; width: 78px; height: 112px; border-radius: 10px; border: 3px solid var(--c); background: var(--paper); color: var(--ink); display: grid; grid-template-rows: auto 1fr auto; padding: 4px; text-align: center; cursor: default; font-family: var(--ui); }
+.card .ic { font-size: 1.7rem; line-height: 1.2; margin-top: 4px; }
+.card .nm { font-weight: 800; font-size: .86rem; font-family: var(--serif); }
+.card .fam { font-size: .62rem; color: var(--muted); }
+.card.back { background: repeating-linear-gradient(45deg, var(--c), var(--c) 6px, color-mix(in srgb, var(--c) 75%, #000) 6px, color-mix(in srgb, var(--c) 75%, #000) 12px); color: #fff; }
+.card.back .q { font-size: 1.9rem; font-weight: 900; text-shadow: 0 2px 4px #0006; align-self: center; }
+.card.back.mine { background: color-mix(in srgb, var(--c) 22%, #fffaf0); color: var(--ink); border-style: dashed; }
+.card.back.mine .tag { font-size: .62rem; color: var(--muted); }
+.card .tok { position: absolute; top: -9px; right: -9px; background: var(--gold); color: #2b2118; border-radius: 999px; min-width: 24px; height: 24px; font-size: .8rem; font-weight: 900; display: grid; place-items: center; border: 2px solid #fff6e0; padding: 0 4px; }
+.card .stk { position: absolute; bottom: -9px; left: 50%; transform: translateX(-50%); background: #2b2118; color: #fff; border-radius: 6px; font-size: .62rem; padding: 1px 5px; white-space: nowrap; }
+.slot.stacked .card { box-shadow: 4px 4px 0 -1px #00000040, 7px 7px 0 -2px #00000030; }
+.slot.cur .card { outline: 3px solid #ffe08a; outline-offset: 3px; }
+.slot.cur::before { content: "▼"; position: absolute; top: -16px; left: 50%; transform: translateX(-50%); color: #ffe08a; font-size: .8rem; }
+.slot.pick .card { cursor: pointer; outline: 3px solid #7fe0a0; outline-offset: 3px; animation: pulse 1s ease-in-out infinite alternate; }
+.slot.pickself .card { cursor: pointer; outline: 3px dashed #9fd3ff; outline-offset: 3px; }
+@keyframes pulse { from { transform: translateY(0); } to { transform: translateY(-4px); } }
+.gap { flex: none; align-self: center; width: 30px; height: 90px; border: 2px dashed #ffe08a; border-radius: 8px; background: #ffe08a22; color: #ffe08a; font-size: .7rem; cursor: pointer; writing-mode: vertical-rl; }
+.log { margin-top: 10px; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; font-size: .8rem; color: var(--muted); max-height: 170px; overflow-y: auto; }
+.log div { padding: 2px 0; border-bottom: 1px dashed #eadfca; }
+.log div:last-child { border: 0; color: var(--ink); }
+.panel { position: fixed; left: 0; right: 0; bottom: 0; background: var(--paper); border-top: 2px solid var(--line); box-shadow: 0 -6px 20px #0002; padding: 10px 14px calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 5; }
+.panel .in { max-width: 760px; margin: 0 auto; display: grid; gap: 8px; }
+.panel h3 { margin: 0; font-size: 1rem; }
+.panel p { margin: 0; font-size: .85rem; color: var(--muted); line-height: 1.5; }
+.hand { display: flex; gap: 6px; overflow-x: auto; padding: 10px 2px 8px; }
+.hand .card { cursor: pointer; flex: none; width: 70px; height: 100px; }
+.hand .card.sel { transform: translateY(-8px); box-shadow: 0 6px 14px #0004; outline: 3px solid var(--acc); }
+.btn { border: 0; border-radius: 12px; padding: 11px 16px; font-size: .98rem; font-weight: 800; cursor: pointer; background: var(--acc); color: #fff; }
+.btn.alt { background: #fff; color: var(--acc); border: 2px solid var(--acc); }
+.btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); font-weight: 600; }
+.btn:disabled { opacity: .4; cursor: default; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.desc { font-size: .8rem; background: #f6efe0; border-radius: 10px; padding: 6px 9px; color: var(--ink); }
+.sheet { position: fixed; inset: 0; background: #0007; display: grid; place-items: center; z-index: 20; padding: 16px; }
+.sheet .box { background: var(--paper); border-radius: 16px; padding: 16px; width: min(560px, 100%); max-height: 86vh; overflow-y: auto; display: grid; gap: 10px; }
+.sheet h2 { margin: 0; font-family: var(--serif); color: var(--acc); }
+.sheet table { border-collapse: collapse; width: 100%; font-size: .84rem; }
+.sheet td { border-bottom: 1px solid var(--line); padding: 6px 4px; vertical-align: top; }
+.sheet p, .sheet li { font-size: .88rem; line-height: 1.6; }
+.sheet ol, .sheet ul { margin: 0; padding-left: 20px; }
+.setup { display: grid; gap: 12px; margin-top: 10px; }
+.setup .cardbox { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: grid; gap: 10px; }
+.setup label { font-size: .9rem; display: grid; gap: 4px; }
+.setup input { font: inherit; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); }
+.seg { display: flex; gap: 6px; }
+.seg button { flex: 1; padding: 9px 0; border-radius: 10px; border: 1px solid var(--line); background: #fff; font-size: .95rem; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--acc); color: #fff; border-color: var(--acc); font-weight: 800; }
+.fams { display: flex; gap: 6px; flex-wrap: wrap; }
+.fams button { border: 2px solid var(--c); background: #fff; border-radius: 10px; padding: 7px 10px; cursor: pointer; font-size: .88rem; }
+.fams button[aria-pressed="true"] { background: var(--c); color: #fff; font-weight: 800; }
+.rank { display: grid; gap: 6px; }
+.rank div { display: flex; justify-content: space-between; padding: 8px 10px; border-radius: 10px; background: #f6efe0; border-left: 6px solid var(--c); }
+.toast { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 12px); left: 50%; transform: translateX(-50%); background: #2b2118; color: #fff; padding: 8px 14px; border-radius: 12px; font-size: .88rem; z-index: 30; max-width: 90vw; text-align: center; }
+@media (prefers-reduced-motion: reduce) { .slot.pick .card { animation: none; } .queue { scroll-behavior: auto; } }
+</style>
+
+<div class="wrap" id="app"></div>
+<div class="panel" id="panel" hidden><div class="in" id="panelIn"></div></div>
+<div id="sheetHost"></div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
+
+// ---------- data ----------
+const FAMS = [
+  { n: '赤獅家', c: '#b23a32' }, { n: '蒼鷹家', c: '#2f5d9e' }, { n: '翠鹿家', c: '#2f7d4f' },
+  { n: '紫鴉家', c: '#74489c' }, { n: '金狼家', c: '#b5841c' },
+];
+const T = {
+  soldier:    { n: '士兵', ic: '⚔️', k: 'char', d: '消滅相鄰的一張牌。' },
+  archer:     { n: '弓箭手', ic: '🏹', k: 'char', d: '消滅佇列最前面或最後面的一張牌。' },
+  spy:        { n: '間諜', ic: '🕵️', k: 'char', d: '從一位有牌和間諜相鄰的對手那裡偷 1 點影響力。' },
+  heir:       { n: '繼承人', ic: '👑', k: 'char', d: '佇列裡沒有其他翻開的繼承人時，得 2 點影響力。' },
+  lord:       { n: '勛爵', ic: '🏰', k: 'char', d: '得 1 點影響力，每有一張相鄰的自家牌再多 1 點。' },
+  shift:      { n: '變形者', ic: '🎭', k: 'char', d: '複製一張相鄰、已翻開的角色牌的能力。' },
+  assassin:   { n: '刺殺', ic: '🗡️', k: 'plan', d: '消滅佇列中任何一張牌，然後棄掉。' },
+  decree:     { n: '皇家法令', ic: '📜', k: 'plan', d: '把佇列中任一張牌移到任何位置，然後棄掉。' },
+  ambush:     { n: '伏擊', ic: '🪤', k: 'plan', d: '被對手的牌消滅時：改成消滅攻擊它的牌，你得 4 點。自己翻開：得 1 點，棄掉。' },
+  conspiracy: { n: '陰謀', ic: '🐍', k: 'plan', d: '翻開時拿走牌上影響力的兩倍，然後棄掉。' },
+};
+const KINDS = Object.keys(T);
+const ROUNDS = 6;
+
+// ---------- state ----------
+let S = null, gid = 0, SPEED = 1, cid = 0;
+let ui = { sel: null, decreeCard: null, showLog: false };
+const cfg = { n: +(store.get('fc-n') || 4), name: store.get('fc-name') || '我', fam: +(store.get('fc-fam') || 0) };
+const P = i => S.players[i];
+const top = sl => sl[sl.length - 1];
+const tops = () => S.queue.map(top);
+const slotOf = c => S.queue.findIndex(sl => sl.includes(c));
+const topIdx = c => S.queue.findIndex(sl => top(sl) === c);
+const byId = id => { for (const sl of S.queue) for (const c of sl) if (c.id === id) return c; return null; };
+const me = () => Math.max(0, S.players.findIndex(p => p.human));
+const cname = c => T[c.t].n;
+const who = c => P(c.owner).name;
+const rint = n => Math.floor(Math.random() * n);
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = rint(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function log(s) { S.log.push(s); if (S.log.length > 200) S.log.shift(); }
+function toast(s) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = s; document.body.appendChild(t); setTimeout(() => t.remove(), 2200); }
+function nap(ms) { const g = gid; return new Promise((res, rej) => setTimeout(() => g === gid ? res() : rej('stop'), ms * SPEED)); }
+function ask(pr) { const g = gid; return new Promise((res, rej) => { S.prompt = pr; S.resolve = v => { if (g !== gid) return rej('stop'); res(v); }; ui.sel = null; render(); }); }
+function answer(v) { const r = S.resolve; if (!r) return; S.prompt = null; S.resolve = null; render(); r(v); }
+
+// ---------- setup ----------
+function newGame(allBots) {
+  gid++;
+  const fams = [cfg.fam, ...shuffle([0, 1, 2, 3, 4].filter(f => f !== cfg.fam))].slice(0, cfg.n);
+  const players = fams.map((f, i) => {
+    const deck = shuffle(KINDS.map(t => ({ id: ++cid, t, owner: i, up: false, inf: 0 })));
+    const hu = i === 0 && !allBots;
+    return { name: hu ? cfg.name : FAMS[f].n.replace('家', '') + '（電腦）', fam: f, human: hu, hand: deck.slice(3), out: deck.slice(0, 3), inf: 1 };
+  });
+  S = { players, queue: [], round: 1, start: rint(cfg.n), phase: 'place', log: [], prompt: null, resolve: null, cur: null, over: false };
+  log(`遊戲開始。每人隨機蓋掉 3 張牌，拿 1 點影響力。${P(S.start).name} 先開始。`);
+  ui = { sel: null, decreeCard: null, showLog: ui.showLog };
+  run().catch(e => { if (e !== 'stop') { console.error(e); throw e; } });
+}
+
+async function run() {
+  for (S.round = 1; S.round <= ROUNDS; S.round++) {
+    S.phase = 'place'; log(`── 第 ${S.round} 輪：放置 ──`); render();
+    for (let k = 0; k < S.players.length; k++) {
+      const i = (S.start + k) % S.players.length, p = P(i);
+      S.turn = i; render();
+      const mv = p.human ? await ask({ type: 'place' }) : (await nap(650), botPlace(i));
+      doPlace(i, mv); render();
+    }
+    S.turn = null; S.phase = 'resolve'; log(`── 第 ${S.round} 輪：執行 ──`); render(); await nap(600);
+    await resolution();
+    S.start = (S.start + 1) % S.players.length;
+  }
+  S.phase = 'end'; S.over = true; S.cur = null;
+  const rank = S.players.map((p, i) => ({ i, inf: p.inf, left: S.queue.reduce((a, sl) => a + sl.filter(c => c.owner === i).length, 0) }))
+    .sort((a, b) => b.inf - a.inf || b.left - a.left);
+  S.rank = rank;
+  log(`遊戲結束！${P(rank[0].i).name} 以 ${rank[0].inf} 點影響力獲勝。`);
+  render();
+}
+
+function doPlace(i, mv) {
+  const p = P(i), k = p.hand.findIndex(c => c.id === mv.id), c = p.hand.splice(k, 1)[0];
+  c.up = false; c.inf = 0;
+  if (mv.where === 'L') S.queue.unshift([c]);
+  else if (mv.where === 'R') S.queue.push([c]);
+  else S.queue[mv.where].push(c);
+  const where = mv.where === 'L' ? '最左端' : mv.where === 'R' ? '最右端' : '自己的一張牌上面';
+  log(`${p.name} 蓋一張牌放在${where}。`);
+}
+
+// ---------- resolution ----------
+async function resolution() {
+  for (const sl of S.queue) for (const c of sl) c.done = false;
+  let pos = 0;
+  while (true) {
+    let i = -1;
+    for (let j = pos; j < S.queue.length; j++) if (!top(S.queue[j]).done) { i = j; break; }
+    if (i < 0) break;
+    const c = top(S.queue[i]); c.done = true; S.cur = c.id; render();
+    const mySl = S.queue[i], rightSl = S.queue[i + 1];
+    await resolveCard(c);
+    // continue right after this card; a card uncovered under it waits until next round
+    if (S.queue.includes(mySl)) pos = S.queue.indexOf(mySl) + 1;
+    else if (rightSl && S.queue.includes(rightSl)) pos = S.queue.indexOf(rightSl);
+    else pos = S.queue.length;
+    S.cur = null; render(); await nap(450);
+  }
+  S.cur = null;
+}
+
+async function resolveCard(c) {
+  const p = P(c.owner);
+  if (!c.up) {
+    const rev = p.human ? await ask({ type: 'reveal', id: c.id }) : (await nap(500), botReveal(c));
+    if (!rev) { c.inf++; log(`${p.name} 不翻開，牌上累積到 ${c.inf} 點影響力。`); render(); return; }
+    c.up = true;
+    let gain = c.inf; if (c.t === 'conspiracy') gain *= 2;
+    p.inf += gain; c.inf = 0;
+    log(`${p.name} 翻開【${cname(c)}】${gain ? `，拿走 ${gain} 點影響力${c.t === 'conspiracy' ? '（陰謀加倍）' : ''}` : ''}。`);
+    render(); await nap(550);
+  } else {
+    log(`${p.name} 的【${cname(c)}】再次發動。`);
+  }
+  await ability(c.t, c);
+  if (T[c.t].k === 'plan' && slotOf(c) >= 0) { removeCard(c); log(`【${cname(c)}】用完棄掉。`); }
+  render();
+}
+
+function removeCard(c) {
+  const i = slotOf(c); if (i < 0) return;
+  const sl = S.queue[i]; sl.splice(sl.indexOf(c), 1);
+  if (!sl.length) S.queue.splice(i, 1);
+  c.inf = 0;
+}
+
+async function eliminate(t, actor) {
+  const ap = P(actor.owner), tp = P(t.owner);
+  if (t.t === 'ambush' && t.owner !== actor.owner) {
+    t.up = true; render(); await nap(400);
+    tp.inf += 4; tp.usedAmbush = true;
+    log(`💥 ${ap.name} 攻擊到 ${tp.name} 的【伏擊】！${tp.name} 得 4 點影響力，${ap.name} 的【${cname(actor)}】被消滅。`);
+    removeCard(t);
+    if (slotOf(actor) >= 0) removeCard(actor);
+    if (tp.human && !ap.human) toast(`你的伏擊生效！+4 影響力`);
+    if (ap.human) toast('踩到伏擊了！');
+    render(); return;
+  }
+  const wasUp = t.up; t.up = true;
+  removeCard(t); ap.inf += 1;
+  log(`${ap.name} 消滅了 ${tp.name} 的${wasUp ? '' : '蓋牌'}【${cname(t)}】，得 1 點影響力。`);
+  render();
+}
+
+// ability of type `type`, performed from the position of card `actor`
+async function ability(type, actor) {
+  const o = actor.owner, p = P(o), i = topIdx(actor);
+  const adj = () => { const k = topIdx(actor); return [S.queue[k - 1], S.queue[k + 1]].filter(Boolean).map(top); };
+  switch (type) {
+    case 'soldier': {
+      const opts = adj(); if (!opts.length) { log('旁邊沒有牌可以消滅。'); return; }
+      const t = await chooseCard(o, opts, `【${T[actor.t].n}】${type !== actor.t ? '（複製士兵）' : ''}：消滅相鄰的一張牌`, 'kill');
+      if (t) await eliminate(t, actor); else log(`${p.name} 選擇不消滅。`);
+      return;
+    }
+    case 'archer': {
+      const q = tops(); const opts = [...new Set([q[0], q[q.length - 1]])].filter(c => c && c !== actor);
+      if (!opts.length) { log('兩端沒有可以射的牌。'); return; }
+      const t = await chooseCard(o, opts, `【${T[actor.t].n}】${type !== actor.t ? '（複製弓箭手）' : ''}：消滅最前面或最後面的牌`, 'kill');
+      if (t) await eliminate(t, actor); else log(`${p.name} 選擇不射擊。`);
+      return;
+    }
+    case 'spy': {
+      const opts = adj().filter(c => c.owner !== o && P(c.owner).inf > 0);
+      if (!opts.length) { log('間諜旁邊沒有可以偷的對手。'); return; }
+      const t = await chooseCard(o, opts, '【間諜】：選一張相鄰的對手牌，從那位玩家偷 1 點影響力', 'spy');
+      if (t) { P(t.owner).inf -= 1; p.inf += 1; log(`${p.name} 從 ${P(t.owner).name} 偷走 1 點影響力。`); }
+      return;
+    }
+    case 'heir': {
+      const other = tops().some(c => c !== actor && c.up && c.t === 'heir');
+      if (other) { log('佇列裡已經有其他翻開的繼承人，沒有得分。'); return; }
+      p.inf += 2; log(`${p.name} 的繼承人得 2 點影響力。`); return;
+    }
+    case 'lord': {
+      const n = 1 + adj().filter(c => c.owner === o).length;
+      p.inf += n; log(`${p.name} 的勛爵得 ${n} 點影響力。`); return;
+    }
+    case 'shift': {
+      const opts = adj().filter(c => c.up && T[c.t].k === 'char' && c.t !== 'shift');
+      if (!opts.length) { log('變形者旁邊沒有翻開的角色可以複製。'); return; }
+      const t = await chooseCard(o, opts, '【變形者】：選一張相鄰、翻開的角色，複製它的能力', 'copy');
+      if (t) { log(`${p.name} 的變形者複製【${cname(t)}】。`); render(); await ability(t.t, actor); }
+      return;
+    }
+    case 'assassin': {
+      const opts = tops().filter(c => c !== actor); if (!opts.length) return;
+      const t = await chooseCard(o, opts, '【刺殺】：消滅佇列中任何一張牌', 'kill');
+      if (t) await eliminate(t, actor); else log(`${p.name} 放棄刺殺。`);
+      return;
+    }
+    case 'decree': {
+      const opts = tops().filter(c => c !== actor); if (!opts.length) return;
+      let mv;
+      if (p.human) {
+        const t = await chooseCard(o, opts, '【皇家法令】：選一張要移動的牌（連同疊在下面的牌）', 'move');
+        if (!t) { log(`${p.name} 沒有移動任何牌。`); return; }
+        ui.decreeCard = t.id;
+        const gap = await ask({ type: 'gap', id: t.id });
+        ui.decreeCard = null; mv = { t, gap };
+      } else mv = botDecree(o, actor);
+      if (!mv) { log(`${p.name} 沒有移動任何牌。`); return; }
+      const from = slotOf(mv.t), sl = S.queue.splice(from, 1)[0];
+      let g = mv.gap; if (g > from) g--;
+      S.queue.splice(g, 0, sl);
+      log(`${p.name} 用皇家法令移動了 ${who(mv.t)} 的${mv.t.up ? '【' + cname(mv.t) + '】' : '蓋牌'}。`);
+      return;
+    }
+    case 'ambush': p.inf += 1; p.usedAmbush = true; log(`${p.name} 自己翻開伏擊，得 1 點影響力。`); return;
+    case 'conspiracy': return;
+  }
+}
+
+async function chooseCard(o, opts, title, mode) {
+  if (P(o).human) { const id = await ask({ type: 'target', opts: opts.map(c => c.id), title, mode }); return id == null ? null : byId(id); }
+  await nap(500);
+  return botPick(o, opts, mode);
+}
+
+// ---------- bots (only see face-up cards of others) ----------
+function leader(o) { let best = -1, bi = -1; S.players.forEach((p, i) => { if (i !== o && p.inf > best) { best = p.inf; bi = i; } }); return bi; }
+function killValue(o, c) {
+  if (c.owner === o) return -6 + (c.up ? 0 : -2);
+  let v;
+  if (c.up) v = { soldier: 5, archer: 5, spy: 3.5, lord: 3, heir: 3, shift: 3.5 }[c.t] || 2;
+  else v = 2.2 + c.inf * 0.9 - 6 * ambushRisk(c);
+  if (c.owner === leader(o)) v += 1;
+  return v;
+}
+function ambushRisk(c) {
+  // the opponent's ambush is still unseen if it is not face-up anywhere and not in the discard history
+  const seen = S.queue.some(sl => sl.some(x => x.owner === c.owner && x.t === 'ambush' && x.up)) || (P(c.owner).usedAmbush);
+  if (seen) return 0;
+  const hidden = S.queue.reduce((a, sl) => a + sl.filter(x => x.owner === c.owner && !x.up).length, 0) + P(c.owner).hand.length;
+  return hidden ? Math.min(0.45, 0.7 / hidden) : 0;
+}
+function botPick(o, opts, mode) {
+  if (mode === 'kill') { let best = null, bv = 0.8; for (const c of opts) { const v = killValue(o, c) + Math.random() * 0.6; if (v > bv) { bv = v; best = c; } } return best; }
+  if (mode === 'spy') return opts.slice().sort((a, b) => P(b.owner).inf - P(a.owner).inf)[0];
+  if (mode === 'copy') { const pref = { soldier: 3, archer: 3, heir: 2, lord: 2, spy: 1 }; return opts.slice().sort((a, b) => (pref[b.t] || 0) - (pref[a.t] || 0))[0]; }
+  return opts[0];
+}
+function botDecree(o, actor) {
+  // move a dangerous opponent card next to one of our revealed soldiers, else push an opponent card to an end for our archer
+  const q = tops();
+  const mySoldier = q.findIndex(c => c.owner === o && c.up && c.t === 'soldier');
+  const targets = q.filter(c => c !== actor && c.owner !== o).sort((a, b) => killValue(o, b) - killValue(o, a));
+  if (!targets.length) return null;
+  const t = targets[0];
+  if (mySoldier >= 0) return { t, gap: mySoldier + 1 };
+  if (q.some(c => c.owner === o && c.up && c.t === 'archer')) return { t, gap: 0 };
+  return Math.random() < 0.5 ? { t, gap: S.queue.length } : null;
+}
+function botReveal(c) {
+  const o = c.owner, last = S.round === ROUNDS;
+  if (last) return true;
+  const k = topIdx(c), q = tops(), adj = [q[k - 1], q[k + 1]].filter(Boolean);
+  const r = Math.random();
+  switch (c.t) {
+    case 'soldier': return adj.some(x => killValue(o, x) > 1.6) || (c.inf >= 2 && r < 0.4);
+    case 'archer': return [q[0], q[q.length - 1]].some(x => x && x !== c && killValue(o, x) > 1.6) || (c.inf >= 2 && r < 0.4);
+    case 'spy': return adj.some(x => x.owner !== o && P(x.owner).inf > 0) || c.inf >= 2;
+    case 'heir': return !q.some(x => x !== c && x.up && x.t === 'heir') ? r < 0.8 || c.inf >= 1 : c.inf >= 3;
+    case 'lord': return 1 + adj.filter(x => x.owner === o).length >= 2 || r < 0.55 || c.inf >= 2;
+    case 'shift': return adj.some(x => x.up && ['soldier', 'archer', 'heir', 'lord'].includes(x.t));
+    case 'assassin': return q.some(x => x !== c && killValue(o, x) >= 3.6) || (c.inf >= 2 && q.some(x => x !== c && killValue(o, x) > 2));
+    case 'decree': return c.inf >= 3 || (r < 0.2 && q.some(x => x.owner === o && x.up && (x.t === 'soldier' || x.t === 'archer')));
+    case 'ambush': return false;
+    case 'conspiracy': return c.inf >= 3 || (c.inf >= 2 && r < 0.35);
+  }
+  return r < 0.5;
+}
+function botPlace(i) {
+  const p = P(i), q = tops();
+  const left = q[0], right = q[q.length - 1];
+  const w = { soldier: 3, archer: 2.5, spy: 2.2, heir: 2.6, lord: 2.8, shift: 1.2, assassin: 2, decree: 1, ambush: 2.2, conspiracy: 2.4 };
+  if (S.round >= 5) { w.conspiracy = 0.6; w.lord += 1; w.heir += 1; }
+  if (!q.some(c => c.owner !== i)) { w.soldier = 1; w.spy = 0.8; }
+  let best = null, bv = -1e9;
+  for (const c of p.hand) for (const where of ['L', 'R']) {
+    const end = where === 'L' ? left : right;
+    let v = w[c.t] + Math.random() * 2.2;
+    if (end) {
+      const opp = end.owner !== i;
+      if (c.t === 'soldier' || c.t === 'spy') v += opp ? 1.2 : -1;
+      if (c.t === 'lord') v += opp ? -0.4 : 1.2;
+      if (c.t === 'shift') v += end.up && T[end.t].k === 'char' ? 1.5 : -0.5;
+    }
+    if (v > bv) { bv = v; best = { id: c.id, where }; }
+  }
+  return best;
+}
+
+// ---------- render ----------
+function cardHTML(c, viewer, opts = {}) {
+  const f = FAMS[P(c.owner).fam], mine = c.owner === viewer;
+  const tok = c.inf ? `<span class="tok" title="牌上的影響力">${c.inf}</span>` : '';
+  const stk = opts.under ? `<span class="stk">下面還有 ${opts.under} 張</span>` : '';
+  if (c.up || opts.reveal || S.over) {
+    return `<div class="card" style="--c:${f.c}" data-id="${c.id}"><span class="fam">${esc(P(c.owner).name)}</span><div><div class="ic">${T[c.t].ic}</div><div class="nm">${T[c.t].n}</div></div><span class="fam">${T[c.t].k === 'char' ? '角色' : '策略'}${!c.up && S.over ? '・沒翻開' : ''}</span>${tok}${stk}</div>`;
+  }
+  if (mine) return `<div class="card back mine" style="--c:${f.c}" data-id="${c.id}"><span class="fam">${esc(P(c.owner).name)}</span><div><div class="ic">${T[c.t].ic}</div><div class="nm">${T[c.t].n}</div></div><span class="tag">蓋著（只有你看得到）</span>${tok}${stk}</div>`;
+  return `<div class="card back" style="--c:${f.c}" data-id="${c.id}"><span class="fam" style="color:#fff">${esc(P(c.owner).name)}</span><span class="q">?</span><span></span>${tok}${stk}</div>`;
+}
+function handCardHTML(c, sel) {
+  const f = FAMS[P(c.owner).fam];
+  return `<div class="card${sel ? ' sel' : ''}" style="--c:${f.c}" data-hand="${c.id}"><span class="fam">${T[c.t].k === 'char' ? '角色' : '策略'}</span><div><div class="ic">${T[c.t].ic}</div><div class="nm">${T[c.t].n}</div></div><span></span></div>`;
+}
+
+function render() {
+  if (!S) return renderSetup();
+  const v = me(), pr = S.prompt;
+  const qEl = document.querySelector('.queue'); const sx = qEl ? qEl.scrollLeft : null;
+  const picks = pr && pr.type === 'target' ? new Set(pr.opts) : null;
+  const stackOK = pr && pr.type === 'place' && S.round >= 2 && ui.sel != null;
+  let qh = '';
+  const gapMode = pr && pr.type === 'gap';
+  const gapAt = g => gapMode ? `<button class="gap" data-gap="${g}">放這裡</button>` : '';
+  S.queue.forEach((sl, i) => {
+    const c = top(sl);
+    const cls = ['slot'];
+    if (sl.length > 1) cls.push('stacked');
+    if (S.cur === c.id) cls.push('cur');
+    if (picks && picks.has(c.id)) cls.push('pick');
+    if (stackOK && c.owner === v) cls.push('pickself');
+    qh += gapAt(i) + `<div class="${cls.join(' ')}" data-slot="${i}">${cardHTML(c, v, { under: sl.length - 1 })}</div>`;
+  });
+  qh += gapAt(S.queue.length);
+  if (!S.queue.length) qh = '<div class="empty">佇列還是空的</div>';
+
+  const phaseTxt = S.over ? '遊戲結束' : S.phase === 'place' ? '放置階段' : '執行階段';
+  const players = S.players.map((p, i) => `<div class="pl${i === v ? ' me' : ''}" style="--c:${FAMS[p.fam].c}"><b>${esc(p.name)}</b>${i === S.start && !S.over ? '<span class="first">★ 本輪先放</span>' : ''}<span>影響力 <span class="inf">${p.inf}</span></span><span>手牌 ${p.hand.length}${S.turn === i ? '・放牌中…' : ''}</span></div>`).join('');
+  const logs = (ui.showLog ? S.log : S.log.slice(-6)).map(s => `<div>${esc(s)}</div>`).join('');
+  $('app').innerHTML = `
+  <div class="top"><h1>豐富之城<small>富饒之城2 規則</small></h1><div class="row"><button class="pill" id="rulesBtn">規則</button><button class="pill" id="newBtn">重新開始</button></div></div>
+  <div class="status">第 <b>${Math.min(S.round, ROUNDS)}</b> / ${ROUNDS} 輪・<b>${phaseTxt}</b>　佇列由左往右執行</div>
+  <div class="players">${players}</div>
+  <div class="tablebox"><div class="lbl"><span>◀ 左端（先執行）</span><span>影響力佇列</span><span>右端 ▶</span></div><div class="queue" id="queue">${qh}</div></div>
+  <div class="log" id="log">${logs}</div>
+  <div class="row" style="margin-top:6px"><button class="pill" id="logBtn">${ui.showLog ? '只看最近' : '看全部紀錄'}</button></div>`;
+  const qn = $('queue');
+  if (sx != null) qn.scrollLeft = sx;
+  const curEl = qn.querySelector('.slot.cur, .slot.pick');
+  if (curEl) { const r = curEl.offsetLeft - qn.clientWidth / 2 + curEl.offsetWidth / 2; qn.scrollLeft = r; }
+  if (gapMode && sx == null) qn.scrollLeft = 0;
+  const lg = $('log'); lg.scrollTop = lg.scrollHeight;
+  $('rulesBtn').onclick = showRules;
+  $('newBtn').onclick = () => { if (S.over || confirm('放棄這一局，重新開始？')) { S = null; gid++; render(); } };
+  $('logBtn').onclick = () => { ui.showLog = !ui.showLog; render(); };
+  qn.querySelectorAll('.slot').forEach(el => el.onclick = () => {
+    const i = +el.dataset.slot, c = top(S.queue[i]);
+    if (picks && picks.has(c.id)) return answer(c.id);
+    if (stackOK && c.owner === v) return answer({ id: ui.sel, where: i });
+    showCardInfo(c);
+  });
+  qn.querySelectorAll('.gap').forEach(el => el.onclick = () => answer(+el.dataset.gap));
+  renderPanel();
+  if (S.over) renderEnd();
+}
+
+function renderPanel() {
+  const pr = S.prompt, v = me(), pn = $('panel'), pin = $('panelIn');
+  const hand = P(v).hand;
+  let h = '';
+  if (pr && pr.type === 'place') {
+    const sel = hand.find(c => c.id === ui.sel);
+    h = `<h3>輪到你放牌</h3>
+      <div class="hand">${hand.map(c => handCardHTML(c, c.id === ui.sel)).join('')}</div>
+      ${sel ? `<div class="desc"><b>${T[sel.t].ic} ${T[sel.t].n}</b>：${T[sel.t].d}</div>` : '<p>先點一張手牌。牌會蓋著放進佇列，對手看不到是什麼。</p>'}
+      <div class="btns"><button class="btn" id="pL" ${sel ? '' : 'disabled'}>放最左端</button><button class="btn" id="pR" ${sel ? '' : 'disabled'}>放最右端</button></div>
+      ${S.round >= 2 ? '<p>也可以疊在自己的牌上面：選好手牌後，點佇列裡自己的牌（藍色虛線框）。下面那張會暫停，不累積、不發動、不能被攻擊。</p>' : ''}`;
+  } else if (pr && pr.type === 'reveal') {
+    const c = byId(pr.id), gain = c.t === 'conspiracy' ? c.inf * 2 : c.inf;
+    h = `<h3>輪到你的蓋牌：${T[c.t].ic} ${T[c.t].n}</h3><div class="desc">${T[c.t].d}</div>
+      <p>牌上有 ${c.inf} 點影響力。翻開就拿走${gain !== c.inf ? `（陰謀加倍成 ${gain} 點）` : ''}並發動能力；不翻開則再累積 1 點，但可能被對手消滅。${S.round === ROUNDS ? '<b>最後一輪了，沒翻開的牌上的影響力不算分。</b>' : ''}</p>
+      <div class="btns"><button class="btn" id="rY">翻開${gain ? `（+${gain}）` : ''}</button><button class="btn alt" id="rN">不翻開（牌上 +1）</button></div>`;
+  } else if (pr && pr.type === 'target') {
+    h = `<h3>${esc(pr.title)}</h3><p>點佇列裡發亮的牌。${pr.mode === 'kill' ? '每消滅一張牌你得 1 點影響力；但對手的蓋牌可能是伏擊。' : ''}</p>
+      <div class="btns"><button class="btn ghost" id="tSkip">${pr.mode === 'copy' ? '不複製' : pr.mode === 'move' ? '不移動' : '不發動'}</button></div>`;
+  } else if (pr && pr.type === 'gap') {
+    h = `<h3>皇家法令：選新位置</h3><p>點佇列中黃色虛線的「放這裡」。</p>`;
+  } else if (!S.over) {
+    h = `<p>${S.phase === 'place' ? (S.turn != null ? `${esc(P(S.turn).name)} 正在放牌…` : '') : '執行中…'}</p>
+      <div class="hand" style="opacity:.75">${hand.map(c => handCardHTML(c, false)).join('') || '<p>手牌用完了</p>'}</div>`;
+  }
+  pn.hidden = !h; pin.innerHTML = h;
+  pin.querySelectorAll('[data-hand]').forEach(el => el.onclick = () => { if (pr && pr.type === 'place') { ui.sel = +el.dataset.hand; render(); } else showCardInfo(P(v).hand.find(c => c.id === +el.dataset.hand)); });
+  const on = (id, f) => { const e = $(id); if (e) e.onclick = f; };
+  on('pL', () => answer({ id: ui.sel, where: 'L' }));
+  on('pR', () => answer({ id: ui.sel, where: 'R' }));
+  on('rY', () => answer(true)); on('rN', () => answer(false));
+  on('tSkip', () => answer(null));
+  document.querySelector('.wrap').style.paddingBottom = (pn.hidden ? 40 : pn.offsetHeight + 30) + 'px';
+}
+
+function openSheet(html) {
+  const host = $('sheetHost'); host.innerHTML = `<div class="sheet"><div class="box">${html}</div></div>`;
+  const sh = host.firstElementChild; sh.onclick = e => { if (e.target === sh) host.innerHTML = ''; };
+  sh.querySelectorAll('[data-close]').forEach(b => b.onclick = () => host.innerHTML = '');
+  return sh;
+}
+function showCardInfo(c) {
+  const v = me(), known = c.up || c.owner === v || S.over;
+  openSheet(`<h2>${known ? T[c.t].ic + ' ' + T[c.t].n : '蓋著的牌'}</h2><p>${esc(P(c.owner).name)} 的牌${c.inf ? `，上面有 ${c.inf} 點影響力` : ''}。</p>${known ? `<p>${T[c.t].d}</p>` : '<p>翻開前看不到是什麼。小心，它可能是伏擊。</p>'}<button class="btn" data-close>關閉</button>`);
+}
+function showRules() {
+  openSheet(`<h2>豐富之城 規則</h2>
+  <p>依富饒之城2（Oriflamme）規則製作的非官方練習版。3～5 人，6 輪。</p>
+  <ol>
+  <li>每人 10 張家族牌，隨機蓋掉 3 張不用，剩 7 張手牌；每人先有 1 點影響力。</li>
+  <li><b>放置階段</b>：從起始玩家開始輪流，每人蓋 1 張牌放到佇列最左端或最右端。第 2 輪起也可以疊在自己的牌上面，下面那張暫停。</li>
+  <li><b>執行階段</b>：佇列由左往右，每張最上面的牌依序處理。蓋著的牌，牌主選擇翻開（拿走牌上影響力、發動能力）或不翻（牌上 +1 影響力）。已翻開的角色每輪再發動一次；策略牌發動完就棄掉。</li>
+  <li><b>消滅</b>一張牌得 1 點影響力，被消滅的牌上的影響力退回。</li>
+  <li>每輪結束，起始玩家換給下一位。6 輪後影響力最多的人獲勝；平手時佇列中剩下比較多自家牌的人獲勝。</li>
+  </ol>
+  <table>${KINDS.map(k => `<tr><td>${T[k].ic} <b>${T[k].n}</b><br><small>${T[k].k === 'char' ? '角色' : '策略'}</small></td><td>${T[k].d}</td></tr>`).join('')}</table>
+  <p style="font-size:.78rem;color:var(--muted)">細節（例如伏擊在蓋著時被攻擊也會觸發、起始玩家每輪輪換、能力可以選擇不發動）是依公開資料整理，可能和盒內說明書略有不同。</p>
+  <button class="btn" data-close>關閉</button>`);
+}
+function renderEnd() {
+  if ($('sheetHost').innerHTML.includes('rankBox')) return;
+  const v = me(), win = S.rank[0].i === v;
+  openSheet(`<h2 id="rankBox">${win ? '🏆 你贏得王位！' : `${esc(P(S.rank[0].i).name)} 贏得王位`}</h2>
+    <div class="rank">${S.rank.map((r, k) => `<div style="--c:${FAMS[P(r.i).fam].c}"><span>${k + 1}. ${esc(P(r.i).name)}</span><b>${r.inf} 點</b></div>`).join('')}</div>
+    <p style="font-size:.8rem;color:var(--muted)">平手時比佇列中剩下的自家牌數。佇列上的牌已全部攤開。</p>
+    <div class="btns"><button class="btn" id="again">再玩一局</button><button class="btn ghost" data-close>看佇列</button></div>`);
+  $('again').onclick = () => { $('sheetHost').innerHTML = ''; newGame(); };
+}
+
+function renderSetup() {
+  $('panel').hidden = true;
+  $('app').innerHTML = `
+  <div class="top"><h1>豐富之城<small>富饒之城2 規則</small></h1><button class="pill" id="rulesBtn">規則</button></div>
+  <div class="setup">
+    <div class="cardbox">
+      <p style="margin:0;line-height:1.7">老國王駕崩，沒有留下繼承人。各大家族把手下蓋著派進宮廷，什麼時候亮出身分、要暗殺誰，都要好好盤算。<b>6 輪後影響力最多的家族奪得王位。</b></p>
+      <label>你的名字<input id="nm" maxlength="8" value="${esc(cfg.name)}"></label>
+      <div><div style="font-size:.9rem;margin-bottom:4px">你的家族</div><div class="fams">${FAMS.map((f, i) => `<button style="--c:${f.c}" data-f="${i}" aria-pressed="${i === cfg.fam}">${f.n}</button>`).join('')}</div></div>
+      <div><div style="font-size:.9rem;margin-bottom:4px">人數（你 + 電腦）</div><div class="seg">${[3, 4, 5].map(n => `<button data-n="${n}" aria-pressed="${n === cfg.n}">${n} 人</button>`).join('')}</div></div>
+      <button class="btn" id="go">開始遊戲</button>
+    </div>
+    <p style="font-size:.78rem;color:var(--muted);text-align:center">非官方練習版，依公開規則整理製作。</p>
+  </div>`;
+  $('rulesBtn').onclick = showRules;
+  document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { cfg.fam = +b.dataset.f; renderSetup(); });
+  document.querySelectorAll('[data-n]').forEach(b => b.onclick = () => { cfg.n = +b.dataset.n; renderSetup(); });
+  $('nm').oninput = e => { cfg.name = e.target.value; };
+  $('go').onclick = () => {
+    cfg.name = ($('nm').value || '我').trim() || '我';
+    store.set('fc-n', cfg.n); store.set('fc-name', cfg.name); store.set('fc-fam', cfg.fam);
+    newGame();
+  };
+}
+
+addEventListener('resize', () => { if (S) renderPanel(); });
+render();
+
+// test hooks
+window.__fc = {
+  S: () => S, answer, speed: v => { SPEED = v; },
+  bots: n => { cfg.n = n; newGame(true); },
+};
+})();
+</script>
+</html>
