@@ -185,8 +185,8 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
   // 難度：easy 是原本的玩法；normal 第 2 波起有感冒病毒、第 4 波起有金黃色葡萄球菌、第 5 波多一隻新冠病毒魔王，疫苗比較多而且能增加 T 細胞；hard 第 1 波起什麼都有
   const DIFFS = {
     easy:   { name: "簡單", note: "病毒和細菌，第 5 波有流感病毒魔王。" },
-    normal: { name: "普通", note: "第 2 波起有<b>感冒病毒</b>，第 4 波起有難打的<b>金黃色葡萄球菌</b>，第 5 波加上<b>新冠病毒魔王</b>。疫苗比較多，每個疫苗多一個 T 細胞（最多 +3）。" },
-    hard:   { name: "困難", note: "<b>第 1 波起</b>就有各種病菌和比較多的疫苗，病菌來得更快；第 5 波有流感和新冠兩隻魔王。" },
+    normal: { name: "普通", note: "第 2 波起有<b>感冒病毒</b>，第 4 波起有難打的<b>金黃色葡萄球菌</b>，第 5 波加上<b>新冠病毒魔王</b>。疫苗比較多，每個疫苗多一個 T 細胞（最多 +5），熬夜會少一個。" },
+    hard:   { name: "困難", note: "<b>第 1 波起</b>就有各種病菌和比較多的疫苗，病菌來得更快；第 4 波起多了會<b>分裂的諾羅病毒</b>；第 5 波有流感和新冠兩隻魔王。疫苗和熬夜對 T 細胞的影響和普通一樣。" },
   };
   let diff = DIFFS[store.get("immune-diff")] ? store.get("immune-diff") : "easy";
   let vaxT = 0, bossDone = {};
@@ -214,6 +214,8 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
     virus: { r: 9, hp: 1, v: 38, pts: 10, bottom: 5 },
     bact:  { r: 13, hp: 2, v: 26, pts: 20, bottom: 8 },
     cold:  { r: 8, hp: 1, v: 50, pts: 15, bottom: 6, wiggle: 70 },
+    noro:  { r: 12, hp: 3, v: 34, pts: 30, bottom: 10, split: true },
+    noro2: { r: 7, hp: 1, v: 56, pts: 5, bottom: 4, wiggle: 40 },
     staph: { r: 16, hp: 5, v: 22, pts: 40, bottom: 12, push: true },
     flu:   { r: 30, hp: 14, v: 12, pts: 150, bottom: 30, name: "流感病毒" },
     covid: { r: 34, hp: 24, v: 10, pts: 300, bottom: 40, name: "新冠病毒", kids: true },
@@ -221,6 +223,7 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
   function pickKind() {
     const r = Math.random();
     const all = diff === "hard" || (diff === "normal" && wave >= 4);
+    if (diff === "hard" && wave >= 4) return r < 0.22 ? "virus" : r < 0.42 ? "cold" : r < 0.6 ? "bact" : r < 0.78 ? "staph" : "noro";
     if (all) return r < 0.3 ? "virus" : r < 0.55 ? "cold" : r < 0.8 ? "bact" : "staph";
     if (diff === "normal" && wave >= 2) return r < 0.4 ? "virus" : r < 0.7 ? "cold" : "bact";
     return r < 0.55 ? "virus" : "bact";
@@ -307,7 +310,8 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
   function nearest(x, y, range) { let best = null, bd = range; for (const q of germs) { const d = Math.hypot(q.x - x, q.y - y); if (d < bd) { bd = d; best = q; } } return best; }
   function damage(q, n) {
     q.hp -= n;
-    if (q.hp <= 0 && !q.dead) { q.dead = true; score += q.pts; sfx.eat(); pop(q.x, q.y, `+${q.pts}`, "#fff6ee"); if (q.boss) { pop(q.x, q.y - 24, `打敗${GERMS[q.kind].name}！`, "#9be564"); im = Math.min(100, im + 15); } }
+    if (q.hp <= 0 && !q.dead) { q.dead = true; score += q.pts; sfx.eat(); pop(q.x, q.y, `+${q.pts}`, "#fff6ee");
+      if (GERMS[q.kind].split) { for (const sx of [-1, 1]) addGerm("noro2", q.x + sx * q.r, q.y); pop(q.x, q.y + 18, "分裂了！", "#7fe8d0"); } if (q.boss) { pop(q.x, q.y - 24, `打敗${GERMS[q.kind].name}！`, "#9be564"); im = Math.min(100, im + 15); } }
   }
   function collect(it) {
     const I = ITEMS[it.kind];
@@ -318,7 +322,9 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
       case "sport": buff.sport = 8; im = Math.min(100, im + 5); pop(it.x, it.y, "移動變快 8 秒", "#ffd166"); break;
       case "wash": buff.wash = 6; pop(it.x, it.y, "6 秒內沒有新病菌", "#7fe0e0"); break;
       case "vax": buff.vax = 10; im = Math.min(100, im + 8);
-        if (diff !== "easy" && vaxT < 3) { vaxT++; pop(it.x, it.y, "抗體出動＋T 細胞 +1", "#d6a6ff"); } else pop(it.x, it.y, "抗體出動 10 秒", "#d6a6ff"); break;
+        if (diff !== "easy" && vaxT < 5) { vaxT++; pop(it.x, it.y, "抗體出動＋T 細胞 +1", "#d6a6ff"); } else pop(it.x, it.y, "抗體出動 10 秒", "#d6a6ff"); break;
+      case "late": im = Math.max(0, im - 15);
+        if (vaxT > 0) { vaxT--; pop(it.x, it.y, "熬夜：免疫力 -15、T 細胞 -1", "#ffb44c"); } else pop(it.x, it.y, "熬夜：免疫力 -15", "#ffb44c"); break;
       default: im = Math.max(0, im - 15); pop(it.x, it.y, `${I.label}：免疫力 -15`, "#ffb44c");
     }
     score += I.good ? 5 : 0;
@@ -362,7 +368,14 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
   function drawGerm(q) {
     g.save(); g.translate(q.x, q.y); g.rotate(q.t * (q.kind === "virus" ? 1.2 : 0.3));
     const flash = q.hitT > 0;
-    if (q.kind === "staph") {
+    if (q.kind === "noro" || q.kind === "noro2") {
+      // 諾羅病毒：青綠色六角形，邊上一圈小杯狀突起
+      g.fillStyle = flash ? "#ffffff" : "#3fc9a8";
+      for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; g.beginPath(); g.arc(Math.cos(a) * q.r * 0.95, Math.sin(a) * q.r * 0.95, q.r * 0.3, 0, 7); g.fill(); }
+      g.fillStyle = flash ? "#ffffff" : "#7fe8d0"; g.beginPath();
+      for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2 + Math.PI / 6; g.lineTo(Math.cos(a) * q.r * 0.9, Math.sin(a) * q.r * 0.9); }
+      g.closePath(); g.fill(); g.strokeStyle = "#1f8f74"; g.lineWidth = 1.5; g.stroke();
+    } else if (q.kind === "staph") {
       // 金黃色葡萄球菌：一串金色小球
       const balls = [[0, 0], [-0.55, -0.35], [0.55, -0.35], [-0.6, 0.4], [0.6, 0.4], [0, -0.7], [0, 0.72]];
       for (const [bx, by] of balls) { g.fillStyle = flash ? "#ffffff" : "#f2c14e"; g.beginPath(); g.arc(bx * q.r, by * q.r, q.r * 0.42, 0, 7); g.fill(); g.strokeStyle = "#b8862a"; g.lineWidth = 1.2; g.stroke(); }
@@ -453,7 +466,7 @@ body { margin: 0; background: var(--vessel); color: var(--ink); font-family: var
   $("menuBtn").addEventListener("click", () => { $("overScreen").hidden = true; setDiff(diff); $("startScreen").hidden = false; });
   setDiff(diff);
   resize(); reset();
-  window.__immune = { setDiff, kinds: () => germs.map(q => q.kind), state: () => ({ diff, vaxT, running, wave, waveT, hp, im, score, germs: germs.length, items: items.length, helpers: helpers.length }), cell, skip: () => { waveT = WAVE_LEN; germs = []; } };  // for automated tests
+  window.__immune = { setDiff, give: k => collect({ kind: k, x: W / 2, y: H / 2 }), hitAll: () => germs.slice().forEach(q => damage(q, 99)), kinds: () => germs.map(q => q.kind), state: () => ({ diff, vaxT, running, wave, waveT, hp, im, score, germs: germs.length, items: items.length, helpers: helpers.length }), cell, skip: () => { waveT = WAVE_LEN; germs = []; } };  // for automated tests
   requestAnimationFrame(frame);
 })();
 </script>
