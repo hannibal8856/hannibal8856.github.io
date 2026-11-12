@@ -1,0 +1,794 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="遊戲廳">
+<meta name="theme-color" content="#12202c">
+<script>
+addEventListener('DOMContentLoaded', function () {
+  if (!(navigator.standalone || matchMedia('(display-mode: standalone)').matches)) return;
+  var a = document.createElement('a');
+  a.id = 'hg-home'; a.href = './'; a.textContent = '⌂ 大廳'; a.setAttribute('aria-label', '回遊戲大廳');
+  a.style.cssText = 'position:fixed;left:calc(6px + env(safe-area-inset-left));bottom:calc(6px + env(safe-area-inset-bottom));z-index:2147483647;padding:5px 9px;border-radius:14px;background:rgba(0,0,0,.45);color:#fff;font:600 12px system-ui,-apple-system,sans-serif;text-decoration:none;opacity:.7;-webkit-tap-highlight-color:transparent';
+  document.body.appendChild(a);
+});
+</script>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}[hidden]{display:none!important}</style>
+<title>末日按鈕</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="五國核子外交諷刺遊戲：生產、宣傳、防禦、發射或打熱線，當最後一個還有人口的國家。">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Noto+Sans+TC:wght@500;700;900&display=swap">
+<style>
+/* 民防海報風：深藍灰底、警示黃、警報紅。上方四個對手國，中間你的國家，下方行動列和新聞快報。 */
+:root {
+  --bg: #1b222d; --panel: #262f3d; --panel2: #303b4c; --line: #ffffff1f;
+  --ink: #f2eee3; --muted: #a3adbb; --hazard: #f2c230; --alarm: #e5493e; --calm: #4cc3a5; --sky: #6aa8ff;
+  --f-num: "Bungee", "Arial Black", system-ui, sans-serif;
+  --f-ui: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-ui); font-size: 14px; line-height: 1.5;
+  background-image: repeating-linear-gradient(135deg, transparent 0 22px, #ffffff05 22px 44px); }
+button { font: inherit; color: inherit; }
+button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
+.wrap { max-width: 1100px; margin: 0 auto; padding-block: 12px 24px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 12px; }
+
+/* header */
+.top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.top h1 { margin: 0; font-weight: 900; font-size: 22px; letter-spacing: .06em; display: flex; align-items: center; gap: 8px; }
+.btnicon { width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #ff7a6e, var(--alarm) 60%, #8f1f17); box-shadow: 0 3px 0 #5d130e; display: inline-block; flex: none; }
+.meta { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+.pill { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 13px; display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+.pill b { font-family: var(--f-num); font-weight: 400; font-variant-numeric: tabular-nums; }
+.pill.clock b { color: var(--hazard); }
+.pill.clock.winter { border-color: var(--alarm); }
+.pill.clock.winter b { color: var(--alarm); }
+.link { background: none; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; cursor: pointer; font-size: 13px; }
+
+/* nations */
+.foes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 860px) { .foes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.nation { background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 10px; display: grid; gap: 6px; position: relative; min-width: 0; transition: border-color .2s, transform .2s; }
+.nation.dead { opacity: .45; filter: grayscale(1); }
+.nation.pick { border-color: var(--hazard); cursor: pointer; }
+.nation.chosen { border-color: var(--hazard); box-shadow: 0 0 0 3px #f2c23055; }
+.nation.acting { transform: translateY(-3px); border-color: var(--sky); }
+.nation .head { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.ava { font-size: 30px; line-height: 1; width: 42px; height: 42px; display: grid; place-items: center; background: var(--panel2); border-radius: 10px; flex: none; }
+.who { min-width: 0; }
+.who b { display: block; font-size: 14px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.who small { color: var(--muted); font-size: 11.5px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mood { margin-left: auto; text-align: center; flex: none; }
+.mood .face { font-size: 22px; line-height: 1; display: block; }
+.mood .num { font-family: var(--f-num); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mood .num.lie { color: var(--hazard); }
+.cities { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.city { background: var(--panel2); border: 1.5px solid transparent; border-radius: 8px; padding: 3px 0 2px; text-align: center; position: relative; min-width: 0; }
+.city .ic { font-size: 20px; line-height: 1.15; display: block; }
+.city .p { font-family: var(--f-num); font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.city.gone .ic { filter: grayscale(1); opacity: .6; }
+.city.tgt { cursor: pointer; border-color: #f2c23088; }
+.city.tgt:hover { border-color: var(--hazard); background: #f2c2301c; }
+.city.sel { border-color: var(--alarm); background: #e5493e2e; }
+.city.boom { animation: boom .9s ease-out; }
+.city.boom::after { content: "💥"; position: absolute; inset: 0; display: grid; place-items: center; font-size: 30px; animation: pop .9s ease-out forwards; }
+.city.lure { animation: lure .9s ease-out; }
+.city.gain { animation: gain .9s ease-out; }
+@keyframes boom { 0%{ background:#ffcf5a; transform: scale(1.15);} 40%{ background: var(--alarm);} 100%{ background: var(--panel2); transform: none; } }
+@keyframes pop { 0%{ transform: scale(.4); opacity: 1;} 70%{ opacity: 1;} 100%{ transform: scale(1.6); opacity: 0;} }
+@keyframes lure { 0%{ background: var(--sky);} 100%{ background: var(--panel2);} }
+@keyframes gain { 0%{ background: var(--calm);} 100%{ background: var(--panel2);} }
+.shieldfx { animation: shield 1s ease-out; }
+@keyframes shield { 0%{ box-shadow: 0 0 0 0 #6aa8ffcc; } 100%{ box-shadow: 0 0 0 16px #6aa8ff00; } }
+.foot { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.foot b { color: var(--ink); font-family: var(--f-num); font-weight: 400; font-variant-numeric: tabular-nums; }
+.tag { position: absolute; top: -9px; right: 10px; background: var(--alarm); color: #fff; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 0 6px; }
+
+/* you */
+.me { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 12px; }
+@media (max-width: 760px) { .me { grid-template-columns: minmax(0, 1fr); } }
+.me .nation { border-color: #f2c23066; }
+.me .nation .who b { color: var(--hazard); }
+.arsenal { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { background: var(--panel2); border: 1.5px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 4px; }
+.chip b { font-family: var(--f-num); font-weight: 400; }
+.chip.btn { cursor: pointer; }
+.chip.btn:hover { border-color: var(--hazard); }
+.chip.on { border-color: var(--alarm); background: #e5493e2e; }
+.chip.off { opacity: .4; }
+.empty { color: var(--muted); font-size: 12.5px; }
+
+/* actions */
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.panel h3 { margin: 0; font-size: 13px; letter-spacing: .12em; color: var(--muted); font-weight: 700; }
+.acts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.act { background: var(--panel2); border: 2px solid transparent; border-radius: 10px; padding: 8px 2px 6px; cursor: pointer; display: grid; gap: 2px; justify-items: center; }
+.act .e { font-size: 22px; line-height: 1; }
+.act span { font-size: 12.5px; font-weight: 700; }
+.act.on { border-color: var(--hazard); background: #f2c2301f; }
+.act:disabled { opacity: .35; cursor: default; }
+.hint { font-size: 13px; color: var(--muted); min-height: 1.5em; }
+.hint b { color: var(--ink); }
+.go { background: var(--alarm); color: #fff; border: 0; border-radius: 12px; padding: 12px; font-weight: 900; font-size: 16px; letter-spacing: .1em; cursor: pointer; box-shadow: 0 4px 0 #8f1f17; }
+.go:active { transform: translateY(3px); box-shadow: 0 1px 0 #8f1f17; }
+.go:disabled { background: #5a6170; box-shadow: 0 4px 0 #3a3f49; cursor: default; }
+
+/* news */
+.news { max-height: 260px; overflow-y: auto; display: grid; gap: 4px; align-content: start; font-size: 13px; }
+.news p { margin: 0; padding: 4px 8px; border-radius: 6px; background: var(--panel2); animation: in .25s ease-out; }
+.news p.bad { border-left: 3px solid var(--alarm); }
+.news p.good { border-left: 3px solid var(--calm); }
+.news p.ev { border-left: 3px solid var(--hazard); }
+.news p.turn { background: none; color: var(--muted); font-size: 12px; letter-spacing: .1em; padding: 6px 0 0; }
+@keyframes in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* overlays */
+.screen { position: fixed; inset: 0; background: #11161ee8; display: grid; place-items: center; overflow-y: auto; z-index: 20;
+  padding-block: calc(env(safe-area-inset-top, 0px) + 16px) calc(env(safe-area-inset-bottom, 0px) + 16px); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.card { width: min(680px, 100%); background: var(--panel); border: 2px solid var(--line); border-radius: 16px; padding: 20px; display: grid; gap: 14px; }
+.card h2 { margin: 0; font-size: 28px; font-weight: 900; letter-spacing: .08em; display: flex; align-items: center; gap: 10px; text-wrap: balance; }
+.card p { margin: 0; }
+.card .sub { color: var(--muted); font-size: 13px; }
+.leaders { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 520px) { .leaders { grid-template-columns: minmax(0, 1fr); } }
+.leader { background: var(--panel2); border: 2px solid transparent; border-radius: 12px; padding: 8px 10px; display: flex; gap: 10px; align-items: flex-start; cursor: pointer; text-align: left; }
+.leader.on { border-color: var(--hazard); background: #f2c2301a; }
+.leader .ava { width: 38px; height: 38px; font-size: 26px; background: var(--bg); }
+.leader b { display: block; font-size: 14px; }
+.leader small { display: block; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.ptype { display: inline-block; font-size: 11px; border-radius: 5px; padding: 0 5px; margin-left: 4px; background: var(--bg); color: var(--hazard); font-weight: 700; vertical-align: 1px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.row .go { flex: 1; min-width: 140px; }
+.ghost { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; font-weight: 700; cursor: pointer; }
+.rules { display: grid; gap: 10px; font-size: 13.5px; max-height: min(64vh, 640px); overflow-y: auto; }
+.rules h4 { margin: 4px 0 0; font-size: 14px; color: var(--hazard); }
+.rules ul { margin: 0; padding-left: 20px; display: grid; gap: 2px; }
+.rules table { border-collapse: collapse; font-size: 12.5px; }
+.rules td, .rules th { border: 1px solid var(--line); padding: 3px 8px; text-align: left; }
+.big { font-family: var(--f-num); font-size: 40px; color: var(--hazard); }
+.ticker { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: #11161e; box-shadow: 0 -8px 20px #0008; border-top: 2px solid var(--hazard); display: flex; gap: 10px; align-items: center;
+  padding-block: 10px calc(env(safe-area-inset-bottom, 0px) + 10px); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.ticker p { margin: 0; flex: 1; min-width: 0; font-size: 14px; animation: in .25s ease-out; }
+.skip { flex: none; background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; font-weight: 700; cursor: pointer; }
+.wrap.playing { padding-bottom: 90px; }
+@media (prefers-reduced-motion: reduce) { *, *::after { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1><i class="btnicon" aria-hidden="true"></i>末日按鈕</h1>
+    <div class="meta">
+      <span class="pill">回合 <b id="turnNo">1</b>/<b>30</b></span>
+      <span class="pill clock" id="clockPill" title="每發射一次核武，末日鐘就往午夜走">末日鐘 <b id="clock">20</b> 分</span>
+      <button class="link" id="rulesBtn" type="button">規則</button>
+      <button class="link" id="newBtn" type="button">新局</button>
+    </div>
+  </header>
+
+  <section class="foes" id="foes" aria-label="其他四國"></section>
+
+  <section class="me">
+    <div id="myNation"></div>
+    <div class="panel">
+      <h3>這回合要做什麼（只能選一件）</h3>
+      <div class="acts" id="acts">
+        <button class="act" data-a="build" type="button"><i class="e">🏭</i><span>生產</span></button>
+        <button class="act" data-a="lure" type="button"><i class="e">📣</i><span>宣傳</span></button>
+        <button class="act" data-a="guard" type="button"><i class="e">🛡️</i><span>防禦</span></button>
+        <button class="act" data-a="fire" type="button"><i class="e">🚀</i><span>發射</span></button>
+        <button class="act" data-a="call" type="button"><i class="e">☎️</i><span>熱線</span></button>
+      </div>
+      <div class="arsenal" id="pickWeapon" hidden></div>
+      <p class="hint" id="hint">先選一個行動。</p>
+      <button class="go" id="goBtn" type="button" disabled>按下去，結束回合</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h3>國際新聞快報</h3>
+    <div class="news" id="news" aria-live="polite"></div>
+  </section>
+</div>
+
+<div class="ticker" id="ticker" hidden><p id="tickText"></p><button class="skip" id="skipBtn" type="button">快轉 ⏩</button></div>
+
+<div class="screen" id="startScreen">
+  <div class="card">
+    <h2><i class="btnicon" aria-hidden="true"></i>末日按鈕</h2>
+    <p>世界上有五個大國，每國五座城市。你是其中一國的領袖：生產核武、用宣傳把別國的人民拐過來、架起防護罩，或是乾脆按下按鈕。最後一個還有人口的國家獲勝。</p>
+    <p class="sub">選 4 位對手（不選就隨機）。每位領袖個性不同，對同一件事的反應也不一樣。</p>
+    <div class="leaders" id="leaderPick"></div>
+    <div class="row">
+      <button class="go" id="startBtn" type="button">隨機 4 位，開始</button>
+      <button class="ghost" id="rulesBtn2" type="button">先看規則</button>
+    </div>
+    <p class="sub" id="bestLine"></p>
+  </div>
+</div>
+
+<div class="screen" id="rulesScreen" hidden>
+  <div class="card">
+    <h2>規則</h2>
+    <div class="rules">
+      <p><b>目標：</b>當最後一個還有人口的國家。撐到第 30 回合聯合國強制停火時，人口最多的國家獲勝。</p>
+      <h4>每回合只能做一件事</h4>
+      <ul>
+        <li>🏭 <b>生產</b>：從兵工廠拿到隨機武器或防護罩。城市越多拿越多（5 城 3 件、3～4 城 2 件、1～2 城 1 件）。連續兩回合生產會被認為在搞軍備競賽，所有人都會討厭你。</li>
+        <li>📣 <b>宣傳</b>：選一座敵方城市，拐走 100 萬～600 萬人到你的國家。有 15% 機率出包。被宣傳的國家會不太高興。</li>
+        <li>🛡️ <b>防禦</b>：啟用一個防護罩，這回合有效。沒有防護罩就只能躲防空洞，這回合受到的核彈傷害減少 40%。</li>
+        <li>🚀 <b>發射</b>：選一個武器和一座敵方城市，這回合就打過去。</li>
+        <li>☎️ <b>熱線</b>：打電話給一位領袖套交情，他對你的好感會上升（騙子和瘋子不一定）。</li>
+      </ul>
+      <h4>武器和防護罩</h4>
+      <table>
+        <tr><th>名稱</th><th>效果</th></tr>
+        <tr><td>🧨 鞭炮飛彈</td><td>約 300 萬人</td></tr>
+        <tr><td>🚀 晚安飛彈</td><td>約 700 萬人</td></tr>
+        <tr><td>☄️ 地平線飛彈</td><td>約 1500 萬人</td></tr>
+        <tr><td>🌋 老大哥飛彈</td><td>約 3000 萬人</td></tr>
+        <tr><td>✈️ 鵜鶘轟炸機</td><td>一次炸兩座城（你選的和隔壁城），各約 600 萬人</td></tr>
+        <tr><td>🕸️ 攔截網</td><td>擋下鞭炮、晚安飛彈和轟炸機；擋不住地平線和老大哥</td></tr>
+        <tr><td>🔰 天穹盾</td><td>這回合什麼都擋得住</td></tr>
+      </table>
+      <p class="sub">傷害有隨機浮動；8% 是啞彈，5% 正好打中軍火庫，傷害加倍還會炸掉對方一件武器。</p>
+      <h4>城市</h4>
+      <p>⛺ 不到 500 萬、🛖 500 萬起、🏠 1000 萬起、🏢 2000 萬起、🏙️ 3000 萬以上。人口歸零就變成 🕳️ 坑洞，永遠不能再住人，宣傳和攻擊打空城都算白費。</p>
+      <h4>好感度和個性</h4>
+      <ul>
+        <li>每位領袖對每個國家都有 0～100 的好感度，卡片右上角是他對你的感覺。好感越低，越可能打你。</li>
+        <li><b>老實</b>：你對他好他就對你好，被打就記仇。</li>
+        <li><b>和平</b>：很少用核武，宣傳效果加倍；被核彈打會非常生氣，但喜歡愛用宣傳的人。</li>
+        <li><b>騙子</b>：顯示給你看的好感度可能是假的（黃色數字），常常笑著偷襲。</li>
+        <li><b>瘋子</b>：行為隨機，好感說變就變。</li>
+        <li><b>好戰</b>：你幫他打他討厭的人，他就喜歡你；你用宣傳他會看不起你。</li>
+        <li>打某國時，喜歡那一國的人會討厭你；被打的人會非常討厭你。</li>
+      </ul>
+      <h4>末日鐘</h4>
+      <p>開局離午夜 20 分。每次發射核武，鐘就往前走（大武器走越多）；如果整回合都沒有人發射，鐘會往回撥 1 分鐘（最多回到 25 分）。到了午夜就進入<b>核冬天</b>：之後每回合所有城市都少 8% 人口。</p>
+      <h4>突發事件</h4>
+      <p>颱風假、珍奶熱潮、外星觀光團、跳電、隕石、選舉造勢、網路迷因……每回合都可能發生。</p>
+    </div>
+    <button class="go" id="rulesClose" type="button">知道了</button>
+  </div>
+</div>
+
+<div class="screen" id="overScreen" hidden>
+  <div class="card">
+    <h2 id="overTitle">遊戲結束</h2>
+    <p id="overText"></p>
+    <div class="row"><span class="sub">分數</span><span class="big" id="overScore">0</span><span class="sub" id="overBest"></span></div>
+    <button class="go" id="againBtn" type="button">再來一局</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const R = n => Math.floor(Math.random() * n);
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const pickOne = a => a[R(a.length)];
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
+  const fmt = n => n >= 10 ? Math.round(n) + '' : (Math.round(n * 10) / 10) + '';
+
+  // ---------- data ----------
+  const TYPES = {
+    honest: { name: '老實' }, peace: { name: '和平' }, liar: { name: '騙子' }, chaos: { name: '瘋子' }, war: { name: '好戰' },
+  };
+  const LEADERS = [
+    { id: 'cat', ava: '🐱', name: '喵喵大統領', land: '喵喵聯邦', type: 'war', note: '睡覺被吵醒就想按按鈕。你幫他打仇人，他就當你是好麻吉。' },
+    { id: 'pine', ava: '🍍', name: '鳳梨首相', land: '旺來共和國', type: 'peace', note: '靠唱歌選上首相，宣傳效果加倍。除非被逼急，否則不用核武。' },
+    { id: 'steak', ava: '🥩', name: '牛排將軍', land: '全熟王國', type: 'chaos', note: '心情跟牛排熟度一樣難猜。偶爾把兩顆彈頭綁在一起，可能大爆也可能自己掉下來。' },
+    { id: 'ice', ava: '❄️', name: '冷氣部長', land: '北極風共和國', type: 'liar', note: '總是說「我們關係很好」，顯示的好感度常常是假的。' },
+    { id: 'boba', ava: '🧋', name: '珍奶女王', land: '珍珠王國', type: 'honest', note: '說到做到。你對她好她就對你好，被打一定記住。' },
+    { id: 'nap', ava: '😴', name: '午睡總理', land: '枕頭邦', type: 'honest', note: '個性老實，但常常在睡午覺，整回合什麼都沒做。' },
+    { id: 'live', ava: '📱', name: '直播主席', land: '按讚人民國', type: 'peace', note: '二十四小時開直播，宣傳超強；被核彈打到會氣到斷線。' },
+    { id: 'turtle', ava: '🐢', name: '烏龜大帝', land: '慢慢帝國', type: 'liar', note: '笑咪咪地慢慢靠近，然後突然咬你一口。' },
+    { id: 'drum', ava: '🥁', name: '鼓手司令', land: '咚咚共和國', type: 'war', note: '每天早上打鼓閱兵。最看不起只會宣傳的國家。' },
+    { id: 'cloud', ava: '☁️', name: '雲霧祭司', land: '迷霧神國', type: 'chaos', note: '看雲決定國策。今天是朋友，明天可能就開打。' },
+  ];
+  const ME = { id: 'me', ava: '🫵', name: '你', land: '你的國家', type: 'me' };
+
+  const ITEMS = {
+    s:  { ic: '🧨', name: '鞭炮飛彈', kind: 'msl', dmg: 3,  clock: .5,  w: 30 },
+    m:  { ic: '🚀', name: '晚安飛彈', kind: 'msl', dmg: 7,  clock: 1,   w: 24 },
+    l:  { ic: '☄️', name: '地平線飛彈', kind: 'msl', dmg: 15, clock: 1.5, w: 11 },
+    xl: { ic: '🌋', name: '老大哥飛彈', kind: 'msl', dmg: 30, clock: 3,   w: 4 },
+    b:  { ic: '✈️', name: '鵜鶘轟炸機', kind: 'bmb', dmg: 6,  clock: 1,   w: 10 },
+    net:{ ic: '🕸️', name: '攔截網', kind: 'def', w: 13 },
+    dome:{ ic: '🔰', name: '天穹盾', kind: 'def', w: 6 },
+  };
+  const WEAPONS = ['xl', 'l', 'm', 'b', 's'];
+  const SHIELDS = ['dome', 'net'];
+  const cityIcon = p => p <= 0 ? '🕳️' : p < 5 ? '⛺' : p < 10 ? '🛖' : p < 20 ? '🏠' : p < 30 ? '🏢' : '🏙️';
+  const FACES = ['😡', '🙁', '😐', '🙂', '😍'];
+  const faceOf = v => FACES[clamp(Math.floor(v / 20), 0, 4)];
+  const MAX_TURN = 30;
+
+  // ---------- state ----------
+  let S = null, chosen = new Set();
+  let plan = { a: null, w: null, n: null, c: null };
+  let busy = false, fast = false;
+
+  function newNation(L, idx) {
+    const cities = Array.from({ length: 5 }, () => Math.round(rnd(4, 16) * 10) / 10);
+    const inv = {}; for (const k in ITEMS) inv[k] = 0;
+    inv.s = 1; inv[pickOne(['m', 'net', 's', 'b'])]++;
+    return { ...L, idx, cities, inv, alive: true, last: null, prev: null, shield: null, bunker: false, lieOff: 0, skip: false };
+  }
+  function newGame(foes) {
+    const list = [ME, ...foes];
+    const N = list.map((L, i) => newNation(L, i));
+    const feel = N.map(() => N.map(() => Math.round(rnd(45, 56))));
+    S = { N, feel, turn: 1, clock: 20, winter: false, over: false, events: {} };
+    plan = { a: null, w: null, n: null, c: null };
+    $('news').innerHTML = '';
+    say('第 1 回合', 'turn');
+    say('五國領袖齊聚一堂，彼此握手微笑。看起來很和平……暫時。', 'ev');
+    render();
+  }
+  const pop = n => n.cities.reduce((a, b) => a + Math.max(0, b), 0);
+  const liveCities = n => n.cities.filter(p => p > 0).length;
+  const alive = () => S.N.filter(n => n.alive);
+  const weaponsOf = n => WEAPONS.filter(k => n.inv[k] > 0);
+  const shieldsOf = n => SHIELDS.filter(k => n.inv[k] > 0);
+  const countKind = (n, kind) => Object.keys(ITEMS).filter(k => ITEMS[k].kind === kind).reduce((a, k) => a + n.inv[k], 0);
+
+  // ---------- feelings ----------
+  function bump(a, b, v) { if (a === b) return; S.feel[a][b] = clamp(Math.round(S.feel[a][b] + v), 0, 100); }
+  const typeOf = i => S.N[i].type;
+  function onNuked(attacker, victim) {
+    for (const o of S.N) {
+      if (!o.alive || o.idx === attacker) continue;
+      const t = o.type;
+      if (o.idx === victim) bump(o.idx, attacker, t === 'peace' ? -55 : t === 'chaos' ? -rnd(10, 70) : t === 'liar' ? -30 : -40);
+      else {
+        const f = S.feel[o.idx][victim];
+        if (f < 40) bump(o.idx, attacker, t === 'war' ? 12 : t === 'chaos' ? rnd(-10, 15) : 4);
+        else if (f > 60) bump(o.idx, attacker, -15);
+        if (t === 'peace') bump(o.idx, attacker, -8);
+      }
+    }
+  }
+  function onLured(attacker, victim) {
+    for (const o of S.N) {
+      if (!o.alive || o.idx === attacker) continue;
+      const t = o.type;
+      if (o.idx === victim) bump(o.idx, attacker, t === 'peace' ? -6 : t === 'war' ? -16 : t === 'chaos' ? rnd(-25, 5) : -12);
+      else if (t === 'peace') bump(o.idx, attacker, 4);
+      else if (t === 'war') bump(o.idx, attacker, -3);
+    }
+  }
+  function onCall(from, to) {
+    const t = S.N[to].type;
+    const v = t === 'peace' ? 20 : t === 'honest' ? 15 : t === 'liar' ? rnd(-5, 18) : t === 'chaos' ? rnd(-15, 25) : 7;
+    bump(to, from, v);
+    return v;
+  }
+  function onBuild(i) {
+    const n = S.N[i];
+    if (n.prev === 'build') for (const o of S.N) if (o.alive && o.idx !== i) bump(o.idx, i, o.type === 'war' ? -3 : -8);
+  }
+
+  // ---------- AI ----------
+  function aiPlan(n) {
+    const me = n.idx, t = n.type;
+    const others = alive().filter(o => o.idx !== me);
+    if (!others.length) return { a: 'build' };
+    if (n.id === 'nap' && Math.random() < 0.15) return { a: 'nap' };
+    let target = others.slice().sort((a, b) => S.feel[me][a.idx] - S.feel[me][b.idx] || Math.random() - .5)[0];
+    if (t === 'liar' && Math.random() < 0.3) target = pickOne(others);     // 笑著偷襲
+    if (t === 'chaos' && Math.random() < 0.4) target = pickOne(others);
+    const hate = S.feel[me][target.idx];
+    const ws = weaponsOf(n), sh = shieldsOf(n);
+    // 被人盯上就防守
+    const threat = others.some(o => S.feel[o.idx][me] < 25 && weaponsOf(o).length && (o.last === 'build' || weaponsOf(o).some(k => ITEMS[k].dmg >= 15)));
+    const low = pop(n) < 25;
+    if (sh.length && threat && Math.random() < (low ? 0.75 : 0.45)) return { a: 'guard', w: sh[0] };
+    const th = { war: 50, honest: 30, liar: 42, chaos: rnd(10, 60), peace: (low ? 15 : 6) }[t];
+    if (ws.length && hate < th && !(t === 'peace' && Math.random() < 0.5)) {
+      const w = t === 'chaos' ? pickOne(ws) : ws[0];
+      const ci = bestCity(target);
+      return { a: 'fire', w, n: target.idx, c: ci };
+    }
+    const r = Math.random();
+    const friend = others.slice().sort((a, b) => S.feel[a.idx][me] - S.feel[b.idx][me])[0];
+    const canBuild = n.prev !== 'build' || !ws.length;
+    if (t === 'peace') {
+      if (r < 0.6) return { a: 'lure', n: target.idx, c: bestCity(target) };
+      if (r < 0.85 && canBuild) return { a: 'build' };
+      return { a: 'call', n: friend.idx };
+    }
+    if (ws.length < 2 && canBuild && r < 0.7) return { a: 'build' };
+    if (r < 0.55) return { a: 'lure', n: target.idx, c: bestCity(target) };
+    if (r < 0.75 && friend && S.feel[friend.idx][me] < 45) return { a: 'call', n: friend.idx };
+    return canBuild ? { a: 'build' } : { a: 'lure', n: target.idx, c: bestCity(target) };
+  }
+  function bestCity(n) {
+    let bi = -1, bp = -1;
+    n.cities.forEach((p, i) => { if (p > bp) { bp = p; bi = i; } });
+    return bi;
+  }
+
+  // ---------- resolution ----------
+  const log = [];  // {text, cls, fx:[...]} played in order
+  function say(text, cls = '') { const p = document.createElement('p'); p.className = cls; p.innerHTML = text; $('news').prepend(p); }
+  const nm = i => i === 0 ? '<b>你</b>' : `${S.N[i].ava}<b>${S.N[i].name}</b>`;
+  const land = i => i === 0 ? '你的國家' : S.N[i].land;
+  const cname = (i, c) => `${land(i)}第 ${c + 1} 城`;
+
+  function drawItems(n) {
+    const lc = liveCities(n), k = lc >= 5 ? 3 : lc >= 3 ? 2 : 1;
+    const got = [];
+    const tot = Object.values(ITEMS).reduce((a, it) => a + it.w, 0);
+    for (let j = 0; j < k; j++) {
+      let x = Math.random() * tot;
+      for (const key in ITEMS) { x -= ITEMS[key].w; if (x <= 0) { n.inv[key]++; got.push(key); break; } }
+    }
+    return got;
+  }
+  function moveClock(v) {
+    if (S.winter) return;
+    S.clock = Math.max(0, Math.round((S.clock - v) * 10) / 10);
+    if (S.clock <= 0) { S.winter = true; log.push({ text: '🕛 末日鐘走到午夜！<b>核冬天</b>來了，從現在起每回合所有城市少 8% 人口。', cls: 'bad' }); }
+  }
+  function hitCity(att, vi, ci, dmg, label) {
+    const v = S.N[vi];
+    if (v.cities[ci] <= 0) { log.push({ text: `${nm(att)}的${label}打中${cname(vi, ci)}……那裡早就是坑了，白打一場「軍事演習」。`, cls: '' }); return 0; }
+    let d = dmg * rnd(0.6, 1.4);
+    let extra = '';
+    const roll = Math.random();
+    if (roll < 0.08) { log.push({ text: `${nm(att)}的${label}是啞彈，掉在${cname(vi, ci)}的田裡，農夫拿來當稻草人。`, cls: 'good', fx: [{ t: 'city', n: vi, c: ci, k: 'gain' }] }); return 0; }
+    if (roll > 0.95) { d *= 2; const ks = Object.keys(v.inv).filter(k => v.inv[k] > 0); if (ks.length) { const k = pickOne(ks); v.inv[k]--; extra = `，還引爆軍火庫炸掉一個${ITEMS[k].name}`; } else extra = '，正中要害'; }
+    if (v.bunker) d *= 0.6;
+    d = Math.min(d, v.cities[ci]);
+    v.cities[ci] = Math.round((v.cities[ci] - d) * 10) / 10;
+    if (v.cities[ci] < 0.15) v.cities[ci] = 0;
+    const gone = v.cities[ci] <= 0;
+    log.push({ text: `💥 ${nm(att)}的${label}命中${cname(vi, ci)}，${fmt(d)} 百萬人消失${extra}${v.bunker ? '（防空洞救了一些人）' : ''}${gone ? '。這座城變成了坑洞。' : '。'}`, cls: 'bad', fx: [{ t: 'city', n: vi, c: ci, k: 'boom' }] });
+    return d;
+  }
+  function resolveFire(i, p) {
+    const n = S.N[i], it = ITEMS[p.w];
+    if (!n.inv[p.w] || !S.N[p.n].alive) return;
+    n.inv[p.w]--;
+    const v = S.N[p.n];
+    moveClock(it.clock);
+    log.push({ text: `🚀 ${nm(i)}按下按鈕，${it.ic}${it.name}飛向${land(p.n)}！`, cls: 'bad', fx: [{ t: 'nation', n: i, k: 'act' }] });
+    // shields
+    if (v.shield === 'dome' || (v.shield === 'net' && (p.w === 's' || p.w === 'm' || p.w === 'b'))) {
+      log.push({ text: `${v.shield === 'dome' ? '🔰 天穹盾' : '🕸️ 攔截網'}把它擋下來了！${nm(p.n)}鬆了一口氣。`, cls: 'good', fx: [{ t: 'shield', n: p.n }] });
+      onNuked(i, p.n);
+      return;
+    }
+    let dmg = it.dmg, label = it.ic + it.name;
+    if (n.id === 'steak' && Math.random() < 0.25) {
+      if (Math.random() < 0.35) { log.push({ text: `牛排將軍把兩顆彈頭綁在一起，結果飛到一半掉進海裡。`, cls: 'ev' }); onNuked(i, p.n); return; }
+      dmg *= 2; label = '綁了兩顆彈頭的' + label;
+    }
+    if (it.kind === 'bmb') {
+      const cs = [p.c];
+      const nb = [p.c - 1, p.c + 1].filter(c => c >= 0 && c < 5 && v.cities[c] > 0);
+      if (nb.length) cs.push(pickOne(nb));
+      for (const c of cs) hitCity(i, p.n, c, dmg, label);
+    } else hitCity(i, p.n, p.c, dmg, label);
+    onNuked(i, p.n);
+  }
+  function resolveLure(i, p) {
+    const n = S.N[i], v = S.N[p.n];
+    if (!v.alive) return;
+    if (S.events.typhoon) { log.push({ text: `${nm(i)}的宣傳車遇到颱風假，沒有人出門。`, cls: '' }); return; }
+    if (v.cities[p.c] <= 0) { log.push({ text: `${nm(i)}對${cname(p.n, p.c)}大放宣傳……那裡已經沒人了。`, cls: '' }); return; }
+    if (Math.random() < 0.15) {
+      const oops = pickOne([
+        () => { const lose = Math.min(rnd(1, 3), pop(n) - 0.1); takeFrom(n, lose); addTo(v, lose); return `${nm(i)}的宣傳影片字幕打錯，變成在幫${land(p.n)}打廣告，${fmt(lose)} 百萬人反而跑過去了。`; },
+        () => { bump(p.n, i, -15); return `${nm(i)}的宣傳氣球飄進${land(p.n)}的總統府，對方領袖非常生氣。`; },
+        () => `${nm(i)}的宣傳車在半路爆胎，司機改去吃滷肉飯。`,
+      ]);
+      log.push({ text: '📣 ' + oops(), cls: 'ev' });
+      return;
+    }
+    let amt = rnd(1, 6) * (n.type === 'peace' ? 1.6 : 1) * (v.cities[p.c] > 20 ? 1.2 : 1);
+    amt = Math.min(amt, v.cities[p.c]);
+    v.cities[p.c] = Math.round((v.cities[p.c] - amt) * 10) / 10;
+    if (v.cities[p.c] < 0.15) v.cities[p.c] = 0;
+    const dest = addTo(n, amt);
+    log.push({ text: `📣 ${nm(i)}的宣傳奏效，${fmt(amt)} 百萬人從${cname(p.n, p.c)}搬去${land(i)}。${v.cities[p.c] <= 0 ? '這座城空了，變成坑洞。' : ''}`, cls: '', fx: [{ t: 'city', n: p.n, c: p.c, k: 'lure' }, { t: 'city', n: i, c: dest, k: 'gain' }] });
+    onLured(i, p.n);
+  }
+  function addTo(n, amt) {
+    const live = n.cities.map((p, j) => [p, j]).filter(x => x[0] > 0);
+    if (!live.length) return -1;
+    const j = pickOne(live)[1];
+    n.cities[j] = Math.round((n.cities[j] + amt) * 10) / 10;
+    return j;
+  }
+  function takeFrom(n, amt) {
+    const j = bestCity(n);
+    n.cities[j] = Math.max(0, Math.round((n.cities[j] - amt) * 10) / 10);
+  }
+
+  function randomEvent() {
+    S.events = {};
+    if (Math.random() > 0.3) return;
+    const a = alive(); if (!a.length) return;
+    const n = pickOne(a), ci = () => { const l = n.cities.map((p, j) => [p, j]).filter(x => x[0] > 0); return l.length ? pickOne(l)[1] : -1; };
+    const evs = [
+      () => { S.events.typhoon = true; log.push({ text: '🌀 颱風假！全世界都在家追劇，這回合所有宣傳都沒效。', cls: 'ev' }); },
+      () => { const c = ci(); if (c < 0) return; n.cities[c] += 3; log.push({ text: `🧋 ${cname(n.idx, c)}開了一家超紅的珍奶店，300 萬人搬來排隊。`, cls: 'ev', fx: [{ t: 'city', n: n.idx, c, k: 'gain' }] }); },
+      () => { const c = ci(); if (c < 0) return; const g = Math.round(n.cities[c] * 0.5 * 10) / 10; n.cities[c] += g; log.push({ text: `🛸 外星觀光團覺得${cname(n.idx, c)}很好笑，複製了一半的居民帶來玩，多了 ${fmt(g)} 百萬人。`, cls: 'ev', fx: [{ t: 'city', n: n.idx, c, k: 'gain' }] }); },
+      () => { S.events.blackout = n.idx; log.push({ text: `🔌 ${land(n.idx)}大跳電，這回合防護罩開不起來。`, cls: 'ev' }); },
+      () => { const c = ci(); if (c < 0) return; const d = Math.min(4, n.cities[c]); n.cities[c] = Math.round((n.cities[c] - d) * 10) / 10; if (n.cities[c] < .15) n.cities[c] = 0; log.push({ text: `☄️ 一顆隕石掉在${cname(n.idx, c)}，${fmt(d)} 百萬人受害。這次真的不是誰按的。`, cls: 'bad', fx: [{ t: 'city', n: n.idx, c, k: 'boom' }] }); },
+      () => { for (const o of S.N) bump(o.idx, n.idx, 10); log.push({ text: `🤳 ${nm(n.idx)}跳舞的影片變成網路迷因，全世界都覺得他很可愛。`, cls: 'ev' }); },
+      () => { if (n.idx === 0) return; n.skip = true; log.push({ text: `🗳️ ${land(n.idx)}正在選舉，${nm(n.idx)}忙著掃街拜票，這回合什麼都沒做。`, cls: 'ev' }); },
+      () => { const o = pickOne(alive().filter(x => x !== n)); if (!o) return; const amt = Math.min(2, pop(n) - .1); if (amt <= 0) return; takeFrom(n, amt); const c = addTo(o, amt); log.push({ text: `🐧 ${fmt(amt)} 百萬人跟著企鵝大遷徙，從${land(n.idx)}走到${land(o.idx)}。`, cls: 'ev', fx: c >= 0 ? [{ t: 'city', n: o.idx, c, k: 'gain' }] : [] }); },
+    ];
+    pickOne(evs)();
+  }
+
+  function resolveTurn(plans) {
+    log.length = 0;
+    randomEvent();
+    // 誰沒動
+    for (const n of alive()) {
+      const p = plans[n.idx];
+      if (n.skip) { plans[n.idx] = { a: 'skip' }; n.skip = false; continue; }
+      if (p.a === 'nap') log.push({ text: `😴 ${nm(n.idx)}睡午覺睡過頭，這回合什麼都沒做。`, cls: '' });
+    }
+    // 防禦
+    for (const n of alive()) {
+      n.shield = null; n.bunker = false;
+      const p = plans[n.idx];
+      if (p.a !== 'guard') continue;
+      if (S.events.blackout === n.idx) { n.bunker = true; log.push({ text: `🛡️ ${nm(n.idx)}想開防護罩，但停電了，只好躲進防空洞。`, cls: '' }); continue; }
+      if (p.w && n.inv[p.w] > 0) { n.inv[p.w]--; n.shield = p.w; log.push({ text: `🛡️ ${nm(n.idx)}啟動了${ITEMS[p.w].ic}${ITEMS[p.w].name}。`, cls: 'good', fx: [{ t: 'shield', n: n.idx }] }); }
+      else { n.bunker = true; log.push({ text: `🛡️ ${nm(n.idx)}叫全國躲進防空洞。`, cls: 'good' }); }
+    }
+    // 熱線、生產
+    for (const n of alive()) {
+      const p = plans[n.idx];
+      if (p.a === 'call' && S.N[p.n] && S.N[p.n].alive) {
+        const v = onCall(n.idx, p.n);
+        const tone = v >= 12 ? '相談甚歡' : v >= 0 ? '寒暄了幾句' : '講到一半吵起來';
+        log.push({ text: `☎️ ${nm(n.idx)}打熱線給${nm(p.n)}，兩人${tone}。`, cls: v >= 0 ? 'good' : 'bad' });
+      }
+      if (p.a === 'build') {
+        const got = drawItems(n);
+        onBuild(n.idx);
+        log.push({ text: n.idx === 0 ? `🏭 兵工廠交貨：${got.map(k => ITEMS[k].ic + ITEMS[k].name).join('、')}。` : `🏭 ${nm(n.idx)}的兵工廠忙了一整回合，做出 ${got.length} 件東西。${n.prev === 'build' ? '大家開始覺得不對勁。' : ''}`, cls: '', fx: [{ t: 'nation', n: n.idx, k: 'act' }] });
+      }
+    }
+    // 宣傳
+    for (const n of alive()) if (plans[n.idx].a === 'lure') resolveLure(n.idx, plans[n.idx]);
+    // 發射（隨機順序）
+    const shooters = alive().filter(n => plans[n.idx].a === 'fire').sort(() => Math.random() - .5);
+    for (const n of shooters) resolveFire(n.idx, plans[n.idx]);
+    if (!shooters.length && !S.winter && S.clock < 25) { S.clock = Math.min(25, S.clock + 1); log.push({ text: '🕊️ 這回合沒有人按按鈕，末日鐘往回撥了 1 分鐘。', cls: 'good' }); }
+    // 核冬天
+    if (S.winter) {
+      for (const n of alive()) n.cities = n.cities.map(p => p <= 0 ? 0 : (p * 0.92 < 0.15 ? 0 : Math.round(p * 0.92 * 10) / 10));
+      log.push({ text: '❄️ 核冬天持續，每座城市又少了 8% 人口。', cls: 'bad' });
+    }
+    // 淘汰
+    for (const n of alive()) if (pop(n) <= 0) { n.alive = false; log.push({ text: `☠️ ${land(n.idx)}的最後一座城市消失了，${nm(n.idx)}${n.idx === 0 ? '的國家' : ''}退出這個世界。`, cls: 'bad', fx: [{ t: 'nation', n: n.idx, k: 'dead' }] }); }
+    // 記錄、好感慢慢回到中間、騙子的假表情
+    for (const n of S.N) { n.prev = plans[n.idx] ? plans[n.idx].a : null; n.last = n.prev; n.lieOff = n.type === 'liar' ? Math.round(rnd(-10, 35)) : 0; }
+    for (let a = 0; a < 5; a++) for (let b = 0; b < 5; b++) if (a !== b) { const f = S.feel[a][b]; S.feel[a][b] = f + (f < 50 ? 1 : f > 50 ? -1 : 0); }
+    for (const n of alive()) if (n.type === 'chaos') for (const o of S.N) bump(n.idx, o.idx, rnd(-12, 12));
+  }
+
+  // ---------- turn flow ----------
+  function endTurn() {
+    if (busy || S.over || !validPlan()) return;
+    busy = true;
+    const plans = S.N.map(n => n.alive ? (n.idx === 0 ? { ...plan } : aiPlan(n)) : null);
+    resolveTurn(plans);
+    plan = { a: null, w: null, n: null, c: null };
+    play(log.slice(), () => {
+      S.turn++;
+      busy = false;
+      if (checkOver()) return;
+      say(`第 ${S.turn} 回合`, 'turn');
+      render();
+      if (!S.N[0].alive) autoRun();
+    });
+  }
+  function autoRun() {
+    // 玩家被消滅後快轉到結束
+    fast = true;
+    while (!S.over) {
+      const plans = S.N.map(n => n.alive ? aiPlan(n) : null);
+      resolveTurn(plans);
+      for (const e of log) if (/☠️|核冬天來了/.test(e.text)) say(e.text, e.cls);
+      S.turn++;
+      if (checkOver()) break;
+    }
+    fast = false;
+  }
+  function checkOver() {
+    const a = alive();
+    let done = a.length <= 1 || S.turn > MAX_TURN;
+    if (!done) return false;
+    S.over = true;
+    render();
+    let winner = null;
+    if (a.length === 1) winner = a[0];
+    else if (a.length > 1) winner = a.slice().sort((x, y) => pop(y) - pop(x))[0];
+    const meWin = winner && winner.idx === 0;
+    const me = S.N[0];
+    const score = meWin ? Math.round(pop(me) + liveCities(me) * 10 + Math.max(0, MAX_TURN - S.turn) * 2) : 0;
+    const best = Math.max(score, +(store.get('nuke-best') || 0));
+    store.set('nuke-best', best);
+    $('overTitle').textContent = meWin ? '你贏了！' : !winner ? '沒有贏家' : '你輸了';
+    $('overText').innerHTML = !winner ? '所有國家都消失了。地球安靜了下來，只剩下蟑螂在開會。'
+      : meWin ? (a.length === 1 ? `你是世界上最後一個國家，剩下 ${fmt(pop(me))} 百萬人和 ${liveCities(me)} 座城市。整個世界都是你的了……雖然大部分是坑洞。` : `聯合國強制停火，你的國家人口最多（${fmt(pop(me))} 百萬人）。`)
+      : `${winner.ava} ${winner.name}${a.length === 1 ? '是最後的倖存者，在廢墟上大喊「我贏了！我贏了！」' : `在停火時人口最多（${fmt(pop(winner))} 百萬人）。`}`;
+    $('overScore').textContent = score;
+    $('overBest').textContent = `最高紀錄 ${best}`;
+    $('ticker').hidden = true;
+    setTimeout(() => { $('overScreen').hidden = false; }, fast ? 0 : 600);
+    return true;
+  }
+  function play(list, done) {
+    fast = false;
+    $('ticker').hidden = false; document.querySelector('.wrap').classList.add('playing');
+    let i = 0;
+    const step = () => {
+      if (i >= list.length) { $('ticker').hidden = true; document.querySelector('.wrap').classList.remove('playing'); fast = false; done(); return; }
+      const e = list[i++];
+      say(e.text, e.cls);
+      if (!fast) { const t = $('tickText'); t.innerHTML = e.text; t.style.animation = 'none'; void t.offsetWidth; t.style.animation = ''; }
+      render();
+      for (const f of e.fx || []) fx(f);
+      if (fast) step(); else setTimeout(step, 750);
+    };
+    $('skipBtn').onclick = () => { fast = true; };
+    step();
+  }
+  function fx(f) {
+    const box = f.n === 0 ? $('myNation') : $('foes').querySelector(`[data-n="${f.n}"]`);
+    if (!box) return;
+    if (f.t === 'city') { const el = box.querySelector(`[data-c="${f.c}"]`); if (el) { el.classList.remove(f.k); void el.offsetWidth; el.classList.add(f.k); } }
+    if (f.t === 'shield') { const el = box.querySelector('.nation') || box; el.classList.remove('shieldfx'); void el.offsetWidth; el.classList.add('shieldfx'); }
+    if (f.t === 'nation' && f.k === 'act') { const el = box.querySelector('.nation') || box; el.classList.add('acting'); setTimeout(() => el.classList.remove('acting'), 600); }
+  }
+
+  // ---------- player input ----------
+  function validPlan() {
+    const p = plan, me = S.N[0];
+    if (!me.alive || !p.a) return false;
+    if (p.a === 'build') return true;
+    if (p.a === 'guard') return true;
+    if (p.a === 'call') return p.n != null;
+    if (p.a === 'lure') return p.n != null && p.c != null;
+    if (p.a === 'fire') return p.w && me.inv[p.w] > 0 && p.n != null && p.c != null;
+    return false;
+  }
+  function hintText() {
+    const p = plan, me = S.N[0];
+    if (!p.a) return '先選一個行動。';
+    if (p.a === 'build') return me.prev === 'build' ? '🏭 生產。<b>注意：</b>連續兩回合生產，大家都會開始討厭你。' : '🏭 讓兵工廠生產武器或防護罩。';
+    if (p.a === 'guard') { const sh = shieldsOf(me); return sh.length ? `🛡️ 選要啟用的防護罩：${p.w ? ITEMS[p.w].ic + '<b>' + ITEMS[p.w].name + '</b>' : '（選一個）'}` : '🛡️ 你沒有防護罩，只能叫全國躲防空洞（這回合核彈傷害減少 40%）。'; }
+    if (p.a === 'call') return p.n != null ? `☎️ 打熱線給 ${nm(p.n)}。` : '☎️ 點上方一位領袖的卡片，打電話給他。';
+    if (p.a === 'lure') return p.c != null ? `📣 對${cname(p.n, p.c)}放送宣傳。` : '📣 點上方一座敵方城市，對它放送宣傳。';
+    if (p.a === 'fire') {
+      if (!weaponsOf(me).length) return '🚀 你沒有武器，先生產吧。';
+      if (!p.w) return '🚀 先選一個武器。';
+      return p.c != null ? `🚀 用${ITEMS[p.w].ic}<b>${ITEMS[p.w].name}</b>打${cname(p.n, p.c)}。` : `🚀 已選${ITEMS[p.w].ic}${ITEMS[p.w].name}，點上方一座敵方城市當目標。`;
+    }
+    return '';
+  }
+  $('acts').addEventListener('click', e => {
+    const b = e.target.closest('.act'); if (!b || b.disabled || busy) return;
+    const a = b.dataset.a, me = S.N[0];
+    plan = { a, w: null, n: null, c: null };
+    if (a === 'guard') { const sh = shieldsOf(me); plan.w = sh[0] || null; }
+    if (a === 'fire') { const ws = weaponsOf(me); plan.w = ws.length === 1 ? ws[0] : null; }
+    render();
+  });
+  $('pickWeapon').addEventListener('click', e => {
+    const b = e.target.closest('[data-w]'); if (!b || busy) return;
+    plan.w = b.dataset.w; render();
+  });
+  $('foes').addEventListener('click', e => {
+    if (busy || !S || S.over) return;
+    const card = e.target.closest('[data-n]'); if (!card) return;
+    const n = +card.dataset.n; if (!S.N[n].alive) return;
+    if (plan.a === 'call') { plan.n = n; render(); return; }
+    if (plan.a === 'lure' || (plan.a === 'fire' && plan.w)) {
+      const c = e.target.closest('[data-c]'); if (!c) return;
+      const ci = +c.dataset.c; if (S.N[n].cities[ci] <= 0) return;
+      plan.n = n; plan.c = ci; render();
+    }
+  });
+  $('goBtn').addEventListener('click', endTurn);
+
+  // ---------- render ----------
+  function nationHTML(n, isMe) {
+    const f = isMe ? null : S.feel[n.idx][0];
+    const shown = f == null ? null : clamp(f + (n.lieOff || 0), 0, 100);
+    const targetingCity = plan.a === 'lure' || (plan.a === 'fire' && plan.w);
+    const cls = ['nation'];
+    if (!n.alive) cls.push('dead');
+    if (!isMe && n.alive && plan.a === 'call') cls.push('pick');
+    if (!isMe && plan.n === n.idx) cls.push('chosen');
+    const cities = n.cities.map((p, i) => {
+      const c = ['city']; if (p <= 0) c.push('gone');
+      if (!isMe && n.alive && targetingCity && p > 0) c.push('tgt');
+      if (!isMe && plan.n === n.idx && plan.c === i) c.push('sel');
+      return `<div class="${c.join(' ')}" data-c="${i}" title="${cname(n.idx, i)}：${p > 0 ? fmt(p) + ' 百萬人' : '坑洞'}"><span class="ic">${cityIcon(p)}</span><span class="p">${p > 0 ? fmt(p) : '—'}</span></div>`;
+    }).join('');
+    const mis = countKind(n, 'msl') + countKind(n, 'bmb'), def = countKind(n, 'def');
+    return `<div class="${cls.join(' ')}">
+      ${n.alive && !isMe && n.prev === 'build' ? '<span class="tag">擴軍中</span>' : ''}
+      <div class="head"><div class="ava">${n.ava}</div>
+        <div class="who"><b>${isMe ? '你的國家' : n.name}</b><small>${isMe ? '領袖：你' : n.land + ' · ' + TYPES[n.type].name}</small></div>
+        ${isMe ? '' : `<div class="mood" title="${n.name}對你的好感${n.type === 'liar' ? '（可能是假的）' : ''}"><span class="face">${n.alive ? faceOf(shown) : '💀'}</span><span class="num${n.type === 'liar' ? ' lie' : ''}">${n.alive ? shown : '—'}</span></div>`}
+      </div>
+      <div class="cities">${cities}</div>
+      <div class="foot"><span>人口 <b>${fmt(pop(n))}</b> 百萬</span>${isMe ? '' : `<span>🚀<b>${mis}</b> 🛡️<b>${def}</b></span>`}</div>
+      ${isMe ? `<div class="arsenal">${Object.keys(ITEMS).filter(k => n.inv[k] > 0).map(k => `<span class="chip">${ITEMS[k].ic}${ITEMS[k].name}<b>×${n.inv[k]}</b></span>`).join('') || '<span class="empty">軍火庫是空的。</span>'}</div>` : ''}
+    </div>`;
+  }
+  function render() {
+    if (!S) return;
+    $('turnNo').textContent = Math.min(S.turn, MAX_TURN);
+    $('clock').textContent = S.winter ? '0' : fmt(S.clock);
+    $('clockPill').classList.toggle('winter', S.winter);
+    $('clockPill').firstChild.textContent = S.winter ? '核冬天 ' : '末日鐘 ';
+    $('foes').innerHTML = S.N.slice(1).map(n => `<div data-n="${n.idx}">${nationHTML(n, false)}</div>`).join('');
+    $('myNation').innerHTML = nationHTML(S.N[0], true);
+    const me = S.N[0];
+    document.querySelectorAll('.act').forEach(b => {
+      b.classList.toggle('on', plan.a === b.dataset.a);
+      b.disabled = busy || S.over || !me.alive || (b.dataset.a === 'fire' && !weaponsOf(me).length);
+    });
+    const pw = $('pickWeapon');
+    const list = plan.a === 'fire' ? weaponsOf(me) : plan.a === 'guard' ? shieldsOf(me) : [];
+    pw.hidden = !list.length || busy;
+    pw.innerHTML = list.map(k => `<button type="button" class="chip btn${plan.w === k ? ' on' : ''}" data-w="${k}">${ITEMS[k].ic}${ITEMS[k].name}<b>×${me.inv[k]}</b></button>`).join('');
+    $('hint').innerHTML = busy ? '各國行動中……' : !me.alive ? '你的國家已經消失了。' : hintText();
+    $('goBtn').disabled = busy || S.over || !validPlan();
+    $('goBtn').textContent = plan.a === 'fire' && validPlan() ? '按下按鈕！' : '結束回合';
+  }
+
+  // ---------- screens ----------
+  function renderPick() {
+    $('leaderPick').innerHTML = LEADERS.map(L => `<button type="button" class="leader${chosen.has(L.id) ? ' on' : ''}" data-id="${L.id}"><span class="ava">${L.ava}</span><span><b>${L.name}<span class="ptype">${TYPES[L.type].name}</span></b><small>${L.land}。${L.note}</small></span></button>`).join('');
+    const k = chosen.size;
+    $('startBtn').textContent = k === 4 ? '開始' : k === 0 ? '隨機 4 位，開始' : `再隨機 ${4 - k} 位，開始`;
+    const best = +(store.get('nuke-best') || 0);
+    $('bestLine').textContent = best ? `最高紀錄 ${best} 分` : '';
+  }
+  $('leaderPick').addEventListener('click', e => {
+    const b = e.target.closest('.leader'); if (!b) return;
+    const id = b.dataset.id;
+    if (chosen.has(id)) chosen.delete(id); else if (chosen.size < 4) chosen.add(id);
+    renderPick();
+  });
+  $('startBtn').addEventListener('click', () => {
+    const pickL = LEADERS.filter(L => chosen.has(L.id));
+    const rest = LEADERS.filter(L => !chosen.has(L.id)).sort(() => Math.random() - .5);
+    while (pickL.length < 4) pickL.push(rest.pop());
+    $('startScreen').hidden = true;
+    newGame(pickL.sort(() => Math.random() - .5));
+  });
+  const openRules = () => { $('rulesScreen').hidden = false; };
+  $('rulesBtn').addEventListener('click', openRules);
+  $('rulesBtn2').addEventListener('click', openRules);
+  $('rulesClose').addEventListener('click', () => { $('rulesScreen').hidden = true; });
+  $('newBtn').addEventListener('click', () => { if (busy) return; $('overScreen').hidden = true; chosen = new Set(); renderPick(); $('startScreen').hidden = false; });
+  $('againBtn').addEventListener('click', () => { $('overScreen').hidden = true; renderPick(); $('startScreen').hidden = false; });
+
+  renderPick();
+  newGame(LEADERS.slice(0, 4));   // 背景先擺一局當畫面
+
+  // 測試入口
+  window.__nuke = { get S() { return S; }, set plan(p) { plan = p; }, endTurn, aiPlan, auto() { S.N[0].alive = false; autoRun(); }, step(plans) { resolveTurn(plans); S.turn++; checkOver(); }, LEADERS, ITEMS };
+})();
+</script>
