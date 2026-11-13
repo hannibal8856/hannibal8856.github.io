@@ -134,6 +134,9 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
 .card h2 { margin: 0; font-size: 28px; font-weight: 900; letter-spacing: .08em; display: flex; align-items: center; gap: 10px; text-wrap: balance; }
 .card p { margin: 0; }
 .card .sub { color: var(--muted); font-size: 13px; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tab { background: var(--panel2); border: 2px solid transparent; border-radius: 999px; padding: 6px 14px; font-weight: 700; cursor: pointer; }
+.tab.on { border-color: var(--hazard); background: #f2c2301f; color: var(--hazard); }
 .leaders { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 @media (max-width: 520px) { .leaders { grid-template-columns: minmax(0, 1fr); } }
 .leader { background: var(--panel2); border: 2px solid transparent; border-radius: 12px; padding: 8px 10px; display: flex; gap: 10px; align-items: flex-start; cursor: pointer; text-align: left; }
@@ -201,7 +204,9 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
   <div class="card">
     <h2><i class="btnicon" aria-hidden="true"></i>末日按鈕</h2>
     <p>世界上有五個大國，每國五座城市。你是其中一國的領袖：生產核武、用宣傳把別國的人民拐過來、架起防護罩，或是乾脆按下按鈕。最後一個還有人口的國家獲勝。</p>
-    <p class="sub">選 4 位對手（不選就隨機）。每位領袖個性不同，對同一件事的反應也不一樣。</p>
+    <p class="sub">先選角色組，再選 4 位對手（不選就隨機）。每位領袖個性不同，對同一件事的反應也不一樣。</p>
+    <div class="tabs" id="packPick" role="group" aria-label="角色組"></div>
+    <p class="sub" id="packNote" hidden></p>
     <div class="leaders" id="leaderPick"></div>
     <div class="row">
       <button class="go" id="startBtn" type="button">隨機 4 位，開始</button>
@@ -241,6 +246,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
       <h4>好感度和個性</h4>
       <ul>
         <li>每位領袖對每個國家都有 0～100 的好感度，卡片右上角是他對你的感覺。好感越低，越可能打你。</li>
+        <li class="sub" style="list-style:none;margin-left:-20px">真實人物的角色組用比較中性的名稱：務實＝老實、溫和＝和平、深藏不露＝騙子、多變＝瘋子、強硬＝好戰。</li>
         <li><b>老實</b>：你對他好他就對你好，被打就記仇。</li>
         <li><b>和平</b>：很少用核武，宣傳效果加倍；被核彈打會非常生氣，但喜歡愛用宣傳的人。</li>
         <li><b>騙子</b>：顯示給你看的好感度可能是假的（黃色數字），常常笑著偷襲。</li>
@@ -292,6 +298,40 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     { id: 'drum', ava: '🥁', name: '鼓手司令', land: '咚咚共和國', type: 'war', note: '每天早上打鼓閱兵。最看不起只會宣傳的國家。' },
     { id: 'cloud', ava: '☁️', name: '雲霧祭司', land: '迷霧神國', type: 'chaos', note: '看雲決定國策。今天是朋友，明天可能就開打。' },
   ];
+  // 真實人物的角色組：個性用中性的名稱，只是遊戲設定
+  const REAL_LABELS = { honest: '務實', peace: '溫和', liar: '深藏不露', chaos: '多變', war: '強硬' };
+  const COLD = [
+    { id: 'reagan', ava: '🦅', name: '雷根', land: '美國', type: 'war', note: '前電影明星，想在太空架起飛彈防禦網。' },
+    { id: 'gorby', ava: '🐻', name: '戈巴契夫', land: '蘇聯', type: 'peace', note: '推動開放與改革，喜歡談判勝過按按鈕。' },
+    { id: 'thatcher', ava: '🫖', name: '柴契爾', land: '英國', type: 'war', note: '人稱「鐵娘子」，說不讓步就不讓步。' },
+    { id: 'deng', ava: '🐼', name: '鄧小平', land: '中國', type: 'honest', note: '「不管黑貓白貓，會抓老鼠就是好貓。」' },
+    { id: 'mitterrand', ava: '🥖', name: '密特朗', land: '法國', type: 'liar', note: '外號「人面獅身」，沒人猜得透他在想什麼。' },
+    { id: 'kohl', ava: '🍺', name: '柯爾', land: '西德', type: 'honest', note: '一步一步來，夢想有一天東西德統一。' },
+    { id: 'nakasone', ava: '🗻', name: '中曾根康弘', land: '日本', type: 'honest', note: '和雷根稱兄道弟，「Ron–Yasu」的好交情。' },
+    { id: 'rajiv', ava: '🐘', name: '拉吉夫．甘地', land: '印度', type: 'peace', note: '原本是民航機師，提倡全面裁減核武。' },
+    { id: 'castro', ava: '🌴', name: '卡斯楚', land: '古巴', type: 'war', note: '雪茄不離手，演講可以講好幾個小時。' },
+    { id: 'kimil', ava: '🏔️', name: '金日成', land: '北韓', type: 'liar', note: '國門緊閉，外面的人很難知道他在打什麼主意。' },
+  ];
+  const NOW = [
+    { id: 'trump', ava: '🦅', name: '川普', land: '美國', type: 'chaos', note: '一切都是交易，談判桌上隨時翻盤。' },
+    { id: 'xi', ava: '🐼', name: '習近平', land: '中國', type: 'liar', note: '說話不多，盤算很長遠。' },
+    { id: 'putin', ava: '🐻', name: '普丁', land: '俄羅斯', type: 'war', note: '寸土不讓，最不怕和別人對著幹。' },
+    { id: 'burnham', ava: '🫖', name: '伯納姆', land: '英國', type: 'peace', note: '2026 年 7 月才接任首相，想先顧好國內。' },
+    { id: 'macron', ava: '🥖', name: '馬克宏', land: '法國', type: 'peace', note: '能言善道，最愛在各國之間居中斡旋。' },
+    { id: 'merz', ava: '🍺', name: '梅爾茨', land: '德國', type: 'honest', note: '按規矩辦事，你怎麼對他他就怎麼對你。' },
+    { id: 'takaichi', ava: '🗻', name: '高市早苗', land: '日本', type: 'honest', note: '日本第一位女首相，作風堅定。' },
+    { id: 'modi', ava: '🐘', name: '莫迪', land: '印度', type: 'honest', note: '和誰都能合作，但只做對自己國家有利的事。' },
+    { id: 'sharif', ava: '🏏', name: '夏立夫', land: '巴基斯坦', type: 'honest', note: '一直盯著隔壁鄰居的一舉一動。' },
+    { id: 'kim', ava: '🚀', name: '金正恩', land: '北韓', type: 'war', note: '三不五時試射飛彈，讓大家都很緊張。' },
+  ];
+  const PACKS = {
+    fun: { name: '搞笑原創', leaders: LEADERS, labels: null, note: '' },
+    cold: { name: '冷戰時期', leaders: COLD, labels: REAL_LABELS, note: '1980 年代的真實領袖。' },
+    now: { name: '當代大國', leaders: NOW, labels: REAL_LABELS, note: '2026 年 11 月在任的大國領袖。' },
+  };
+  let pack = 'fun';
+  try { const k = localStorage.getItem('nuke-pack'); if (PACKS[k]) pack = k; } catch (e) {}
+  const tname = (type, pk = pack) => (PACKS[pk].labels || {})[type] || TYPES[type].name;
   const ME = { id: 'me', ava: '🫵', name: '你', land: '你的國家', type: 'me' };
 
   const ITEMS = {
@@ -319,7 +359,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     const cities = Array.from({ length: 5 }, () => Math.round(rnd(4, 16) * 10) / 10);
     const inv = {}; for (const k in ITEMS) inv[k] = 0;
     inv.s = 1; inv[pickOne(['m', 'net', 's', 'b'])]++;
-    return { ...L, idx, cities, inv, alive: true, last: null, prev: null, shield: null, bunker: false, lieOff: 0, skip: false };
+    return { ...L, tlabel: L.type === 'me' ? '' : tname(L.type), idx, cities, inv, alive: true, last: null, prev: null, shield: null, bunker: false, lieOff: 0, skip: false };
   }
   function newGame(foes) {
     const list = [ME, ...foes];
@@ -727,7 +767,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     return `<div class="${cls.join(' ')}">
       ${n.alive && !isMe && n.prev === 'build' ? '<span class="tag">擴軍中</span>' : ''}
       <div class="head"><div class="ava">${n.ava}</div>
-        <div class="who"><b>${isMe ? '你的國家' : n.name}</b><small>${isMe ? '領袖：你' : n.land + ' · ' + TYPES[n.type].name}</small></div>
+        <div class="who"><b>${isMe ? '你的國家' : n.name}</b><small>${isMe ? '領袖：你' : n.land + ' · ' + n.tlabel}</small></div>
         ${isMe ? '' : `<div class="mood" title="${n.name}對你的好感${n.type === 'liar' ? '（可能是假的）' : ''}"><span class="face">${n.alive ? faceOf(shown) : '💀'}</span><span class="num${n.type === 'liar' ? ' lie' : ''}">${n.alive ? shown : '—'}</span></div>`}
       </div>
       <div class="cities">${cities}</div>
@@ -759,12 +799,21 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
 
   // ---------- screens ----------
   function renderPick() {
-    $('leaderPick').innerHTML = LEADERS.map(L => `<button type="button" class="leader${chosen.has(L.id) ? ' on' : ''}" data-id="${L.id}"><span class="ava">${L.ava}</span><span><b>${L.name}<span class="ptype">${TYPES[L.type].name}</span></b><small>${L.land}。${L.note}</small></span></button>`).join('');
+    $('packPick').innerHTML = Object.entries(PACKS).map(([k, P]) => `<button type="button" class="tab${k === pack ? ' on' : ''}" data-pack="${k}" aria-pressed="${k === pack}">${P.name}</button>`).join('');
+    $('packNote').textContent = PACKS[pack].labels ? PACKS[pack].note + '這是虛構的諷刺遊戲，角色個性只是遊戲設定，不代表真實人物的立場或作為。' : '';
+    $('packNote').hidden = !PACKS[pack].labels;
+    $('leaderPick').innerHTML = PACKS[pack].leaders.map(L => `<button type="button" class="leader${chosen.has(L.id) ? ' on' : ''}" data-id="${L.id}"><span class="ava">${L.ava}</span><span><b>${L.name}<span class="ptype">${tname(L.type)}</span></b><small>${L.land}。${L.note}</small></span></button>`).join('');
     const k = chosen.size;
     $('startBtn').textContent = k === 4 ? '開始' : k === 0 ? '隨機 4 位，開始' : `再隨機 ${4 - k} 位，開始`;
     const best = +(store.get('nuke-best') || 0);
     $('bestLine').textContent = best ? `最高紀錄 ${best} 分` : '';
   }
+  $('packPick').addEventListener('click', e => {
+    const b = e.target.closest('[data-pack]'); if (!b) return;
+    pack = b.dataset.pack; chosen = new Set();
+    try { localStorage.setItem('nuke-pack', pack); } catch (e) {}
+    renderPick();
+  });
   $('leaderPick').addEventListener('click', e => {
     const b = e.target.closest('.leader'); if (!b) return;
     const id = b.dataset.id;
@@ -772,8 +821,9 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     renderPick();
   });
   $('startBtn').addEventListener('click', () => {
-    const pickL = LEADERS.filter(L => chosen.has(L.id));
-    const rest = LEADERS.filter(L => !chosen.has(L.id)).sort(() => Math.random() - .5);
+    const all = PACKS[pack].leaders;
+    const pickL = all.filter(L => chosen.has(L.id));
+    const rest = all.filter(L => !chosen.has(L.id)).sort(() => Math.random() - .5);
     while (pickL.length < 4) pickL.push(rest.pop());
     $('startScreen').hidden = true;
     newGame(pickL.sort(() => Math.random() - .5));
@@ -786,9 +836,9 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
   $('againBtn').addEventListener('click', () => { $('overScreen').hidden = true; renderPick(); $('startScreen').hidden = false; });
 
   renderPick();
-  newGame(LEADERS.slice(0, 4));   // 背景先擺一局當畫面
+  newGame(PACKS[pack].leaders.slice(0, 4));   // 背景先擺一局當畫面
 
   // 測試入口
-  window.__nuke = { get S() { return S; }, set plan(p) { plan = p; }, endTurn, aiPlan, auto() { S.N[0].alive = false; autoRun(); }, step(plans) { resolveTurn(plans); S.turn++; checkOver(); }, LEADERS, ITEMS };
+  window.__nuke = { get S() { return S; }, set plan(p) { plan = p; }, endTurn, aiPlan, auto() { S.N[0].alive = false; autoRun(); }, step(plans) { resolveTurn(plans); S.turn++; checkOver(); }, LEADERS, ITEMS, PACKS, get pack() { return pack; } };
 })();
 </script>
