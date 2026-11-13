@@ -25,7 +25,7 @@ addEventListener('DOMContentLoaded', function () {
 /* 民防海報風：深藍灰底、警示黃、警報紅。上方四個對手國，中間你的國家，下方行動列和新聞快報。 */
 :root {
   --bg: #1b222d; --panel: #262f3d; --panel2: #303b4c; --line: #ffffff1f;
-  --ink: #f2eee3; --muted: #a3adbb; --hazard: #f2c230; --alarm: #e5493e; --calm: #4cc3a5; --sky: #6aa8ff; --sea: #142338;
+  --ink: #f2eee3; --muted: #a3adbb; --hazard: #f2c230; --alarm: #e5493e; --calm: #4cc3a5; --sky: #6aa8ff;
   --f-num: "Bungee", "Arial Black", system-ui, sans-serif;
   --f-ui: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
   color-scheme: dark;
@@ -36,7 +36,7 @@ body { background: var(--bg); color: var(--ink); font-family: var(--f-ui); font-
   background-image: repeating-linear-gradient(135deg, transparent 0 22px, #ffffff05 22px 44px); }
 button { font: inherit; color: inherit; }
 button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
-.wrap { max-width: 1320px; margin: 0 auto; padding-block: 12px 24px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 12px; }
+.wrap { max-width: 1100px; margin: 0 auto; padding-block: 12px 24px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 12px; }
 
 /* header */
 .top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -89,41 +89,8 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
 .foot b { color: var(--ink); font-family: var(--f-num); font-weight: 400; font-variant-numeric: tabular-nums; }
 .tag { position: absolute; top: -9px; right: 10px; background: var(--alarm); color: #fff; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 0 6px; }
 
-/* 寬螢幕：地圖在左，行動和新聞在右 */
-.board { display: grid; gap: 12px; }
-@media (min-width: 1080px) {
-  .board { grid-template-columns: minmax(0, 1.7fr) minmax(330px, 1fr); align-items: start; }
-  .board .me { grid-template-columns: minmax(0, 1fr); }
-  .board .map { position: sticky; top: 12px; }
-}
-/* map */
-.map { position: relative; background: var(--sea); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
-.map svg { display: block; width: 100%; height: auto; }
-#fxSvg { position: absolute; inset: 0; height: 100%; pointer-events: none; }
-.map text { font-family: var(--f-ui); fill: var(--ink); }
-.map .lbl { font-weight: 900; }
-.map .sm { fill: var(--muted); font-weight: 500; }
-.map .num { font-family: var(--f-num); }
-.map .lie { fill: var(--hazard); }
-.map .warn { fill: var(--alarm); font-weight: 700; }
-.map .land { stroke: #ffffff30; stroke-width: 3; transition: stroke .2s; }
-.map .nation.pick { cursor: pointer; }
-.map .nation.pick .land { stroke: var(--hazard); stroke-dasharray: 10 6; }
-.map .nation.chosen .land { stroke: var(--hazard); stroke-width: 5; stroke-dasharray: none; }
-.map .nation.mine .land { stroke: #f2c23099; stroke-width: 4; }
-.map .nation.dead { opacity: .5; }
-.map .city .hit { fill: transparent; }
-.map .city .ring { fill: none; stroke: none; }
-.map .city.tgt { cursor: pointer; }
-.map .city.tgt .ring { stroke: #f2c230aa; stroke-width: 2.5; stroke-dasharray: 5 4; fill: #f2c23014; }
-.map .city.tgt:hover .ring { stroke: var(--hazard); fill: #f2c23033; }
-.map .city.sel .ring { stroke: var(--alarm); stroke-width: 4; stroke-dasharray: none; fill: #e5493e40; }
-.map .city .p { font-family: var(--f-num); fill: #f2eee3cc; }
-.map .city.gone .ic { opacity: .7; }
-
 /* you */
-.me { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
-#myArsenal::before { content: "你的軍火庫"; font-size: 12px; color: var(--muted); align-self: center; margin-right: 2px; }
+.me { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 12px; }
 @media (max-width: 760px) { .me { grid-template-columns: minmax(0, 1fr); } }
 .me .nation { border-color: #f2c23066; }
 .me .nation .who b { color: var(--hazard); }
@@ -206,12 +173,11 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     </div>
   </header>
 
-  <div class="board">
-  <section class="map" id="map" aria-label="世界地圖：上面是其他四國，下面是你的國家"><svg id="mapSvg"></svg><svg id="fxSvg" aria-hidden="true"></svg></section>
+  <section class="foes" id="foes" aria-label="其他四國"></section>
 
   <section class="me">
+    <div id="myNation"></div>
     <div class="panel">
-      <div class="arsenal" id="myArsenal"></div>
       <h3>這回合要做什麼（只能選一件）</h3>
       <div class="acts" id="acts">
         <button class="act" data-a="build" type="button"><i class="e">🏭</i><span>生產</span></button>
@@ -224,12 +190,12 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
       <p class="hint" id="hint">先選一個行動。</p>
       <button class="go" id="goBtn" type="button" disabled>按下去，結束回合</button>
     </div>
-    <div class="panel">
-      <h3>國際新聞快報</h3>
-      <div class="news" id="news" aria-live="polite"></div>
-    </div>
   </section>
-  </div>
+
+  <section class="panel">
+    <h3>國際新聞快報</h3>
+    <div class="news" id="news" aria-live="polite"></div>
+  </section>
 </div>
 
 <div class="ticker" id="ticker" hidden><p id="tickText"></p><button class="skip" id="skipBtn" type="button">快轉 ⏩</button></div>
@@ -393,10 +359,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     const cities = Array.from({ length: 5 }, () => Math.round(rnd(4, 16) * 10) / 10);
     const inv = {}; for (const k in ITEMS) inv[k] = 0;
     inv.s = 1; inv[pickOne(['m', 'net', 's', 'b'])]++;
-    const base = [[-0.55, -0.22], [0.02, -0.46], [0.56, -0.18], [-0.3, 0.38], [0.34, 0.4]];
-    const slots = base.map(([x, y]) => [x + rnd(-0.07, 0.07), y + rnd(-0.06, 0.06)]);
-    const shape = Array.from({ length: 16 }, () => rnd(0.9, 1.1));
-    return { ...L, slots, shape, tlabel: L.type === 'me' ? '' : tname(L.type), idx, cities, inv, alive: true, last: null, prev: null, shield: null, bunker: false, lieOff: 0, skip: false };
+    return { ...L, tlabel: L.type === 'me' ? '' : tname(L.type), idx, cities, inv, alive: true, last: null, prev: null, shield: null, bunker: false, lieOff: 0, skip: false };
   }
   function newGame(foes) {
     const list = [ME, ...foes];
@@ -536,7 +499,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     n.inv[p.w]--;
     const v = S.N[p.n];
     moveClock(it.clock);
-    log.push({ text: `🚀 ${nm(i)}按下按鈕，${it.ic}${it.name}飛向${land(p.n)}！`, cls: 'bad', fx: [{ t: 'missile', from: i, n: p.n, c: p.c, ic: it.ic }] });
+    log.push({ text: `🚀 ${nm(i)}按下按鈕，${it.ic}${it.name}飛向${land(p.n)}！`, cls: 'bad', fx: [{ t: 'nation', n: i, k: 'act' }] });
     // shields
     if (v.shield === 'dome' || (v.shield === 'net' && (p.w === 's' || p.w === 'm' || p.w === 'b'))) {
       log.push({ text: `${v.shield === 'dome' ? '🔰 天穹盾' : '🕸️ 攔截網'}把它擋下來了！${nm(p.n)}鬆了一口氣。`, cls: 'good', fx: [{ t: 'shield', n: p.n }] });
@@ -663,8 +626,6 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
   function endTurn() {
     if (busy || S.over || !validPlan()) return;
     busy = true;
-    const mr = $('map').getBoundingClientRect();
-    if (mr.top < -40 || mr.bottom > innerHeight + 40) $('map').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
     const plans = S.N.map(n => n.alive ? (n.idx === 0 ? { ...plan } : aiPlan(n)) : null);
     resolveTurn(plans);
     plan = { a: null, w: null, n: null, c: null };
@@ -729,106 +690,13 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     $('skipBtn').onclick = () => { fast = true; };
     step();
   }
-  // ---------- map geometry ----------
-  const LAY = {
-    wide: { w: 1000, h: 660, isl: [[125, 192], [375, 192], [625, 192], [875, 192]], r: [100, 82], me: [500, 502], mr: [230, 92], fs: 30, lf: 20 },
-    tall: { w: 600, h: 1010, isl: [[150, 192], [450, 192], [150, 502], [450, 502]], r: [118, 88], me: [300, 832], mr: [255, 100], fs: 34, lf: 23 },
-  };
-  let lay = 'wide';
-  const pickLay = () => (($('map').clientWidth || 800) >= 640 ? 'wide' : 'tall');
-  function geo(i) {
-    const L = LAY[lay];
-    return i === 0 ? { cx: L.me[0], cy: L.me[1], rx: L.mr[0], ry: L.mr[1] } : { cx: L.isl[i - 1][0], cy: L.isl[i - 1][1], rx: L.r[0], ry: L.r[1] };
-  }
-  function cityXY(i, c) { const g = geo(i), sl = S.N[i].slots[c]; return [g.cx + sl[0] * g.rx, g.cy + sl[1] * g.ry]; }
-  function blob(i) {
-    const g = geo(i), sh = S.N[i].shape, k = sh.length;
-    const pts = sh.map((r, j) => { const a = j / k * Math.PI * 2; return [g.cx + Math.cos(a) * g.rx * 1.12 * r, g.cy + Math.sin(a) * g.ry * 1.16 * r]; });
-    const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
-    let d = 'M' + mid(pts[k - 1], pts[0]).map(v => v.toFixed(1)).join(' ');
-    for (let j = 0; j < k; j++) { const m = mid(pts[j], pts[(j + 1) % k]); d += ` Q${pts[j][0].toFixed(1)} ${pts[j][1].toFixed(1)} ${m[0].toFixed(1)} ${m[1].toFixed(1)}`; }
-    return d + 'Z';
-  }
-  const LANDS = ['#6b5f2c', '#3f6150', '#5f5236', '#46557a', '#6a4658'];
-  const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
-  function mapSVG() {
-    const L = LAY[lay], me = S.N[0];
-    const targetingCity = plan.a === 'lure' || (plan.a === 'fire' && plan.w);
-    let out = '';
-    // 海面：經緯線和小浪花
-    for (let x = 50; x < L.w; x += 100) out += `<line x1="${x}" y1="0" x2="${x}" y2="${L.h}" stroke="#ffffff08"/>`;
-    for (let y = 50; y < L.h; y += 100) out += `<line x1="0" y1="${y}" x2="${L.w}" y2="${y}" stroke="#ffffff08"/>`;
-    for (const n of S.N) {
-      const i = n.idx, g = geo(i), isMe = i === 0;
-      const cls = ['nation'];
-      if (isMe) cls.push('mine');
-      if (!n.alive) cls.push('dead');
-      if (!isMe && n.alive && plan.a === 'call') cls.push('pick');
-      if (!isMe && plan.n === i) cls.push('chosen');
-      const top = g.cy - g.ry * 1.16 - 16, bot = g.cy + g.ry * 1.16 + L.lf + 8;
-      let lbl;
-      if (isMe) lbl = `<text class="lbl" x="${g.cx}" y="${top}" text-anchor="middle" font-size="${L.lf}">🫵 你的國家</text>`;
-      else {
-        const shown = clamp(S.feel[i][0] + (n.lieOff || 0), 0, 100);
-        lbl = `<text class="lbl" x="${g.cx}" y="${top}" text-anchor="middle" font-size="${L.lf}">${n.ava} ${esc(n.name)} <tspan class="num${n.type === 'liar' ? ' lie' : ''}">${n.alive ? faceOf(shown) + shown : '💀'}</tspan></text>`;
-      }
-      const mis = countKind(n, 'msl') + countKind(n, 'bmb'), def = countKind(n, 'def');
-      const sub = `人口 ${fmt(pop(n))} 百萬` + (isMe ? '' : ` · 🚀${mis} 🛡️${def}`);
-      const tag = n.alive && !isMe && n.prev === 'build' ? ` <tspan class="warn">擴軍中</tspan>` : '';
-      let cities = '';
-      n.cities.forEach((p, c) => {
-        const [x, y] = cityXY(i, c), cc = ['city'];
-        if (p <= 0) cc.push('gone');
-        if (!isMe && n.alive && targetingCity && p > 0) cc.push('tgt');
-        if (!isMe && plan.n === i && plan.c === c) cc.push('sel');
-        cities += `<g class="${cc.join(' ')}" data-c="${c}" transform="translate(${x.toFixed(1)} ${y.toFixed(1)})"><title>${esc(cname(i, c))}：${p > 0 ? fmt(p) + ' 百萬人' : '坑洞'}</title><circle class="hit" r="${L.fs * 0.95}"/><circle class="ring" r="${L.fs * 0.8}" cy="${L.fs * 0.2}"/><text class="ic" text-anchor="middle" dominant-baseline="central" font-size="${L.fs}">${cityIcon(p)}</text><text class="p" text-anchor="middle" y="${L.fs * 0.95}" font-size="${L.fs * 0.5}">${p > 0 ? fmt(p) : ''}</text></g>`;
-      });
-      out += `<g class="${cls.join(' ')}" data-n="${i}"><path class="land" d="${blob(i)}" fill="${n.alive ? LANDS[i] : '#3a3f47'}"/>${lbl}<text class="sm" x="${g.cx}" y="${bot}" text-anchor="middle" font-size="${L.lf * 0.78}">${sub}${tag}</text>${cities}</g>`;
-    }
-    return out;
-  }
-
-  // ---------- map animations ----------
-  const NS = 'http://www.w3.org/2000/svg';
-  const calm = () => fast || matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function fxEl(tag, attrs, text) { const el = document.createElementNS(NS, tag); for (const k in attrs) el.setAttribute(k, attrs[k]); if (text) el.textContent = text; $('fxSvg').appendChild(el); return el; }
-  function anim(dur, frame, end) { const t0 = performance.now(); const tick = now => { const k = Math.min(1, (now - t0) / dur); frame(k); if (k < 1) requestAnimationFrame(tick); else if (end) end(); }; requestAnimationFrame(tick); }
-  function ring(x, y, color, r0, r1, dur, w = 4) {
-    const c = fxEl('circle', { cx: x, cy: y, r: r0, fill: 'none', stroke: color, 'stroke-width': w });
-    anim(dur, k => { c.setAttribute('r', r0 + (r1 - r0) * k); c.setAttribute('opacity', 1 - k); }, () => c.remove());
-  }
   function fx(f) {
-    if (calm() || !S) return;
-    const L = LAY[lay];
-    if (f.t === 'missile') {
-      const from = geo(f.from), [x1, y1] = cityXY(f.n, f.c);
-      const x0 = from.cx, y0 = from.cy - from.ry * 0.2;
-      const cx = (x0 + x1) / 2 + (x0 === x1 ? 120 : 0), cy = Math.min(y0, y1) - 160;
-      const trail = fxEl('path', { d: `M${x0} ${y0}`, fill: 'none', stroke: '#e5493e', 'stroke-width': 3, 'stroke-dasharray': '8 6', 'stroke-linecap': 'round' });
-      const head = fxEl('text', { 'font-size': L.fs * 0.9, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, f.ic || '🚀');
-      const pt = k => [(1 - k) * (1 - k) * x0 + 2 * (1 - k) * k * cx + k * k * x1, (1 - k) * (1 - k) * y0 + 2 * (1 - k) * k * cy + k * k * y1];
-      let d = `M${x0} ${y0}`;
-      anim(650, k => { const [x, y] = pt(k); d += ` L${x.toFixed(1)} ${y.toFixed(1)}`; trail.setAttribute('d', d); head.setAttribute('x', x); head.setAttribute('y', y); }, () => {
-        head.remove();
-        anim(500, k => trail.setAttribute('opacity', 1 - k), () => trail.remove());
-      });
-    }
-    if (f.t === 'city') {
-      const [x, y] = cityXY(f.n, f.c);
-      if (f.k === 'boom') {
-        const c = fxEl('circle', { cx: x, cy: y, r: 6, fill: '#ffb13b' });
-        const t = fxEl('text', { x, y, 'font-size': L.fs * 1.4, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, '💥');
-        anim(900, k => { c.setAttribute('r', 6 + 70 * k); c.setAttribute('fill', k < .3 ? '#ffd27a' : '#e5493e'); c.setAttribute('opacity', 0.75 * (1 - k)); t.setAttribute('opacity', k < .6 ? 1 : (1 - k) / .4); }, () => { c.remove(); t.remove(); });
-      } else ring(x, y, f.k === 'lure' ? '#6aa8ff' : '#4cc3a5', 8, 46, 800);
-    }
-    if (f.t === 'shield') {
-      const g = geo(f.n);
-      const e = fxEl('ellipse', { cx: g.cx, cy: g.cy, rx: g.rx * 1.2, ry: g.ry * 1.3, fill: '#6aa8ff22', stroke: '#6aa8ff', 'stroke-width': 6 });
-      anim(1000, k => { e.setAttribute('rx', g.rx * (1.15 + .15 * k)); e.setAttribute('ry', g.ry * (1.25 + .15 * k)); e.setAttribute('opacity', 1 - k); }, () => e.remove());
-    }
-    if (f.t === 'nation' && f.k === 'act') { const g = geo(f.n); ring(g.cx, g.cy, '#f2c230', 20, g.rx * 1.2, 700, 3); }
+    const box = f.n === 0 ? $('myNation') : $('foes').querySelector(`[data-n="${f.n}"]`);
+    if (!box) return;
+    if (f.t === 'city') { const el = box.querySelector(`[data-c="${f.c}"]`); if (el) { el.classList.remove(f.k); void el.offsetWidth; el.classList.add(f.k); } }
+    if (f.t === 'shield') { const el = box.querySelector('.nation') || box; el.classList.remove('shieldfx'); void el.offsetWidth; el.classList.add('shieldfx'); }
+    if (f.t === 'nation' && f.k === 'act') { const el = box.querySelector('.nation') || box; el.classList.add('acting'); setTimeout(() => el.classList.remove('acting'), 600); }
   }
-  addEventListener('resize', () => { if (S && pickLay() !== lay) render(); });
 
   // ---------- player input ----------
   function validPlan() {
@@ -846,12 +714,12 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     if (!p.a) return '先選一個行動。';
     if (p.a === 'build') return me.prev === 'build' ? '🏭 生產。<b>注意：</b>連續兩回合生產，大家都會開始討厭你。' : '🏭 讓兵工廠生產武器或防護罩。';
     if (p.a === 'guard') { const sh = shieldsOf(me); return sh.length ? `🛡️ 選要啟用的防護罩：${p.w ? ITEMS[p.w].ic + '<b>' + ITEMS[p.w].name + '</b>' : '（選一個）'}` : '🛡️ 你沒有防護罩，只能叫全國躲防空洞（這回合核彈傷害減少 40%）。'; }
-    if (p.a === 'call') return p.n != null ? `☎️ 打熱線給 ${nm(p.n)}。` : '☎️ 點地圖上一個國家，打電話給他的領袖。';
-    if (p.a === 'lure') return p.c != null ? `📣 對${cname(p.n, p.c)}放送宣傳。` : '📣 點地圖上一座敵方城市，對它放送宣傳。';
+    if (p.a === 'call') return p.n != null ? `☎️ 打熱線給 ${nm(p.n)}。` : '☎️ 點上方一位領袖的卡片，打電話給他。';
+    if (p.a === 'lure') return p.c != null ? `📣 對${cname(p.n, p.c)}放送宣傳。` : '📣 點上方一座敵方城市，對它放送宣傳。';
     if (p.a === 'fire') {
       if (!weaponsOf(me).length) return '🚀 你沒有武器，先生產吧。';
       if (!p.w) return '🚀 先選一個武器。';
-      return p.c != null ? `🚀 用${ITEMS[p.w].ic}<b>${ITEMS[p.w].name}</b>打${cname(p.n, p.c)}。` : `🚀 已選${ITEMS[p.w].ic}${ITEMS[p.w].name}，點地圖上一座敵方城市當目標。`;
+      return p.c != null ? `🚀 用${ITEMS[p.w].ic}<b>${ITEMS[p.w].name}</b>打${cname(p.n, p.c)}。` : `🚀 已選${ITEMS[p.w].ic}${ITEMS[p.w].name}，點上方一座敵方城市當目標。`;
     }
     return '';
   }
@@ -867,10 +735,10 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     const b = e.target.closest('[data-w]'); if (!b || busy) return;
     plan.w = b.dataset.w; render();
   });
-  $('map').addEventListener('click', e => {
+  $('foes').addEventListener('click', e => {
     if (busy || !S || S.over) return;
     const card = e.target.closest('[data-n]'); if (!card) return;
-    const n = +card.dataset.n; if (n === 0 || !S.N[n].alive) return;
+    const n = +card.dataset.n; if (!S.N[n].alive) return;
     if (plan.a === 'call') { plan.n = n; render(); return; }
     if (plan.a === 'lure' || (plan.a === 'fire' && plan.w)) {
       const c = e.target.closest('[data-c]'); if (!c) return;
@@ -913,12 +781,9 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     $('clock').textContent = S.winter ? '0' : fmt(S.clock);
     $('clockPill').classList.toggle('winter', S.winter);
     $('clockPill').firstChild.textContent = S.winter ? '核冬天 ' : '末日鐘 ';
-    lay = pickLay();
-    const L = LAY[lay], vb = `0 0 ${L.w} ${L.h}`;
-    $('mapSvg').setAttribute('viewBox', vb); $('fxSvg').setAttribute('viewBox', vb);
-    $('mapSvg').innerHTML = mapSVG();
+    $('foes').innerHTML = S.N.slice(1).map(n => `<div data-n="${n.idx}">${nationHTML(n, false)}</div>`).join('');
+    $('myNation').innerHTML = nationHTML(S.N[0], true);
     const me = S.N[0];
-    $('myArsenal').innerHTML = Object.keys(ITEMS).filter(k => me.inv[k] > 0).map(k => `<span class="chip">${ITEMS[k].ic}${ITEMS[k].name}<b>×${me.inv[k]}</b></span>`).join('') || '<span class="empty">空的</span>';
     document.querySelectorAll('.act').forEach(b => {
       b.classList.toggle('on', plan.a === b.dataset.a);
       b.disabled = busy || S.over || !me.alive || (b.dataset.a === 'fire' && !weaponsOf(me).length);
