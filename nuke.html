@@ -132,6 +132,8 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
 @keyframes gear { 0% { opacity: 0; transform: translate(-50%, -50%) rotate(0); } 10%,85% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -50%) rotate(540deg); } }
 #fxLayer .smoke { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: #8a8f99; animation: smoke 1s ease-out forwards; }
 @keyframes smoke { from { opacity: .85; transform: translate(0, 0) scale(.6); } to { opacity: 0; transform: translate(var(--dx, 10px), -46px) scale(2.2); } }
+#fxLayer .redflash { position: absolute; left: 0; top: 0; background: #e5493e; animation: redflash 1.2s ease-out forwards; }
+@keyframes redflash { 0%, 30%, 60% { opacity: .35; } 15%, 45% { opacity: 0; } 100% { opacity: 0; } }
 .nation.shake { animation: shake .45s ease-in-out; }
 @keyframes shake { 0%,100% { translate: 0 0; } 20% { translate: -6px 2px; } 40% { translate: 5px -2px; } 60% { translate: -4px 1px; } 80% { translate: 3px 0; } }
 
@@ -302,6 +304,8 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
         <li><b>強硬</b>：你幫他打他討厭的人，他就喜歡你；你用宣傳他會看不起你。</li>
         <li>打某國時，喜歡那一國的人會討厭你；被打的人會非常討厭你。</li>
       </ul>
+      <h4>最後反擊</h4>
+      <p>一個國家的最後一座城市消失時，會把軍火庫裡的飛彈和轟炸機射向每個還活著的國家，每國打一座隨機城市；最強的武器先用，武器不夠就先打最恨的國家，多的武器浪費掉。防護罩照樣擋得住。如果反擊又滅掉別的國家，對方也會反擊，可能全部同歸於盡。</p>
       <h4>末日鐘</h4>
       <p>開局離午夜 20 分。每次發射核武，鐘就往前走（大武器走越多）；如果整回合都沒有人發射，鐘會往回撥 1 分鐘（最多回到 25 分）。到了午夜就進入<b>核冬天</b>：之後每回合所有城市都少 8% 人口。</p>
       <h4>突發事件</h4>
@@ -611,6 +615,19 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     if (netFail) log.push({ text: p.n === 0 ? `🕸️ 你的攔截網只擋得住小飛彈，擋不住${it.ic}${it.name}這麼大的！想擋大飛彈要用 🔰 天穹盾。` : `🕸️ ${nm(p.n)}的攔截網擋不住${it.ic}${it.name}這麼大的飛彈。`, cls: 'ev' });
     onNuked(i, p.n);
   }
+  // 最後反擊：滅亡的國家把武器射向每個還活著的國家，每國一座隨機城市；最強的武器先用，武器不夠就先打最恨的國家
+  function finalStrike(n) {
+    const i = n.idx;
+    const targets = alive().filter(o => o.idx !== i).sort((a, b) => S.feel[i][a.idx] - S.feel[i][b.idx]);
+    if (!targets.length || !weaponsOf(n).length) return;
+    log.push({ text: `💀 ${nm(i)}${i === 0 ? '的國家' : ''}在滅亡前按下了最後的按鈕，剩下的武器全部射出去！`, cls: 'bad', fx: [{ t: 'ev', k: 'final', n: i }] });
+    for (const o of targets) {
+      const w = weaponsOf(n)[0]; if (!w) break;
+      const live = o.cities.map((p, c) => [p, c]).filter(x => x[0] > 0); if (!live.length) continue;
+      resolveFire(i, { w, n: o.idx, c: pickOne(live)[1] });
+    }
+    for (const k of WEAPONS) n.inv[k] = 0;   // 多的武器浪費掉
+  }
   function resolveLure(i, p) {
     const n = S.N[i], v = S.N[p.n];
     if (!v.alive) return;
@@ -707,8 +724,13 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
       for (const n of alive()) n.cities = n.cities.map(p => p <= 0 ? 0 : (p * 0.92 < 0.15 ? 0 : Math.round(p * 0.92 * 10) / 10));
       log.push({ text: '❄️ 核冬天持續，每座城市又少了 8% 人口。', cls: 'bad', fx: [{ t: 'ev', k: 'snow' }] });
     }
-    // 淘汰
-    for (const n of alive()) if (pop(n) <= 0) { n.alive = false; log.push({ text: `☠️ ${land(n.idx)}的最後一座城市消失了，${nm(n.idx)}${n.idx === 0 ? '的國家' : ''}退出這個世界。`, cls: 'bad', fx: [{ t: 'ev', k: 'dead', n: n.idx }] }); }
+    // 淘汰：滅亡的國家發動最後反擊，可能連鎖
+    let dying = alive().filter(n => pop(n) <= 0);
+    while (dying.length) {
+      for (const n of dying) { n.alive = false; log.push({ text: `☠️ ${land(n.idx)}的最後一座城市消失了，${nm(n.idx)}${n.idx === 0 ? '的國家' : ''}退出這個世界。`, cls: 'bad', fx: [{ t: 'ev', k: 'dead', n: n.idx }] }); }
+      for (const n of dying) finalStrike(n);
+      dying = alive().filter(n => pop(n) <= 0);
+    }
     // 記錄、好感慢慢回到中間、騙子的假表情
     for (const n of S.N) { n.prev = plans[n.idx] ? plans[n.idx].a : null; n.last = n.prev; n.lieOff = n.type === 'liar' ? Math.round(rnd(-10, 35)) : 0; }
     for (let a = 0; a < 5; a++) for (let b = 0; b < 5; b++) if (a !== b) { const f = S.feel[a][b]; S.feel[a][b] = f + (f < 50 ? 1 : f > 50 ? -1 : 0); }
@@ -739,7 +761,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     while (!S.over) {
       const plans = S.N.map(n => n.alive ? aiPlan(n) : null);
       resolveTurn(plans);
-      for (const e of log) if (/☠️|核冬天來了/.test(e.text)) say(e.text, e.cls);
+      for (const e of log) if (/☠️|💀|核冬天來了/.test(e.text)) say(e.text, e.cls);
       S.turn++;
       if (checkOver()) break;
     }
@@ -900,6 +922,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
       if (k === 'dud') { SND.thud(); SND.wahwah(0.35); }
       if (k === 'snow') { SND.wind(f.big ? 2.4 : 1.6, f.big ? 0.25 : 0.15); SND.chime(0.2); }
       if (k === 'dead') SND.gong();
+      if (k === 'final') SND.siren();
     }
   }
   function setMute(m) {
@@ -1197,6 +1220,10 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
       });
     } else if (f.k === 'dead') {
       layerEl('skull', cx, cy, '☠️');
+    } else if (f.k === 'final') {
+      const red = layerEl('redflash', 0, 0, ''); red.style.width = W + 'px'; red.style.height = H + 'px';
+      const sk = layerEl('skull', cx, cy, '💀'); sk.style.fontSize = '64px';
+      layerEl('say', cx, r.top + 4, '最後的按鈕！');
     }
   }
   // 兵工廠：工廠冒出來、煙囪冒煙、齒輪轉，貨一件一件跳進軍火庫
@@ -1395,6 +1422,6 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
   newGame(PACKS[pack].leaders.slice(0, 4));   // 背景先擺一局當畫面
 
   // 測試入口
-  window.__nuke = { get S() { return S; }, set plan(p) { plan = p; }, endTurn, aiPlan, auto() { S.N[0].alive = false; autoRun(); }, step(plans) { resolveTurn(plans); S.turn++; checkOver(); }, LEADERS, ITEMS, PACKS, get pack() { return pack; }, fx };
+  window.__nuke = { get S() { return S; }, get log() { return log; }, set plan(p) { plan = p; }, endTurn, aiPlan, auto() { S.N[0].alive = false; autoRun(); }, step(plans) { resolveTurn(plans); S.turn++; checkOver(); }, LEADERS, ITEMS, PACKS, get pack() { return pack; }, fx };
 })();
 </script>
