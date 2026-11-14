@@ -210,6 +210,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
       <span class="pill">回合 <b id="turnNo">1</b>/<b>30</b></span>
       <span class="pill clock" id="clockPill" title="每發射一次核武，末日鐘就往午夜走">末日鐘 <b id="clock">20</b> 分</span>
       <button class="link" id="rulesBtn" type="button">規則</button>
+      <button class="link" id="muteBtn" type="button" aria-label="關閉音效">🔊</button>
       <button class="link" id="newBtn" type="button">新局</button>
     </div>
   </header>
@@ -631,7 +632,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
       if (p.a !== 'guard') continue;
       if (S.events.blackout === n.idx) { n.bunker = true; log.push({ text: `🛡️ ${nm(n.idx)}想開防護罩，但停電了，只好躲進防空洞。`, cls: '' }); continue; }
       if (p.w && n.inv[p.w] > 0) { n.inv[p.w]--; n.shield = p.w; log.push({ text: `🛡️ ${nm(n.idx)}啟動了${ITEMS[p.w].ic}${ITEMS[p.w].name}。`, cls: 'good', fx: [{ t: 'shield', n: n.idx }] }); }
-      else { n.bunker = true; log.push({ text: `🛡️ ${nm(n.idx)}叫全國躲進防空洞。`, cls: 'good' }); }
+      else { n.bunker = true; log.push({ text: `🛡️ ${nm(n.idx)}叫全國躲進防空洞。`, cls: 'good', fx: [{ t: 'bunker' }] }); }
     }
     // 熱線、生產
     for (const n of alive()) {
@@ -639,7 +640,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
       if (p.a === 'call' && S.N[p.n] && S.N[p.n].alive) {
         const v = onCall(n.idx, p.n);
         const tone = v >= 12 ? '相談甚歡' : v >= 0 ? '寒暄了幾句' : '講到一半吵起來';
-        log.push({ text: `☎️ ${nm(n.idx)}打熱線給${nm(p.n)}，兩人${tone}。`, cls: v >= 0 ? 'good' : 'bad' });
+        log.push({ text: `☎️ ${nm(n.idx)}打熱線給${nm(p.n)}，兩人${tone}。`, cls: v >= 0 ? 'good' : 'bad', fx: [{ t: 'call', ok: v >= 0 }] });
       }
       if (p.a === 'build') {
         const got = drawItems(n);
@@ -711,6 +712,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     const best = Math.max(score, +(store.get('nuke-best') || 0));
     store.set('nuke-best', best);
     $('overTitle').textContent = meWin ? '你贏了！' : !winner ? '沒有贏家' : '你輸了';
+    if (!muted) setTimeout(() => (meWin ? SND.win : !winner ? SND.doom : SND.lose)(), fast ? 0 : 600);
     $('overText').innerHTML = !winner ? '所有國家都消失了。地球安靜了下來，只剩下蟑螂在開會。'
       : meWin ? (a.length === 1 ? `你是世界上最後一個國家，剩下 ${fmt(pop(me))} 百萬人和 ${liveCities(me)} 座城市。整個世界都是你的了……雖然大部分是坑洞。` : `聯合國強制停火，你的國家人口最多（${fmt(pop(me))} 百萬人）。`)
       : `${winner.ava} ${winner.name}${a.length === 1 ? '是最後的倖存者，在廢墟上大喊「我贏了！我贏了！」' : `在停火時人口最多（${fmt(pop(winner))} 百萬人）。`}`;
@@ -736,6 +738,129 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     $('skipBtn').onclick = () => { fast = true; };
     step();
   }
+  // ---------- 音效（全部用 Web Audio 現場合成，不用音效檔）----------
+  let actx = null, master = null, muted = false;
+  try { muted = localStorage.getItem('nuke-mute') === '1'; } catch (e) {}
+  function audio() {
+    if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); master = actx.createGain(); master.gain.value = 0.55; master.connect(actx.destination); } catch (e) { actx = null; } }
+    if (actx && actx.state === 'suspended') actx.resume();
+    return actx;
+  }
+  addEventListener('pointerdown', () => { if (!muted) audio(); }, { once: true });
+  let noiseBuf = null;
+  function noiseSrc() {
+    const a = actx;
+    if (!noiseBuf) { noiseBuf = a.createBuffer(1, a.sampleRate * 2, a.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+    const src = a.createBufferSource(); src.buffer = noiseBuf; src.loop = true; return src;
+  }
+  function env(g, t, vol, dur, att = 0.01) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + att); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); }
+  function tone(f0, f1, dur, vol, type = 'sine', at = 0, att = 0.01) {
+    const a = audio(); if (!a || muted) return;
+    const t = a.currentTime + at, o = a.createOscillator(), g = a.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    env(g, t, vol, dur, att); o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.05);
+  }
+  function noise(dur, vol, filt = 'lowpass', f0 = 1000, f1 = f0, at = 0, att = 0.01, q = 1) {
+    const a = audio(); if (!a || muted) return;
+    const t = a.currentTime + at, src = noiseSrc(), fl = a.createBiquadFilter(), g = a.createGain();
+    fl.type = filt; fl.Q.value = q; fl.frequency.setValueAtTime(f0, t); if (f1 !== f0) fl.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    env(g, t, vol, dur, att); src.connect(fl); fl.connect(g); g.connect(master); src.start(t); src.stop(t + dur + 0.05);
+  }
+  function warble(base, depth, rate, dur, vol, type = 'sine', at = 0) {
+    const a = audio(); if (!a || muted) return;
+    const t = a.currentTime + at, o = a.createOscillator(), lfo = a.createOscillator(), lg = a.createGain(), g = a.createGain();
+    o.type = type; o.frequency.value = base; lfo.frequency.value = rate; lg.gain.value = depth;
+    lfo.connect(lg); lg.connect(o.frequency); env(g, t, vol, dur, 0.08); o.connect(g); g.connect(master);
+    o.start(t); lfo.start(t); o.stop(t + dur + 0.05); lfo.stop(t + dur + 0.05);
+  }
+  const notes = (list, step, vol, type = 'triangle', at = 0) => list.forEach((f, i) => f && tone(f, f, step * 0.95, vol, type, at + i * step));
+  const SND = {
+    tick: () => tone(900, 700, 0.05, 0.08, 'square'),
+    siren: () => { for (let i = 0; i < 2; i++) { tone(620, 920, 0.28, 0.12, 'sawtooth', i * 0.56, 0.05); tone(920, 620, 0.28, 0.12, 'sawtooth', i * 0.56 + 0.28, 0.02); } },
+    launch: (big, at = 0) => { noise(0.25, 0.35, 'lowpass', 300, 120, at); noise(0.8, 0.28 + big * 0.01, 'bandpass', 500, 2600, at + 0.05, 0.12, 2); tone(140, 60, 0.6, 0.12 + big * 0.004, 'sawtooth', at); },
+    boom: (big, at = 0) => { noise(big ? 1.8 : 1.2, big ? 0.9 : 0.7, 'lowpass', 1400, 60, at, 0.005); tone(120, 35, big ? 1.2 : 0.8, big ? 0.6 : 0.45, 'sine', at, 0.005); },
+    engine: (dur, at = 0) => { warble(85, 6, 12, dur, 0.12, 'sawtooth', at); noise(dur, 0.06, 'bandpass', 300, 260, at, 0.2, 3); },
+    whistle: (dur, at = 0) => tone(1500, 320, dur, 0.1, 'sine', at, 0.05),
+    clang: (at = 0) => { [880, 1320, 2093, 2794].forEach((f, i) => tone(f, f * 0.98, 0.7 - i * 0.12, 0.12 - i * 0.02, 'triangle', at, 0.002)); noise(0.3, 0.3, 'highpass', 3000, 1500, at); },
+    zip: (at = 0) => { tone(400, 1800, 0.3, 0.1, 'square', at); noise(0.3, 0.12, 'highpass', 2000, 5000, at); },
+    hum: (at = 0) => { warble(220, 3, 5, 1.1, 0.1, 'sine', at); tone(330, 335, 1.1, 0.05, 'sine', at, 0.2); },
+    thud: (at = 0) => { tone(90, 40, 0.3, 0.4, 'sine', at, 0.005); noise(0.2, 0.25, 'lowpass', 500, 100, at); },
+    wahwah: (at = 0) => { tone(392, 370, 0.3, 0.1, 'triangle', at); tone(370, 349, 0.3, 0.1, 'triangle', at + 0.32); tone(349, 262, 0.7, 0.11, 'triangle', at + 0.64); },
+    horn: (at = 0) => { tone(440, 440, 0.12, 0.09, 'square', at); tone(554, 554, 0.12, 0.09, 'square', at + 0.15); tone(440, 440, 0.12, 0.09, 'square', at + 0.3); tone(554, 554, 0.18, 0.09, 'square', at + 0.45); },
+    jingle: (at = 0) => notes([523, 659, 784, 1047, 784, 1047], 0.11, 0.08, 'triangle', at),
+    steps: (n, at = 0) => { for (let i = 0; i < n * 2; i++) noise(0.05, 0.12, 'bandpass', 900 + (i % 2) * 300, 700, at + i * 0.11, 0.003, 4); },
+    pop: (at = 0) => { noise(0.08, 0.55, 'highpass', 1500, 800, at, 0.002); tone(300, 80, 0.1, 0.2, 'sine', at, 0.002); },
+    hiss: (at = 0) => noise(0.7, 0.15, 'highpass', 4000, 2500, at, 0.02),
+    grunt: (at = 0) => tone(160, 110, 0.35, 0.14, 'sawtooth', at, 0.02),
+    buzzer: (at = 0) => tone(140, 130, 0.45, 0.12, 'square', at),
+    clank: (n, at = 0) => { for (let i = 0; i < n; i++) { noise(0.06, 0.3, 'bandpass', 1800, 1200, at + i * 0.16, 0.002, 6); tone(220, 180, 0.06, 0.08, 'square', at + i * 0.16 + 0.08, 0.002); } },
+    ding: (at = 0) => { tone(1568, 1568, 0.5, 0.1, 'sine', at, 0.002); tone(3136, 3136, 0.3, 0.04, 'sine', at, 0.002); },
+    wind: (dur, vol, at = 0) => { noise(dur, vol, 'bandpass', 300, 900, at, dur * 0.3, 1.5); noise(dur, vol * 0.6, 'bandpass', 900, 350, at + 0.1, dur * 0.3, 2); },
+    rain: (dur, at = 0) => noise(dur, 0.12, 'highpass', 5000, 4000, at, 0.2),
+    bloop: (at = 0) => tone(300, 800, 0.18, 0.15, 'sine', at),
+    ufo: (at = 0) => warble(700, 180, 7, 1.6, 0.08, 'sine', at),
+    buzz: (at = 0) => { tone(60, 60, 0.8, 0.12, 'square', at, 0.02); for (let i = 0; i < 3; i++) noise(0.06, 0.3, 'highpass', 3000, 3000, at + 0.2 + i * 0.3, 0.002); tone(400, 40, 0.6, 0.12, 'sawtooth', at + 0.9); },
+    blips: (n, at = 0) => { for (let i = 0; i < n; i++) tone(600 + Math.random() * 700, 900 + Math.random() * 700, 0.07, 0.07, 'sine', at + i * 0.08); },
+    drums: (at = 0) => { for (let i = 0; i < 6; i++) tone(110, 60, 0.15, 0.3, 'sine', at + i * (i % 2 ? 0.14 : 0.22), 0.003); notes([392, 523], 0.2, 0.07, 'square', at + 0.6); },
+    squeak: (n, at = 0) => { for (let i = 0; i < n; i++) tone(1100 + Math.random() * 300, 1600, 0.08, 0.06, 'sine', at + i * 0.2); },
+    snore: (at = 0) => { for (let i = 0; i < 2; i++) { noise(0.6, 0.12, 'lowpass', 200, 500, at + i * 0.9, 0.4); noise(0.4, 0.06, 'lowpass', 400, 150, at + i * 0.9 + 0.6, 0.1); } },
+    chime: (at = 0) => notes([1319, 1568, 1976, 2637], 0.14, 0.04, 'sine', at),
+    gong: (at = 0) => { tone(110, 104, 2.2, 0.3, 'sine', at, 0.005); tone(165, 160, 1.8, 0.15, 'sine', at, 0.005); tone(277, 270, 1.2, 0.06, 'triangle', at, 0.005); },
+    ring: (at = 0) => { for (let r = 0; r < 2; r++) for (let i = 0; i < 6; i++) { tone(440, 440, 0.04, 0.06, 'sine', at + r * 0.5 + i * 0.05); tone(480, 480, 0.04, 0.06, 'sine', at + r * 0.5 + i * 0.05); } },
+    win: () => notes([523, 659, 784, 1047, 0, 784, 1047], 0.14, 0.12, 'square'),
+    lose: () => notes([392, 330, 262, 196], 0.32, 0.12, 'triangle'),
+    doom: () => { noise(3, 0.8, 'lowpass', 600, 40, 0, 0.3); tone(80, 30, 3, 0.4, 'sine', 0, 0.3); },
+  };
+  // 依動畫的時間點排好音效
+  function soundFor(f) {
+    if (muted || fast) return;
+    if (f.t === 'launch') {
+      if (f.kind === 'bmb') SND.engine(f.fate === 'block' ? 0.9 : 1.8);
+      else SND.launch(f.size);
+      if (f.fate === 'block') {
+        if (f.shield === 'dome') SND.hum(0.38); else SND.zip(0.43);
+        SND.clang(0.76);
+        if (f.kind === 'bmb') { SND.whistle(0.9, 0.8); SND.thud(1.65); }
+      }
+      if (f.fate === 'fall') { SND.whistle(0.45, 0.45); SND.thud(0.9); }
+      return;
+    }
+    if (f.t === 'city' && f.k === 'boom') return SND.boom(false);
+    if (f.t === 'shield') return SND.hum();
+    if (f.t === 'bunker') return SND.siren();
+    if (f.t === 'call') { SND.ring(); if (!f.ok) SND.grunt(1.1); return; }
+    if (f.t === 'lure') { SND.horn(); SND.jingle(0.7); SND.steps(4, 0.95); return; }
+    if (f.t === 'build') { SND.clank(7); f.items.forEach((_, j) => SND.ding(0.42 + 0.56 + j * 0.26)); return; }
+    if (f.t === 'oops') {
+      if (f.k === 'tire') { SND.horn(); SND.pop(0.42); SND.hiss(0.45); }
+      if (f.k === 'balloon') { tone(500, 900, 1, 0.03, 'sine', 0, 0.3); SND.pop(1.0); SND.grunt(1.05); }
+      if (f.k === 'typo') { SND.horn(); SND.buzzer(0.7); SND.steps(4, 0.9); }
+      return;
+    }
+    if (f.t === 'ev') {
+      const k = f.k;
+      if (k === 'typhoon') { SND.wind(1.8, 0.35); SND.rain(1.6, 0.1); }
+      if (k === 'boba') { SND.bloop(0.45); SND.jingle(0.55); SND.steps(4, 0.6); }
+      if (k === 'ufo') { SND.ufo(); SND.bloop(0.9); }
+      if (k === 'blackout') SND.buzz();
+      if (k === 'meteor') { SND.whistle(0.65); SND.boom(true, 0.65); }
+      if (k === 'meme') SND.blips(10);
+      if (k === 'vote') SND.drums();
+      if (k === 'penguin') SND.squeak(6);
+      if (k === 'nap') SND.snore();
+      if (k === 'dud') { SND.thud(); SND.wahwah(0.35); }
+      if (k === 'snow') { SND.wind(f.big ? 2.4 : 1.6, f.big ? 0.25 : 0.15); SND.chime(0.2); }
+      if (k === 'dead') SND.gong();
+    }
+  }
+  function setMute(m) {
+    muted = m; try { localStorage.setItem('nuke-mute', m ? '1' : '0'); } catch (e) {}
+    $('muteBtn').textContent = m ? '🔇' : '🔊'; $('muteBtn').setAttribute('aria-label', m ? '開啟音效' : '關閉音效');
+    if (!m && actx) SND.tick();
+  }
+  $('muteBtn').addEventListener('click', () => { const m = !muted; if (!m) { muted = false; audio(); } setMute(m); });
+  setMute(muted);
+
   // ---------- 動畫 ----------
   const quiet = () => fast || matchMedia('(prefers-reduced-motion: reduce)').matches;
   const boxOf = n => n === 0 ? $('myNation') : $('foes').querySelector(`[data-n="${n}"]`);
@@ -1049,8 +1174,9 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
   }
   function flash(n, c, k) { const b = boxOf(n), el = b && b.querySelector(`[data-c="${c}"]`); if (el) { el.classList.remove(k); void el.offsetWidth; el.classList.add(k); } }
   function fx(f) {
-    if (f.t === 'launch') { if (!quiet()) launch(f); return; }
+    soundFor(f);
     if (f.t === 'build') { if (!quiet()) buildFx(f); return; }
+    if (f.t === 'launch') { if (!quiet()) launch(f); return; }
     if (f.t === 'oops') { if (!quiet()) oopsFx(f); return; }
     if (f.t === 'ev') { if (!quiet()) evFx(f); else if (f.c != null && f.c >= 0) flash(f.to != null ? f.to : f.n, f.c, f.k === 'meteor' ? 'boom' : 'gain'); return; }
     if (f.t === 'lure') { if (quiet()) { flash(f.n, f.c, 'lure'); flash(f.from, f.dest, 'gain'); } else lureFx(f); return; }
@@ -1092,6 +1218,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
   }
   $('acts').addEventListener('click', e => {
     const b = e.target.closest('.act'); if (!b || b.disabled || busy) return;
+    if (!muted) SND.tick();
     const a = b.dataset.a, me = S.N[0];
     plan = { a, w: null, n: null, c: null };
     if (a === 'guard') { const sh = shieldsOf(me); plan.w = sh[0] || null; }
@@ -1113,7 +1240,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
       plan.n = n; plan.c = ci; render();
     }
   });
-  $('goBtn').addEventListener('click', endTurn);
+  $('goBtn').addEventListener('click', () => { if (!muted && validPlan()) (plan.a === 'fire' ? SND.siren : SND.tick)(); endTurn(); });
 
   // ---------- render ----------
   function nationHTML(n, isMe) {
