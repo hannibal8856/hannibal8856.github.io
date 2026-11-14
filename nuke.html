@@ -102,6 +102,18 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
 #fxLayer .mush { position: absolute; font-size: 34px; line-height: 1; animation: mush 1.3s ease-out forwards; }
 @keyframes mush { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.4); } 25% { opacity: .95; } 100% { opacity: 0; transform: translate(-50%, -190%) scale(1.5); } }
 #fxLayer .spark { position: absolute; font-size: 30px; line-height: 1; animation: bang .7s ease-out forwards; }
+#fxLayer .puff.blue { background: #8cc4ff; width: 8px; height: 8px; margin: -4px 0 0 -4px; animation-duration: .45s; }
+#fxLayer .puff.dark { background: #3b3f47; width: 16px; height: 16px; margin: -8px 0 0 -8px; animation-duration: .9s; }
+#fxLayer .net { position: absolute; font-size: 64px; line-height: 1; animation: net 1s ease-out forwards; }
+@keyframes net { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.2) rotate(-20deg); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5) rotate(10deg); } }
+#fxLayer .dome { position: absolute; border: 3px solid #8cc4ff; border-radius: 50% 50% 14px 14px / 70% 70% 14px 14px; background: radial-gradient(ellipse at 50% 100%, #6aa8ff10, #6aa8ff40 70%, #b8dcff88); box-shadow: 0 0 24px #6aa8ffaa, inset 0 0 18px #b8dcff88; animation: dome 1.3s ease-out forwards; }
+@keyframes dome { 0% { opacity: 0; transform: scaleY(.3); transform-origin: 50% 100%; } 20% { opacity: 1; transform: scaleY(1); } 70% { opacity: .9; } 100% { opacity: 0; } }
+#fxLayer .bit { position: absolute; font-size: 14px; line-height: 1; }
+#fxLayer .say { position: absolute; transform: translate(-50%, -100%); background: var(--ink); color: #1b222d; font-weight: 900; font-size: 13px; padding: 3px 9px; border-radius: 10px; white-space: nowrap; animation: say 1.4s ease-out forwards; }
+#fxLayer .say::after { content: ""; position: absolute; left: 50%; bottom: -6px; border: 6px solid transparent; border-top-color: var(--ink); border-bottom: 0; transform: translateX(-50%); }
+@keyframes say { 0% { opacity: 0; transform: translate(-50%, -80%) scale(.6); } 15% { opacity: 1; transform: translate(-50%, -100%) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -130%); } }
+#fxLayer .note { position: absolute; font-size: 18px; line-height: 1; animation: note .9s ease-out forwards; }
+@keyframes note { from { opacity: 1; transform: translate(-50%, -50%); } to { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), -250%); } }
 .nation.shake { animation: shake .45s ease-in-out; }
 @keyframes shake { 0%,100% { translate: 0 0; } 20% { translate: -6px 2px; } 40% { translate: 5px -2px; } 60% { translate: -4px 1px; } 80% { translate: 3px 0; } }
 
@@ -522,7 +534,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     let cs = [p.c];
     if (it.kind === 'bmb') { const nb = [p.c - 1, p.c + 1].filter(c => c >= 0 && c < 5 && v.cities[c] > 0); if (nb.length) cs.push(pickOne(nb)); }
     log.push({ text: `${it.kind === 'bmb' ? '✈️' : '🚀'} ${nm(i)}按下按鈕，${it.ic}${it.name}${it.kind === 'bmb' ? '起飛前往' : '飛向'}${land(p.n)}！`, cls: 'bad',
-      fx: [{ t: 'nation', n: i, k: 'act' }, { t: 'launch', from: i, n: p.n, cs: blocked || fell ? [p.c] : cs, kind: it.kind, size: it.dmg, fate: blocked ? 'block' : fell ? 'fall' : 'hit' }] });
+      fx: [{ t: 'nation', n: i, k: 'act' }, { t: 'launch', from: i, n: p.n, cs: blocked || fell ? [p.c] : cs, kind: it.kind, size: it.dmg, fate: blocked ? 'block' : fell ? 'fall' : 'hit', shield: v.shield }] });
     // shields
     if (blocked) {
       log.push({ text: `${v.shield === 'dome' ? '🔰 天穹盾' : '🕸️ 攔截網'}把它擋下來了！${nm(p.n)}鬆了一口氣。`, cls: 'good', fx: [{ t: 'shield', n: p.n }] });
@@ -556,7 +568,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     v.cities[p.c] = Math.round((v.cities[p.c] - amt) * 10) / 10;
     if (v.cities[p.c] < 0.15) v.cities[p.c] = 0;
     const dest = addTo(n, amt);
-    log.push({ text: `📣 ${nm(i)}的宣傳奏效，${fmt(amt)} 百萬人從${cname(p.n, p.c)}搬去${land(i)}。${v.cities[p.c] <= 0 ? '這座城空了，變成坑洞。' : ''}`, cls: '', fx: [{ t: 'city', n: p.n, c: p.c, k: 'lure' }, { t: 'city', n: i, c: dest, k: 'gain' }] });
+    log.push({ text: `📣 ${nm(i)}的宣傳奏效，${fmt(amt)} 百萬人從${cname(p.n, p.c)}搬去${land(i)}。${v.cities[p.c] <= 0 ? '這座城空了，變成坑洞。' : ''}`, cls: '', fx: [{ t: 'lure', from: i, n: p.n, c: p.c, dest, amt }] });
     onLured(i, p.n);
   }
   function addTo(n, amt) {
@@ -753,6 +765,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     el.style.fontSize = (f.kind === 'bmb' ? 34 : 20 + f.size * 0.8) + 'px';
     const span = Math.hypot(targets[0][0] - p0[0], targets[0][1] - p0[1]);
     const done = () => el.remove();
+    if (f.fate === 'block') { intercept(f, el, p0, targets[0], span); return; }
     if (f.kind === 'bmb') {
       // 起飛：先變大，飛到第一座城丟炸彈，再飛去第二座，最後飛走
       const legs = [p0, ...targets];
@@ -774,16 +787,87 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
       flyArc(el, p0, mid, 450, lift * 0.4, { trail: true }, () => { const [x, y] = mid; tween(450, k => { el.style.transform = `translate(${x + 20 * k}px, ${y + 220 * k}px) translate(-50%, -50%) rotate(${135 + 40 * k}deg)`; el.style.opacity = 1 - k; }, done); });
       return;
     }
-    if (f.fate === 'block') {
-      const b = boxOf(f.n), r = b.getBoundingClientRect();
-      const stop = [targets[0][0], r.top + 6];
-      flyArc(el, p0, stop, 720, lift, { trail: true }, () => { done(); layerEl('flash', stop[0], stop[1], '', 90); layerEl('spark', stop[0] - 12, stop[1], '✨'); layerEl('spark', stop[0] + 14, stop[1] + 4, '💢'); });
-      return;
-    }
     flyArc(el, p0, targets[0], 740, lift, { trail: true }, done);
   }
+  // 防護罩攔截：攔截網射出攔截彈和網子；天穹盾亮起藍色護罩
+  function intercept(f, el, p0, tgt, span) {
+    const b = boxOf(f.n), r = b.getBoundingClientRect();
+    const stop = [tgt[0] + (p0[0] < tgt[0] ? -30 : 30), r.top - 34];
+    const bomber = f.kind === 'bmb';
+    const hitAt = 760;
+    if (f.shield === 'dome') {
+      setTimeout(() => { const d = layerEl('dome', r.left - 6, r.top - 40, ''); d.style.width = (r.width + 12) + 'px'; d.style.height = (r.height + 46) + 'px'; }, hitAt - 380);
+    } else {
+      // 從目標城市射出攔截彈
+      setTimeout(() => {
+        const m = layerEl('fly', 0, 0, '🔹'); m.style.fontSize = '16px';
+        let last = 0;
+        tween(330, k => {
+          const x = tgt[0] + (stop[0] - tgt[0]) * k, y = tgt[1] + (stop[1] - tgt[1]) * (1 - (1 - k) ** 2);
+          m.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
+          if (performance.now() - last > 25) { last = performance.now(); layerEl('puff blue', x, y); }
+        }, () => m.remove());
+      }, hitAt - 330);
+    }
+    const lift = Math.max(110, span * (bomber ? .25 : .45));
+    flyArc(el, p0, stop, hitAt, lift, { trail: !bomber, scale: bomber ? k => 0.5 + Math.min(1, k * 2) * 0.6 : null }, () => {
+      const [x, y] = stop;
+      layerEl('flash', x, y, '', bomber ? 120 : 90);
+      if (f.shield === 'dome') layerEl('spark', x, y, '✨'); else layerEl('net', x, y, '🕸️');
+      if (bomber) {
+        // 轟炸機被打中，冒黑煙轉圈掉下去
+        let last = 0;
+        const dir = p0[0] < tgt[0] ? 1 : -1;
+        tween(900, k => {
+          const xx = x + dir * 90 * k, yy = y + 260 * k * k;
+          el.style.transform = `translate(${xx}px, ${yy}px) translate(-50%, -50%) rotate(${45 + dir * 540 * k}deg) scale(${1.1 - .5 * k})`;
+          el.style.opacity = k < .7 ? 1 : (1 - k) / .3;
+          if (performance.now() - last > 35) { last = performance.now(); layerEl('puff dark', xx, yy); }
+        }, () => el.remove());
+      } else {
+        el.remove();
+        // 碎片往下掉
+        for (let j = 0; j < 4; j++) {
+          const bit = layerEl('bit', 0, 0, pickOne(['🔩', '⚙️', '▪️'])), dx = rnd(-50, 50);
+          tween(700, k => { bit.style.transform = `translate(${x + dx * k}px, ${y + 140 * k * k}px) rotate(${400 * k}deg)`; bit.style.opacity = 1 - k; }, () => bit.remove());
+        }
+      }
+    });
+  }
+  // 宣傳車：開到目標城市廣播，然後一群人走回來
+  const SLOGANS = ['我們這裡比較好！', '免費珍奶喝到飽！', '房租打五折！', '天天放颱風假！', 'Wi-Fi 超快！', '老闆不加班！'];
+  function lureFx(f) {
+    const p0 = avaPt(f.from), p1 = cityPt(f.n, f.c);
+    const van = layerEl('fly', 0, 0, '🚐'); van.style.fontSize = '30px';
+    const face = p1[0] > p0[0] ? -1 : 1;   // 🚐 圖示預設朝左
+    let lastNote = 0;
+    tween(700, k => {
+      const e = k < .5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
+      const x = p0[0] + (p1[0] - p0[0]) * e, y = p0[1] + (p1[1] - p0[1]) * e - Math.sin(k * Math.PI) * 50 - Math.abs(Math.sin(k * 30)) * 4;
+      van.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) scaleX(${face})`;
+      if (performance.now() - lastNote > 120) { lastNote = performance.now(); const nt = layerEl('note', x, y - 14, pickOne(['🎵', '🎶', '📢', '❤️'])); nt.style.setProperty('--dx', rnd(-30, 30) + 'px'); }
+    }, () => {
+      layerEl('say', p1[0], p1[1] - 26, pickOne(SLOGANS));
+      for (let j = 0; j < 4; j++) setTimeout(() => { const nt = layerEl('note', p1[0] + rnd(-16, 16), p1[1] - 20, '📢'); nt.style.setProperty('--dx', rnd(-40, 40) + 'px'); }, j * 90);
+      flash(f.n, f.c, 'lure');
+      setTimeout(() => { tween(300, k => { van.style.opacity = 1 - k; }, () => van.remove()); }, 500);
+      // 人民搬家
+      const p2 = cityPt(f.from, f.dest >= 0 ? f.dest : 2);
+      const k0 = Math.max(2, Math.min(6, Math.round(f.amt)));
+      for (let j = 0; j < k0; j++) setTimeout(() => {
+        const w = layerEl('fly', 0, 0, pickOne(['🚶', '🏃', '🚶‍♀️', '🧳', '🏃‍♀️'])); w.style.fontSize = '20px';
+        const ox = rnd(-12, 12);
+        tween(820, k => {
+          const x = p1[0] + ox + (p2[0] - p1[0]) * k, y = p1[1] + (p2[1] - p1[1]) * k - Math.sin(k * Math.PI) * 40 - Math.abs(Math.sin(k * 24)) * 5;
+          w.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) scaleX(${p2[0] > p1[0] ? -1 : 1})`;
+        }, () => { w.remove(); if (j === k0 - 1) flash(f.from, f.dest, 'gain'); });
+      }, 250 + j * 110);
+    });
+  }
+  function flash(n, c, k) { const b = boxOf(n), el = b && b.querySelector(`[data-c="${c}"]`); if (el) { el.classList.remove(k); void el.offsetWidth; el.classList.add(k); } }
   function fx(f) {
     if (f.t === 'launch') { if (!quiet()) launch(f); return; }
+    if (f.t === 'lure') { if (quiet()) { flash(f.n, f.c, 'lure'); flash(f.from, f.dest, 'gain'); } else lureFx(f); return; }
     const box = boxOf(f.n);
     if (!box) return;
     if (f.t === 'city' && f.k === 'boom' && !quiet()) {
@@ -936,6 +1020,6 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
   newGame(PACKS[pack].leaders.slice(0, 4));   // 背景先擺一局當畫面
 
   // 測試入口
-  window.__nuke = { get S() { return S; }, set plan(p) { plan = p; }, endTurn, aiPlan, auto() { S.N[0].alive = false; autoRun(); }, step(plans) { resolveTurn(plans); S.turn++; checkOver(); }, LEADERS, ITEMS, PACKS, get pack() { return pack; } };
+  window.__nuke = { get S() { return S; }, set plan(p) { plan = p; }, endTurn, aiPlan, auto() { S.N[0].alive = false; autoRun(); }, step(plans) { resolveTurn(plans); S.turn++; checkOver(); }, LEADERS, ITEMS, PACKS, get pack() { return pack; }, fx };
 })();
 </script>
