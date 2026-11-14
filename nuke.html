@@ -283,10 +283,10 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
         <tr><th>名稱</th><th>效果</th></tr>
         <tr><td><span id="r_s"></span> SRBM 短程飛彈</td><td>約 300 萬人</td></tr>
         <tr><td><span id="r_m"></span> IRBM 中程飛彈</td><td>約 700 萬人</td></tr>
-        <tr><td><span id="r_l"></span> SLBM 潛射飛彈</td><td>約 1500 萬人</td></tr>
+        <tr><td><span id="r_l"></span> ICBM 洲際飛彈</td><td>約 1500 萬人</td></tr>
         <tr><td><span id="r_xl"></span> TSAR 沙皇核彈</td><td>約 3000 萬人</td></tr>
-        <tr><td><span id="r_b"></span> B-1B 轟炸機</td><td>一次炸兩座城（你選的和隔壁城），各約 600 萬人</td></tr>
-        <tr><td>🕸️ 攔截網</td><td>擋下 SRBM、IRBM 和 B-1B 轟炸機；擋不住 SLBM 和 TSAR</td></tr>
+        <tr><td><span id="r_b"></span> 核子轟炸機</td><td>一次炸兩座城（你選的和隔壁城），各約 600 萬人</td></tr>
+        <tr><td>🕸️ 攔截網</td><td>擋下 SRBM、IRBM 和核子轟炸機；擋不住 ICBM 和 TSAR</td></tr>
         <tr><td>🔰 天穹盾</td><td>這回合什麼都擋得住</td></tr>
       </table>
       <p class="sub">傷害有隨機浮動；8% 是啞彈，5% 正好打中軍火庫，傷害加倍還會炸掉對方一件武器。</p>
@@ -385,9 +385,9 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
   const ITEMS = {
     s:  { ic: '', name: 'SRBM 短程飛彈', kind: 'msl', dmg: 3,  clock: .5,  w: 30 },
     m:  { ic: '', name: 'IRBM 中程飛彈', kind: 'msl', dmg: 7,  clock: 1,   w: 24 },
-    l:  { ic: '', name: 'SLBM 潛射飛彈', kind: 'msl', dmg: 15, clock: 1.5, w: 11 },
+    l:  { ic: '', name: 'ICBM 洲際飛彈', kind: 'msl', dmg: 15, clock: 1.5, w: 11 },
     xl: { ic: '', name: 'TSAR 沙皇核彈', kind: 'msl', dmg: 30, clock: 3,   w: 4 },
-    b:  { ic: '', name: 'B-1B 轟炸機', kind: 'bmb', dmg: 6,  clock: 1,   w: 10 },
+    b:  { ic: '', name: '核子轟炸機', kind: 'bmb', dmg: 6,  clock: 1,   w: 10 },
     net:{ ic: '🕸️', name: '攔截網', kind: 'def', w: 13 },
     dome:{ ic: '🔰', name: '天穹盾', kind: 'def', w: 6 },
   };
@@ -1268,7 +1268,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     const p = plan, me = S.N[0];
     if (!p.a) return '先選一個行動。';
     if (p.a === 'build') return me.prev === 'build' ? '🏭 生產。<b>注意：</b>連續兩回合生產，大家都會開始討厭你。' : '🏭 讓兵工廠生產武器或防護罩。';
-    if (p.a === 'guard') { const sh = shieldsOf(me); return sh.length ? `🛡️ 選要啟用的防護罩：${p.w ? ITEMS[p.w].ic + '<b>' + ITEMS[p.w].name + '</b>' + (p.w === 'net' ? '。<b>注意：</b>攔截網只擋 SRBM、IRBM 和 B-1B，擋不住 SLBM 和 TSAR。' : '，這回合什麼都擋得住。') : '（選一個）'}` : '🛡️ 你沒有防護罩，只能叫全國躲防空洞（這回合核彈傷害減少 40%）。'; }
+    if (p.a === 'guard') { const sh = shieldsOf(me); return sh.length ? `🛡️ 選要啟用的防護罩：${p.w ? ITEMS[p.w].ic + '<b>' + ITEMS[p.w].name + '</b>' + (p.w === 'net' ? '。<b>注意：</b>攔截網只擋 SRBM、IRBM 和核子轟炸機，擋不住 ICBM 和 TSAR。' : '，這回合什麼都擋得住。') : '（選一個）'}` : '🛡️ 你沒有防護罩，只能叫全國躲防空洞（這回合核彈傷害減少 40%）。'; }
     if (p.a === 'call') return p.n != null ? `☎️ 打熱線給 ${nm(p.n)}。` : '☎️ 點上方一位領袖的卡片，打電話給他。';
     if (p.a === 'lure') return p.c != null ? `📣 對${cname(p.n, p.c)}放送宣傳。` : '📣 點上方一座敵方城市，對它放送宣傳。';
     if (p.a === 'fire') {
