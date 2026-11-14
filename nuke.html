@@ -89,6 +89,22 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
 .foot b { color: var(--ink); font-family: var(--f-num); font-weight: 400; font-variant-numeric: tabular-nums; }
 .tag { position: absolute; top: -9px; right: 10px; background: var(--alarm); color: #fff; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 0 6px; }
 
+/* 飛彈、轟炸機、爆炸的動畫層 */
+#fxLayer { position: fixed; inset: 0; pointer-events: none; z-index: 15; overflow: hidden; }
+#fxLayer .fly { position: absolute; left: 0; top: 0; line-height: 1; will-change: transform; filter: drop-shadow(0 3px 4px #0008); }
+#fxLayer .puff { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: #d9d4c8; animation: puff .7s ease-out forwards; }
+#fxLayer .puff.fire { background: #ffb13b; animation-duration: .35s; }
+@keyframes puff { from { opacity: .8; transform: scale(.6); } to { opacity: 0; transform: scale(2.4); } }
+#fxLayer .flash { position: absolute; border-radius: 50%; background: radial-gradient(circle, #fff8d0, #ffb13b 40%, #e5493e00 70%); animation: flash .7s ease-out forwards; }
+@keyframes flash { from { opacity: 1; transform: translate(-50%, -50%) scale(.2); } to { opacity: 0; transform: translate(-50%, -50%) scale(1.6); } }
+#fxLayer .bang { position: absolute; font-size: 44px; line-height: 1; animation: bang .9s ease-out forwards; }
+@keyframes bang { 0% { opacity: 1; transform: translate(-50%, -50%) scale(.3); } 35% { transform: translate(-50%, -50%) scale(1.5); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.9); } }
+#fxLayer .mush { position: absolute; font-size: 34px; line-height: 1; animation: mush 1.3s ease-out forwards; }
+@keyframes mush { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.4); } 25% { opacity: .95; } 100% { opacity: 0; transform: translate(-50%, -190%) scale(1.5); } }
+#fxLayer .spark { position: absolute; font-size: 30px; line-height: 1; animation: bang .7s ease-out forwards; }
+.nation.shake { animation: shake .45s ease-in-out; }
+@keyframes shake { 0%,100% { translate: 0 0; } 20% { translate: -6px 2px; } 40% { translate: 5px -2px; } 60% { translate: -4px 1px; } 80% { translate: 3px 0; } }
+
 /* you */
 .me { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 12px; }
 @media (max-width: 760px) { .me { grid-template-columns: minmax(0, 1fr); } }
@@ -199,6 +215,8 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
 </div>
 
 <div class="ticker" id="ticker" hidden><p id="tickText"></p><button class="skip" id="skipBtn" type="button">快轉 ⏩</button></div>
+
+<div id="fxLayer" aria-hidden="true"></div>
 
 <div class="screen" id="startScreen">
   <div class="card">
@@ -499,24 +517,24 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     n.inv[p.w]--;
     const v = S.N[p.n];
     moveClock(it.clock);
-    log.push({ text: `🚀 ${nm(i)}按下按鈕，${it.ic}${it.name}飛向${land(p.n)}！`, cls: 'bad', fx: [{ t: 'nation', n: i, k: 'act' }] });
+    const blocked = v.shield === 'dome' || (v.shield === 'net' && (p.w === 's' || p.w === 'm' || p.w === 'b'));
+    const steak = !blocked && n.id === 'steak' && Math.random() < 0.25, fell = steak && Math.random() < 0.35;
+    let cs = [p.c];
+    if (it.kind === 'bmb') { const nb = [p.c - 1, p.c + 1].filter(c => c >= 0 && c < 5 && v.cities[c] > 0); if (nb.length) cs.push(pickOne(nb)); }
+    log.push({ text: `${it.kind === 'bmb' ? '✈️' : '🚀'} ${nm(i)}按下按鈕，${it.ic}${it.name}${it.kind === 'bmb' ? '起飛前往' : '飛向'}${land(p.n)}！`, cls: 'bad',
+      fx: [{ t: 'nation', n: i, k: 'act' }, { t: 'launch', from: i, n: p.n, cs: blocked || fell ? [p.c] : cs, kind: it.kind, size: it.dmg, fate: blocked ? 'block' : fell ? 'fall' : 'hit' }] });
     // shields
-    if (v.shield === 'dome' || (v.shield === 'net' && (p.w === 's' || p.w === 'm' || p.w === 'b'))) {
+    if (blocked) {
       log.push({ text: `${v.shield === 'dome' ? '🔰 天穹盾' : '🕸️ 攔截網'}把它擋下來了！${nm(p.n)}鬆了一口氣。`, cls: 'good', fx: [{ t: 'shield', n: p.n }] });
       onNuked(i, p.n);
       return;
     }
     let dmg = it.dmg, label = it.ic + it.name;
-    if (n.id === 'steak' && Math.random() < 0.25) {
-      if (Math.random() < 0.35) { log.push({ text: `牛排將軍把兩顆彈頭綁在一起，結果飛到一半掉進海裡。`, cls: 'ev' }); onNuked(i, p.n); return; }
+    if (steak) {
+      if (fell) { log.push({ text: `牛排將軍把兩顆彈頭綁在一起，結果飛到一半掉進海裡。`, cls: 'ev' }); onNuked(i, p.n); return; }
       dmg *= 2; label = '綁了兩顆彈頭的' + label;
     }
-    if (it.kind === 'bmb') {
-      const cs = [p.c];
-      const nb = [p.c - 1, p.c + 1].filter(c => c >= 0 && c < 5 && v.cities[c] > 0);
-      if (nb.length) cs.push(pickOne(nb));
-      for (const c of cs) hitCity(i, p.n, c, dmg, label);
-    } else hitCity(i, p.n, p.c, dmg, label);
+    for (const c of cs) hitCity(i, p.n, c, dmg, label);
     onNuked(i, p.n);
   }
   function resolveLure(i, p) {
@@ -626,6 +644,8 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
   function endTurn() {
     if (busy || S.over || !validPlan()) return;
     busy = true;
+    const ft = $('foes').getBoundingClientRect(), mb = $('myNation').getBoundingClientRect();
+    if (ft.top < 0 || mb.bottom > innerHeight - 90) $('foes').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
     const plans = S.N.map(n => n.alive ? (n.idx === 0 ? { ...plan } : aiPlan(n)) : null);
     resolveTurn(plans);
     plan = { a: null, w: null, n: null, c: null };
@@ -690,9 +710,86 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     $('skipBtn').onclick = () => { fast = true; };
     step();
   }
+  // ---------- 動畫 ----------
+  const quiet = () => fast || matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const boxOf = n => n === 0 ? $('myNation') : $('foes').querySelector(`[data-n="${n}"]`);
+  function centerOf(el) { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }
+  function cityPt(n, c) { const b = boxOf(n), el = b && b.querySelector(`[data-c="${c}"]`); return el ? centerOf(el) : b ? centerOf(b) : [innerWidth / 2, innerHeight / 2]; }
+  function avaPt(n) { const b = boxOf(n), el = b && b.querySelector('.ava'); return el ? centerOf(el) : cityPt(n, 2); }
+  function layerEl(cls, x, y, text, size) {
+    const el = document.createElement('div'); el.className = cls; el.style.left = x + 'px'; el.style.top = y + 'px';
+    if (size) { el.style.width = el.style.height = size + 'px'; }
+    if (text) el.textContent = text;
+    $('fxLayer').appendChild(el);
+    if (cls !== 'fly') setTimeout(() => el.remove(), 1500);
+    return el;
+  }
+  function tween(dur, frame, end) { const t0 = performance.now(); const tick = now => { const k = Math.min(1, (now - t0) / dur); frame(k); if (k < 1) requestAnimationFrame(tick); else if (end) end(); }; requestAnimationFrame(tick); }
+  // 沿著拋物線飛：p0 → p1，頂點往上抬
+  function flyArc(el, p0, p1, dur, lift, opts, end) {
+    const [x0, y0] = p0, [x1, y1] = p1;
+    const cx = (x0 + x1) / 2, cy = Math.min(y0, y1) - lift;
+    const at = k => [(1 - k) ** 2 * x0 + 2 * (1 - k) * k * cx + k * k * x1, (1 - k) ** 2 * y0 + 2 * (1 - k) * k * cy + k * k * y1];
+    let lastPuff = 0;
+    tween(dur, k => {
+      const [x, y] = at(k), [xa, ya] = at(Math.min(1, k + 0.02)), [xb, yb] = at(Math.max(0, k - 0.02));
+      const ang = Math.atan2(ya - yb, xa - xb) * 180 / Math.PI + 45;   // emoji 本身朝右上 45°
+      const sc = opts.scale ? opts.scale(k) : 1;
+      el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${ang}deg) scale(${sc})`;
+      if (opts.trail && performance.now() - lastPuff > 28) { lastPuff = performance.now(); layerEl('puff', x, y); }
+      if (opts.during) opts.during(k, x, y);
+    }, end);
+  }
+  function explode(x, y, big) {
+    layerEl('flash', x, y, '', big ? 150 : 110);
+    const b = layerEl('bang', x, y, '💥'); b.style.fontSize = (big ? 56 : 44) + 'px';
+    setTimeout(() => layerEl('mush', x, y, '☁️'), 120);
+  }
+  function launch(f) {
+    const p0 = avaPt(f.from);
+    const targets = f.cs.map(c => cityPt(f.n, c));
+    for (let j = 0; j < 5; j++) setTimeout(() => layerEl('puff', p0[0] + rnd(-14, 14), p0[1] + rnd(-6, 10)), j * 40);
+    const el = layerEl('fly', 0, 0, f.kind === 'bmb' ? '✈️' : '🚀');
+    el.style.fontSize = (f.kind === 'bmb' ? 34 : 20 + f.size * 0.8) + 'px';
+    const span = Math.hypot(targets[0][0] - p0[0], targets[0][1] - p0[1]);
+    const done = () => el.remove();
+    if (f.kind === 'bmb') {
+      // 起飛：先變大，飛到第一座城丟炸彈，再飛去第二座，最後飛走
+      const legs = [p0, ...targets];
+      const bomb = (x, y) => { const d = layerEl('fly', 0, 0, '💣'); d.style.fontSize = '18px'; tween(160, k => { d.style.transform = `translate(${x}px, ${y + 30 * k}px) translate(-50%, -50%)`; }, () => d.remove()); };
+      const leg = j => {
+        if (j >= legs.length - 1) { const [x, y] = legs[legs.length - 1]; flyArc(el, [x, y], [x + 160, y - 260], 600, 40, { scale: k => 1 - k * .5, during: k => { el.style.opacity = 1 - k; } }, done); return; }
+        flyArc(el, legs[j], legs[j + 1], j === 0 ? 680 : 650, j === 0 ? Math.max(90, span * .25) : 50,
+          { trail: false, scale: j === 0 ? k => 0.5 + Math.min(1, k * 2) * 0.6 : null,
+            during: (k, x, y) => { if (k > 0.82 && !el.dataset['b' + j]) { el.dataset['b' + j] = 1; bomb(x, y); } } },
+          () => leg(j + 1));
+      };
+      leg(0);
+      return;
+    }
+    const lift = Math.max(110, span * 0.45);
+    if (f.fate === 'fall') {
+      // 綁了兩顆彈頭，飛到一半掉下去
+      const mid = [(p0[0] + targets[0][0]) / 2, Math.min(p0[1], targets[0][1]) - lift * 0.5];
+      flyArc(el, p0, mid, 450, lift * 0.4, { trail: true }, () => { const [x, y] = mid; tween(450, k => { el.style.transform = `translate(${x + 20 * k}px, ${y + 220 * k}px) translate(-50%, -50%) rotate(${135 + 40 * k}deg)`; el.style.opacity = 1 - k; }, done); });
+      return;
+    }
+    if (f.fate === 'block') {
+      const b = boxOf(f.n), r = b.getBoundingClientRect();
+      const stop = [targets[0][0], r.top + 6];
+      flyArc(el, p0, stop, 720, lift, { trail: true }, () => { done(); layerEl('flash', stop[0], stop[1], '', 90); layerEl('spark', stop[0] - 12, stop[1], '✨'); layerEl('spark', stop[0] + 14, stop[1] + 4, '💢'); });
+      return;
+    }
+    flyArc(el, p0, targets[0], 740, lift, { trail: true }, done);
+  }
   function fx(f) {
-    const box = f.n === 0 ? $('myNation') : $('foes').querySelector(`[data-n="${f.n}"]`);
+    if (f.t === 'launch') { if (!quiet()) launch(f); return; }
+    const box = boxOf(f.n);
     if (!box) return;
+    if (f.t === 'city' && f.k === 'boom' && !quiet()) {
+      const [x, y] = cityPt(f.n, f.c); explode(x, y, false);
+      const card = box.querySelector('.nation'); if (card) { card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake'); }
+    }
     if (f.t === 'city') { const el = box.querySelector(`[data-c="${f.c}"]`); if (el) { el.classList.remove(f.k); void el.offsetWidth; el.classList.add(f.k); } }
     if (f.t === 'shield') { const el = box.querySelector('.nation') || box; el.classList.remove('shieldfx'); void el.offsetWidth; el.classList.add('shieldfx'); }
     if (f.t === 'nation' && f.k === 'act') { const el = box.querySelector('.nation') || box; el.classList.add('acting'); setTimeout(() => el.classList.remove('acting'), 600); }
