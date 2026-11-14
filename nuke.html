@@ -395,14 +395,19 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
   const MSL_SHAPE = { s: [26, 4.2], m: [36, 6], l: [46, 8.5], xl: [54, 16] };   // [長, 粗]
   function wpnSVG(k, sc = 1) {
     if (k === 'b') {
-      // B-1B：細長機身、後掠翼、尾翼（俯視）
-      const w = 60 * sc, h = 44 * sc;
-      return `<svg class="wpn" viewBox="0 0 60 44" width="${w.toFixed(1)}" height="${h.toFixed(1)}" aria-hidden="true">
-        <path d="M33 21 L19 3 L14.5 3 L24 21 Z M33 23 L19 41 L14.5 41 L24 23 Z" fill="#59616d"/>
-        <path d="M11 21 L5 12 L2.5 12 L6 21 Z M11 23 L5 32 L2.5 32 L6 23 Z" fill="#59616d"/>
-        <path d="M2 22 Q3 19.6 8 19.4 L48 19.6 Q55 20 59 22 Q55 24 48 24.4 L8 24.6 Q3 24.4 2 22 Z" fill="#7b8491" stroke="#3b414a" stroke-width=".6"/>
-        <path d="M30 20.2 L36 13 L38.5 13 L35 20.2 Z M30 23.8 L36 31 L38.5 31 L35 23.8 Z" fill="#6b7480"/>
-        <path d="M50 21 Q54 21.3 56 22 Q54 22.7 50 23 Z" fill="#2a3442"/>
+      // B-1B（俯視，照片樣子）：翼身融合的寬機身、細長後掠的外翼、尾端水平尾翼、尖機頭和駕駛艙窗
+      const w = 60 * sc, h = 45 * sc;
+      return `<svg class="wpn" viewBox="0 0 80 60" width="${w.toFixed(1)}" height="${h.toFixed(1)}" aria-hidden="true">
+        <path d="M46 21 L27.5 1.2 L24 2.2 L39.5 23 Z M46 39 L27.5 58.8 L24 57.8 L39.5 37 Z" fill="#56606d" stroke="#2f3640" stroke-width=".5"/>
+        <path d="M27.6 2.4 L40.5 21.6 M27.6 57.6 L40.5 38.4" stroke="#737d8a" stroke-width=".6"/>
+        <path d="M16 27.6 L8 16.2 L4.6 16.8 L9.6 28.6 Z M16 32.4 L8 43.8 L4.6 43.2 L9.6 31.4 Z" fill="#56606d" stroke="#2f3640" stroke-width=".5"/>
+        <path d="M78.5 30 C76 28.5 72 27.8 66 27.5 C58 27 53.5 25.4 49 21.3 L45.5 19.6 L39 22.4 C32.5 25.6 24.5 27.1 15 27.7 L6 29.1 L6 30.9 L15 32.3 C24.5 32.9 32.5 34.4 39 37.6 L45.5 40.4 L49 38.7 C53.5 34.6 58 33 66 32.5 C72 32.2 76 31.5 78.5 30 Z" fill="#4c5562" stroke="#2a3038" stroke-width=".6"/>
+        <path d="M74 30 C66 29.2 52 28.6 40 28.4 C30 28.3 20 28.7 10 29.4" stroke="#6b7582" stroke-width="1.1" fill="none"/>
+        <path d="M28 25.6 Q33 24.2 40 24.6 L40 26.6 Q33 26.8 28 26.8 Z M28 34.4 Q33 35.8 40 35.4 L40 33.4 Q33 33.2 28 33.2 Z" fill="#555f6c"/>
+        <path d="M15.5 29.4 L2.6 29.7 L2.6 30.3 L15.5 30.6 Z" fill="#2f3640"/>
+        <path d="M71 28.7 L66.8 28.3 L66.2 30 L66.8 31.7 L71 31.3 L71.8 30 Z" fill="#1c232c" stroke="#8fa3b5" stroke-width=".4"/>
+        <path d="M68.8 28.5 L68.8 31.5" stroke="#8fa3b5" stroke-width=".35"/>
+        <path d="M76.5 30 L78.5 30" stroke="#20262e" stroke-width="1.2"/>
       </svg>`;
     }
     const [L, D] = MSL_SHAPE[k], x0 = (60 - L) / 2, y = 10;
