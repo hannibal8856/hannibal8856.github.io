@@ -114,6 +114,15 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
 @keyframes say { 0% { opacity: 0; transform: translate(-50%, -80%) scale(.6); } 15% { opacity: 1; transform: translate(-50%, -100%) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -130%); } }
 #fxLayer .note { position: absolute; font-size: 18px; line-height: 1; animation: note .9s ease-out forwards; }
 @keyframes note { from { opacity: 1; transform: translate(-50%, -50%); } to { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), -250%); } }
+#fxLayer .big { position: absolute; line-height: 1; transform: translate(-50%, -50%); }
+#fxLayer .rain { position: absolute; width: 2px; height: 26px; background: linear-gradient(#b8dcff00, #b8dcffcc); transform: rotate(18deg); }
+#fxLayer .beam { position: absolute; transform: translateX(-50%); background: linear-gradient(#b8ffcfcc, #b8ffcf22); clip-path: polygon(40% 0, 60% 0, 100% 100%, 0 100%); animation: beam 1.2s ease-in-out forwards; }
+@keyframes beam { 0%,100% { opacity: 0; } 20%,75% { opacity: 1; } }
+#fxLayer .dark { position: absolute; border-radius: 12px; background: #000; animation: dark 1.6s steps(1) forwards; }
+@keyframes dark { 0% { opacity: .75; } 12% { opacity: .2; } 20% { opacity: .8; } 30% { opacity: .35; } 38%,85% { opacity: .82; } 100% { opacity: 0; } }
+#fxLayer .snow { position: absolute; top: -30px; color: #e8f2ff; line-height: 1; }
+#fxLayer .skull { position: absolute; font-size: 80px; line-height: 1; animation: skull 1.6s ease-out forwards; }
+@keyframes skull { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.3); } 25% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -70%) scale(1.2); } }
 .nation.shake { animation: shake .45s ease-in-out; }
 @keyframes shake { 0%,100% { translate: 0 0; } 20% { translate: -6px 2px; } 40% { translate: 5px -2px; } 60% { translate: -4px 1px; } 80% { translate: 3px 0; } }
 
@@ -505,7 +514,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
   function moveClock(v) {
     if (S.winter) return;
     S.clock = Math.max(0, Math.round((S.clock - v) * 10) / 10);
-    if (S.clock <= 0) { S.winter = true; log.push({ text: '🕛 末日鐘走到午夜！<b>核冬天</b>來了，從現在起每回合所有城市少 8% 人口。', cls: 'bad' }); }
+    if (S.clock <= 0) { S.winter = true; log.push({ fx: [{ t: 'ev', k: 'snow', big: true }], text: '🕛 末日鐘走到午夜！<b>核冬天</b>來了，從現在起每回合所有城市少 8% 人口。', cls: 'bad' }); }
   }
   function hitCity(att, vi, ci, dmg, label) {
     const v = S.N[vi];
@@ -513,7 +522,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     let d = dmg * rnd(0.6, 1.4);
     let extra = '';
     const roll = Math.random();
-    if (roll < 0.08) { log.push({ text: `${nm(att)}的${label}是啞彈，掉在${cname(vi, ci)}的田裡，農夫拿來當稻草人。`, cls: 'good', fx: [{ t: 'city', n: vi, c: ci, k: 'gain' }] }); return 0; }
+    if (roll < 0.08) { log.push({ text: `${nm(att)}的${label}是啞彈，掉在${cname(vi, ci)}的田裡，農夫拿來當稻草人。`, cls: 'good', fx: [{ t: 'ev', k: 'dud', n: vi, c: ci }] }); return 0; }
     if (roll > 0.95) { d *= 2; const ks = Object.keys(v.inv).filter(k => v.inv[k] > 0); if (ks.length) { const k = pickOne(ks); v.inv[k]--; extra = `，還引爆軍火庫炸掉一個${ITEMS[k].name}`; } else extra = '，正中要害'; }
     if (v.bunker) d *= 0.6;
     d = Math.min(d, v.cities[ci]);
@@ -556,11 +565,12 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     if (v.cities[p.c] <= 0) { log.push({ text: `${nm(i)}對${cname(p.n, p.c)}大放宣傳……那裡已經沒人了。`, cls: '' }); return; }
     if (Math.random() < 0.15) {
       const oops = pickOne([
-        () => { const lose = Math.min(rnd(1, 3), pop(n) - 0.1); takeFrom(n, lose); addTo(v, lose); return `${nm(i)}的宣傳影片字幕打錯，變成在幫${land(p.n)}打廣告，${fmt(lose)} 百萬人反而跑過去了。`; },
-        () => { bump(p.n, i, -15); return `${nm(i)}的宣傳氣球飄進${land(p.n)}的總統府，對方領袖非常生氣。`; },
-        () => `${nm(i)}的宣傳車在半路爆胎，司機改去吃滷肉飯。`,
+        () => { const lose = Math.min(rnd(1, 3), pop(n) - 0.1); takeFrom(n, lose); const d = addTo(v, lose); return [`${nm(i)}的宣傳影片字幕打錯，變成在幫${land(p.n)}打廣告，${fmt(lose)} 百萬人反而跑過去了。`, { t: 'oops', k: 'typo', from: i, n: p.n, c: p.c, dest: d, amt: lose, land: S.N[p.n].land }]; },
+        () => { bump(p.n, i, -15); return [`${nm(i)}的宣傳氣球飄進${land(p.n)}的總統府，對方領袖非常生氣。`, { t: 'oops', k: 'balloon', from: i, n: p.n, c: p.c }]; },
+        () => [`${nm(i)}的宣傳車在半路爆胎，司機改去吃滷肉飯。`, { t: 'oops', k: 'tire', from: i, n: p.n, c: p.c }],
       ]);
-      log.push({ text: '📣 ' + oops(), cls: 'ev' });
+      const [otext, ofx] = oops();
+      log.push({ text: '📣 ' + otext, cls: 'ev', fx: [ofx] });
       return;
     }
     let amt = rnd(1, 6) * (n.type === 'peace' ? 1.6 : 1) * (v.cities[p.c] > 20 ? 1.2 : 1);
@@ -589,14 +599,14 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     const a = alive(); if (!a.length) return;
     const n = pickOne(a), ci = () => { const l = n.cities.map((p, j) => [p, j]).filter(x => x[0] > 0); return l.length ? pickOne(l)[1] : -1; };
     const evs = [
-      () => { S.events.typhoon = true; log.push({ text: '🌀 颱風假！全世界都在家追劇，這回合所有宣傳都沒效。', cls: 'ev' }); },
-      () => { const c = ci(); if (c < 0) return; n.cities[c] += 3; log.push({ text: `🧋 ${cname(n.idx, c)}開了一家超紅的珍奶店，300 萬人搬來排隊。`, cls: 'ev', fx: [{ t: 'city', n: n.idx, c, k: 'gain' }] }); },
-      () => { const c = ci(); if (c < 0) return; const g = Math.round(n.cities[c] * 0.5 * 10) / 10; n.cities[c] += g; log.push({ text: `🛸 外星觀光團覺得${cname(n.idx, c)}很好笑，複製了一半的居民帶來玩，多了 ${fmt(g)} 百萬人。`, cls: 'ev', fx: [{ t: 'city', n: n.idx, c, k: 'gain' }] }); },
-      () => { S.events.blackout = n.idx; log.push({ text: `🔌 ${land(n.idx)}大跳電，這回合防護罩開不起來。`, cls: 'ev' }); },
-      () => { const c = ci(); if (c < 0) return; const d = Math.min(4, n.cities[c]); n.cities[c] = Math.round((n.cities[c] - d) * 10) / 10; if (n.cities[c] < .15) n.cities[c] = 0; log.push({ text: `☄️ 一顆隕石掉在${cname(n.idx, c)}，${fmt(d)} 百萬人受害。這次真的不是誰按的。`, cls: 'bad', fx: [{ t: 'city', n: n.idx, c, k: 'boom' }] }); },
-      () => { for (const o of S.N) bump(o.idx, n.idx, 10); log.push({ text: `🤳 ${nm(n.idx)}跳舞的影片變成網路迷因，全世界都覺得他很可愛。`, cls: 'ev' }); },
-      () => { if (n.idx === 0) return; n.skip = true; log.push({ text: `🗳️ ${land(n.idx)}正在選舉，${nm(n.idx)}忙著掃街拜票，這回合什麼都沒做。`, cls: 'ev' }); },
-      () => { const o = pickOne(alive().filter(x => x !== n)); if (!o) return; const amt = Math.min(2, pop(n) - .1); if (amt <= 0) return; takeFrom(n, amt); const c = addTo(o, amt); log.push({ text: `🐧 ${fmt(amt)} 百萬人跟著企鵝大遷徙，從${land(n.idx)}走到${land(o.idx)}。`, cls: 'ev', fx: c >= 0 ? [{ t: 'city', n: o.idx, c, k: 'gain' }] : [] }); },
+      () => { S.events.typhoon = true; log.push({ text: '🌀 颱風假！全世界都在家追劇，這回合所有宣傳都沒效。', cls: 'ev', fx: [{ t: 'ev', k: 'typhoon' }] }); },
+      () => { const c = ci(); if (c < 0) return; n.cities[c] += 3; log.push({ text: `🧋 ${cname(n.idx, c)}開了一家超紅的珍奶店，300 萬人搬來排隊。`, cls: 'ev', fx: [{ t: 'ev', k: 'boba', n: n.idx, c }] }); },
+      () => { const c = ci(); if (c < 0) return; const g = Math.round(n.cities[c] * 0.5 * 10) / 10; n.cities[c] += g; log.push({ text: `🛸 外星觀光團覺得${cname(n.idx, c)}很好笑，複製了一半的居民帶來玩，多了 ${fmt(g)} 百萬人。`, cls: 'ev', fx: [{ t: 'ev', k: 'ufo', n: n.idx, c }] }); },
+      () => { S.events.blackout = n.idx; log.push({ text: `🔌 ${land(n.idx)}大跳電，這回合防護罩開不起來。`, cls: 'ev', fx: [{ t: 'ev', k: 'blackout', n: n.idx }] }); },
+      () => { const c = ci(); if (c < 0) return; const d = Math.min(4, n.cities[c]); n.cities[c] = Math.round((n.cities[c] - d) * 10) / 10; if (n.cities[c] < .15) n.cities[c] = 0; log.push({ text: `☄️ 一顆隕石掉在${cname(n.idx, c)}，${fmt(d)} 百萬人受害。這次真的不是誰按的。`, cls: 'bad', fx: [{ t: 'ev', k: 'meteor', n: n.idx, c }] }); },
+      () => { for (const o of S.N) bump(o.idx, n.idx, 10); log.push({ text: `🤳 ${nm(n.idx)}跳舞的影片變成網路迷因，全世界都覺得他很可愛。`, cls: 'ev', fx: [{ t: 'ev', k: 'meme', n: n.idx }] }); },
+      () => { if (n.idx === 0) return; n.skip = true; log.push({ text: `🗳️ ${land(n.idx)}正在選舉，${nm(n.idx)}忙著掃街拜票，這回合什麼都沒做。`, cls: 'ev', fx: [{ t: 'ev', k: 'vote', n: n.idx }] }); },
+      () => { const o = pickOne(alive().filter(x => x !== n)); if (!o) return; const amt = Math.min(2, pop(n) - .1); if (amt <= 0) return; takeFrom(n, amt); const c = addTo(o, amt); log.push({ text: `🐧 ${fmt(amt)} 百萬人跟著企鵝大遷徙，從${land(n.idx)}走到${land(o.idx)}。`, cls: 'ev', fx: [{ t: 'ev', k: 'penguin', n: n.idx, to: o.idx, c }] }); },
     ];
     pickOne(evs)();
   }
@@ -608,7 +618,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     for (const n of alive()) {
       const p = plans[n.idx];
       if (n.skip) { plans[n.idx] = { a: 'skip' }; n.skip = false; continue; }
-      if (p.a === 'nap') log.push({ text: `😴 ${nm(n.idx)}睡午覺睡過頭，這回合什麼都沒做。`, cls: '' });
+      if (p.a === 'nap') log.push({ text: `😴 ${nm(n.idx)}睡午覺睡過頭，這回合什麼都沒做。`, cls: '', fx: [{ t: 'ev', k: 'nap', n: n.idx }] });
     }
     // 防禦
     for (const n of alive()) {
@@ -642,10 +652,10 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     // 核冬天
     if (S.winter) {
       for (const n of alive()) n.cities = n.cities.map(p => p <= 0 ? 0 : (p * 0.92 < 0.15 ? 0 : Math.round(p * 0.92 * 10) / 10));
-      log.push({ text: '❄️ 核冬天持續，每座城市又少了 8% 人口。', cls: 'bad' });
+      log.push({ text: '❄️ 核冬天持續，每座城市又少了 8% 人口。', cls: 'bad', fx: [{ t: 'ev', k: 'snow' }] });
     }
     // 淘汰
-    for (const n of alive()) if (pop(n) <= 0) { n.alive = false; log.push({ text: `☠️ ${land(n.idx)}的最後一座城市消失了，${nm(n.idx)}${n.idx === 0 ? '的國家' : ''}退出這個世界。`, cls: 'bad', fx: [{ t: 'nation', n: n.idx, k: 'dead' }] }); }
+    for (const n of alive()) if (pop(n) <= 0) { n.alive = false; log.push({ text: `☠️ ${land(n.idx)}的最後一座城市消失了，${nm(n.idx)}${n.idx === 0 ? '的國家' : ''}退出這個世界。`, cls: 'bad', fx: [{ t: 'ev', k: 'dead', n: n.idx }] }); }
     // 記錄、好感慢慢回到中間、騙子的假表情
     for (const n of S.N) { n.prev = plans[n.idx] ? plans[n.idx].a : null; n.last = n.prev; n.lieOff = n.type === 'liar' ? Math.round(rnd(-10, 35)) : 0; }
     for (let a = 0; a < 5; a++) for (let b = 0; b < 5; b++) if (a !== b) { const f = S.feel[a][b]; S.feel[a][b] = f + (f < 50 ? 1 : f > 50 ? -1 : 0); }
@@ -864,9 +874,145 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
       }, 250 + j * 110);
     });
   }
+  // ---------- 隨機事件、出包、啞彈的動畫 ----------
+  function cardRect(n) { const b = boxOf(n), el = b && (b.querySelector('.nation') || b); return el ? el.getBoundingClientRect() : null; }
+  function bigEl(text, size, x, y) { const e = layerEl('fly', 0, 0, text); e.style.fontSize = size + 'px'; e.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`; return e; }
+  function fadeOut(el, ms = 300) { tween(ms, k => { el.style.opacity = 1 - k; }, () => el.remove()); }
+  function walkers(p1, p2, list, count, dur = 820, end) {
+    for (let j = 0; j < count; j++) setTimeout(() => {
+      const w = layerEl('fly', 0, 0, pickOne(list)); w.style.fontSize = '20px';
+      const ox = rnd(-14, 14);
+      tween(dur, k => {
+        const x = p1[0] + ox + (p2[0] - p1[0]) * k, y = p1[1] + (p2[1] - p1[1]) * k - Math.sin(k * Math.PI) * 40 - Math.abs(Math.sin(k * 24)) * 5;
+        w.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) scaleX(${p2[0] > p1[0] ? -1 : 1})`;
+      }, () => { w.remove(); if (j === count - 1 && end) end(); });
+    }, j * 110);
+  }
+  function driveVan(p0, p1, dur, upto, end) {
+    const van = layerEl('fly', 0, 0, '🚐'); van.style.fontSize = '30px';
+    const face = p1[0] > p0[0] ? -1 : 1;
+    let lastNote = 0, pos = p0;
+    tween(dur, k0 => {
+      const k = k0 * upto, e = k < .5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
+      const x = p0[0] + (p1[0] - p0[0]) * e, y = p0[1] + (p1[1] - p0[1]) * e - Math.sin(k * Math.PI) * 50 - Math.abs(Math.sin(k * 30)) * 4;
+      pos = [x, y];
+      van.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) scaleX(${face})`;
+      if (performance.now() - lastNote > 120) { lastNote = performance.now(); const nt = layerEl('note', x, y - 14, pickOne(['🎵', '🎶', '📢', '❤️'])); nt.style.setProperty('--dx', rnd(-30, 30) + 'px'); }
+    }, () => end(van, pos, face));
+  }
+  function oopsFx(f) {
+    const p0 = avaPt(f.from), p1 = cityPt(f.n, f.c);
+    if (f.k === 'tire') {
+      // 開到一半爆胎，冒煙，司機去吃滷肉飯
+      driveVan(p0, p1, 420, 0.5, (van, [x, y], face) => {
+        layerEl('flash', x, y + 10, '', 60); layerEl('say', x, y - 22, '砰！');
+        let last = 0;
+        tween(500, k => { van.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) scaleX(${face}) rotate(${Math.sin(k * 30) * 8 * (1 - k)}deg)`; if (performance.now() - last > 70) { last = performance.now(); layerEl('puff dark', x + rnd(-12, 12), y + 8); } }, () => {
+          const rice = bigEl('🍚', 26, x + 34, y); layerEl('say', x + 34, y - 18, '先去吃滷肉飯');
+          setTimeout(() => { fadeOut(van); fadeOut(rice); }, 900);
+        });
+      });
+    } else if (f.k === 'balloon') {
+      // 氣球飄進對方總統府，砰，對方氣炸
+      const pa = avaPt(f.n), b = bigEl('🎈', 30, p0[0], p0[1]);
+      tween(1000, k => { const x = p0[0] + (pa[0] - p0[0]) * k + Math.sin(k * 12) * 12, y = p0[1] + (pa[1] - p0[1]) * k - Math.sin(k * Math.PI) * 120; b.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${Math.sin(k * 10) * 12}deg)`; }, () => {
+        b.remove(); layerEl('flash', pa[0], pa[1], '', 60); layerEl('spark', pa[0], pa[1] - 10, '💢');
+        const mad = bigEl('😡', 40, pa[0] + 30, pa[1] - 14); setTimeout(() => fadeOut(mad), 700);
+      });
+    } else if (f.k === 'typo') {
+      // 宣傳影片字幕打錯：人反而往對方跑
+      driveVan(p0, p1, 650, 1, (van) => {
+        layerEl('say', p1[0], p1[1] - 26, `歡迎搬去${f.land}！`);
+        setTimeout(() => layerEl('spark', p1[0] + 30, p1[1] - 30, '❓'), 250);
+        setTimeout(() => fadeOut(van), 600);
+        walkers(cityPt(f.from, 2), cityPt(f.n, f.dest >= 0 ? f.dest : f.c), ['🚶', '🏃', '🧳'], Math.max(2, Math.min(5, Math.round(f.amt * 2))), 820, () => flash(f.n, f.dest, 'gain'));
+      });
+    }
+  }
+  function evFx(f) {
+    const W = innerWidth, H = innerHeight;
+    if (f.k === 'typhoon') {
+      const t = bigEl('🌀', 120, -80, H * .35);
+      tween(1500, k => { t.style.transform = `translate(${-80 + (W + 160) * k}px, ${H * .35 + Math.sin(k * 6) * 40}px) translate(-50%, -50%) rotate(${-900 * k}deg)`; }, () => t.remove());
+      for (let j = 0; j < 40; j++) setTimeout(() => { const r = layerEl('rain', rnd(0, W), -30); tween(500, k => { r.style.transform = `translate(${-90 * k}px, ${(H + 60) * k}px) rotate(18deg)`; }, () => r.remove()); }, j * 30);
+      return;
+    }
+    if (f.k === 'snow') {
+      const count = f.big ? 60 : 30;
+      for (let j = 0; j < count; j++) setTimeout(() => { const s0 = rnd(0, W), sz = rnd(10, 22); const fl = layerEl('snow', s0, 0, '❄'); fl.style.fontSize = sz + 'px'; const d = rnd(1300, 2000), sw = rnd(20, 60); tween(d, k => { fl.style.transform = `translate(${Math.sin(k * 5) * sw}px, ${(H + 60) * k}px)`; fl.style.opacity = k > .8 ? (1 - k) * 5 : 1; }, () => fl.remove()); }, j * (f.big ? 25 : 35));
+      return;
+    }
+    const r = cardRect(f.n); if (!r) return;
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    if (f.k === 'boba') {
+      const [x, y] = cityPt(f.n, f.c);
+      const cup = bigEl('🧋', 34, x, y - 120);
+      tween(450, k => { const yy = y - 120 + 120 * k * k; cup.style.transform = `translate(${x}px, ${yy - (k > .9 ? 8 : 0)}px) translate(-50%, -50%)`; }, () => {
+        layerEl('say', x, y - 24, '開幕買一送一！'); flash(f.n, f.c, 'gain');
+        setTimeout(() => fadeOut(cup), 1000);
+        const from = [x < W / 2 ? -20 : W + 20, y + rnd(-40, 40)];
+        walkers(from, [x, y], ['🚶', '🏃‍♀️', '🧍', '🚶‍♀️'], 5, 700);
+      });
+    } else if (f.k === 'ufo') {
+      const [x, y] = cityPt(f.n, f.c);
+      const u = bigEl('🛸', 46, -60, y - 110);
+      tween(600, k => { const e = 1 - (1 - k) ** 3; u.style.transform = `translate(${-60 + (x + 60) * e}px, ${y - 110}px) translate(-50%, -50%) rotate(${(1 - e) * 20}deg)`; }, () => {
+        const bm = layerEl('beam', x, y - 90); bm.style.width = '90px'; bm.style.height = '100px';
+        setTimeout(() => { flash(f.n, f.c, 'gain'); const al = bigEl('👽', 24, x + 26, y - 4); setTimeout(() => fadeOut(al), 600); }, 450);
+        setTimeout(() => tween(500, k => { u.style.transform = `translate(${x + 300 * k}px, ${y - 110 - 200 * k}px) translate(-50%, -50%)`; u.style.opacity = 1 - k; }, () => u.remove()), 1150);
+      });
+    } else if (f.k === 'blackout') {
+      const d = layerEl('dark', r.left, r.top); d.style.width = r.width + 'px'; d.style.height = r.height + 'px';
+      const p = bigEl('🔌', 34, cx, cy); setTimeout(() => layerEl('spark', cx + 30, cy - 20, '⚡'), 200); setTimeout(() => layerEl('spark', cx - 26, cy - 10, '⚡'), 500);
+      setTimeout(() => fadeOut(p), 1300);
+    } else if (f.k === 'meteor') {
+      const [x, y] = cityPt(f.n, f.c), sx = x + 300, sy = y - 360;
+      const m = bigEl('☄️', 46, sx, sy); let last = 0;
+      tween(650, k => { const xx = sx + (x - sx) * k, yy = sy + (y - sy) * k; m.style.transform = `translate(${xx}px, ${yy}px) translate(-50%, -50%)`; if (performance.now() - last > 25) { last = performance.now(); layerEl('puff fire', xx + 10, yy - 10); } }, () => {
+        m.remove(); explode(x, y, true); flash(f.n, f.c, 'boom');
+        const card = boxOf(f.n).querySelector('.nation'); if (card) { card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake'); }
+      });
+    } else if (f.k === 'meme') {
+      const [ax, ay] = avaPt(f.n);
+      const ph = bigEl('🤳', 40, ax, ay); layerEl('say', ax, ay - 26, '#跳舞挑戰');
+      for (let j = 0; j < 14; j++) setTimeout(() => { const nt = layerEl('note', rnd(r.left, r.right), rnd(r.top, r.bottom), pickOne(['❤️', '👍', '😂', '🔥', '💯'])); nt.style.setProperty('--dx', rnd(-40, 40) + 'px'); }, j * 70);
+      setTimeout(() => fadeOut(ph), 1100);
+    } else if (f.k === 'vote') {
+      const [ax, ay] = avaPt(f.n);
+      const bx = bigEl('🗳️', 36, cx, cy); layerEl('say', ax + 20, ay - 22, '凍蒜！凍蒜！');
+      for (let j = 0; j < 8; j++) setTimeout(() => { const nt = layerEl('note', rnd(r.left, r.right), r.bottom - 10, pickOne(['🚩', '📣', '🎉', '👋'])); nt.style.setProperty('--dx', rnd(-20, 20) + 'px'); }, j * 120);
+      setTimeout(() => fadeOut(bx), 1100);
+    } else if (f.k === 'penguin') {
+      const to = cardRect(f.to); if (!to) return;
+      walkers([cx, cy], f.c >= 0 ? cityPt(f.to, f.c) : [to.left + to.width / 2, to.top + to.height / 2], ['🐧'], 6, 1200, () => { if (f.c >= 0) flash(f.to, f.c, 'gain'); });
+    } else if (f.k === 'nap') {
+      const [ax, ay] = avaPt(f.n);
+      for (let j = 0; j < 5; j++) setTimeout(() => { const z = layerEl('note', ax + 14, ay - 6, '💤'); z.style.fontSize = (16 + j * 4) + 'px'; z.style.setProperty('--dx', (20 + j * 8) + 'px'); }, j * 180);
+    } else if (f.k === 'dud') {
+      // 啞彈插在田裡，冒一點煙，農夫走過來拿去當稻草人
+      const [x, y] = cityPt(f.n, f.c);
+      const m = bigEl('🚀', 30, x, y);
+      tween(300, k => { m.style.transform = `translate(${x}px, ${y + 4 - Math.sin(k * Math.PI) * 14}px) translate(-50%, -50%) rotate(${135 + Math.sin(k * 20) * 10 * (1 - k)}deg)`; }, () => {
+        layerEl('say', x, y - 22, '噗……');
+        for (let j = 0; j < 3; j++) setTimeout(() => layerEl('puff', x + rnd(-8, 8), y - 10), j * 120);
+        flash(f.n, f.c, 'gain');
+        setTimeout(() => {
+          const fm = bigEl('🧑‍🌾', 28, x + 60, y + 6);
+          tween(500, k => { fm.style.transform = `translate(${x + 60 - 30 * k}px, ${y + 6 - Math.abs(Math.sin(k * 12)) * 4}px) translate(-50%, -50%)`; }, () => {
+            layerEl('say', x + 30, y - 16, '剛好缺稻草人');
+            setTimeout(() => { fadeOut(fm); fadeOut(m); }, 900);
+          });
+        }, 450);
+      });
+    } else if (f.k === 'dead') {
+      layerEl('skull', cx, cy, '☠️');
+    }
+  }
   function flash(n, c, k) { const b = boxOf(n), el = b && b.querySelector(`[data-c="${c}"]`); if (el) { el.classList.remove(k); void el.offsetWidth; el.classList.add(k); } }
   function fx(f) {
     if (f.t === 'launch') { if (!quiet()) launch(f); return; }
+    if (f.t === 'oops') { if (!quiet()) oopsFx(f); return; }
+    if (f.t === 'ev') { if (!quiet()) evFx(f); else if (f.c != null && f.c >= 0) flash(f.to != null ? f.to : f.n, f.c, f.k === 'meteor' ? 'boom' : 'gain'); return; }
     if (f.t === 'lure') { if (quiet()) { flash(f.n, f.c, 'lure'); flash(f.from, f.dest, 'gain'); } else lureFx(f); return; }
     const box = boxOf(f.n);
     if (!box) return;
