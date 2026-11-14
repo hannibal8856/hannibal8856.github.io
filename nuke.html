@@ -88,6 +88,8 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
 .shieldfx { animation: shield 1s ease-out; }
 @keyframes shield { 0%{ box-shadow: 0 0 0 0 #6aa8ffcc; } 100%{ box-shadow: 0 0 0 16px #6aa8ff00; } }
 .foot { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.wpn { vertical-align: middle; flex: none; }
+.rules td:first-child { white-space: nowrap; }
 .foot .bigm { color: var(--alarm); font-weight: 700; }
 .foot b { color: var(--ink); font-family: var(--f-num); font-weight: 400; font-variant-numeric: tabular-nums; }
 .tag { position: absolute; top: -9px; right: 10px; background: var(--alarm); color: #fff; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 0 6px; }
@@ -279,12 +281,12 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
       <h4>武器和防護罩</h4>
       <table>
         <tr><th>名稱</th><th>效果</th></tr>
-        <tr><td>🧨 鞭炮飛彈</td><td>約 300 萬人</td></tr>
-        <tr><td>🚀 晚安飛彈</td><td>約 700 萬人</td></tr>
-        <tr><td>☄️ 地平線飛彈</td><td>約 1500 萬人</td></tr>
-        <tr><td>🌋 老大哥飛彈</td><td>約 3000 萬人</td></tr>
-        <tr><td>✈️ 鵜鶘轟炸機</td><td>一次炸兩座城（你選的和隔壁城），各約 600 萬人</td></tr>
-        <tr><td>🕸️ 攔截網</td><td>擋下鞭炮、晚安飛彈和轟炸機；擋不住地平線和老大哥</td></tr>
+        <tr><td><span id="r_s"></span> SRBM 短程飛彈</td><td>約 300 萬人</td></tr>
+        <tr><td><span id="r_m"></span> IRBM 中程飛彈</td><td>約 700 萬人</td></tr>
+        <tr><td><span id="r_l"></span> SLBM 潛射飛彈</td><td>約 1500 萬人</td></tr>
+        <tr><td><span id="r_xl"></span> TSAR 沙皇核彈</td><td>約 3000 萬人</td></tr>
+        <tr><td><span id="r_b"></span> B-1B 轟炸機</td><td>一次炸兩座城（你選的和隔壁城），各約 600 萬人</td></tr>
+        <tr><td>🕸️ 攔截網</td><td>擋下 SRBM、IRBM 和 B-1B 轟炸機；擋不住 SLBM 和 TSAR</td></tr>
         <tr><td>🔰 天穹盾</td><td>這回合什麼都擋得住</td></tr>
       </table>
       <p class="sub">傷害有隨機浮動；8% 是啞彈，5% 正好打中軍火庫，傷害加倍還會炸掉對方一件武器。</p>
@@ -381,15 +383,52 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
   const ME = { id: 'me', ava: '🫵', name: '你', land: '你的國家', type: 'me' };
 
   const ITEMS = {
-    s:  { ic: '🧨', name: '鞭炮飛彈', kind: 'msl', dmg: 3,  clock: .5,  w: 30 },
-    m:  { ic: '🚀', name: '晚安飛彈', kind: 'msl', dmg: 7,  clock: 1,   w: 24 },
-    l:  { ic: '☄️', name: '地平線飛彈', kind: 'msl', dmg: 15, clock: 1.5, w: 11 },
-    xl: { ic: '🌋', name: '老大哥飛彈', kind: 'msl', dmg: 30, clock: 3,   w: 4 },
-    b:  { ic: '✈️', name: '鵜鶘轟炸機', kind: 'bmb', dmg: 6,  clock: 1,   w: 10 },
+    s:  { ic: '', name: 'SRBM 短程飛彈', kind: 'msl', dmg: 3,  clock: .5,  w: 30 },
+    m:  { ic: '', name: 'IRBM 中程飛彈', kind: 'msl', dmg: 7,  clock: 1,   w: 24 },
+    l:  { ic: '', name: 'SLBM 潛射飛彈', kind: 'msl', dmg: 15, clock: 1.5, w: 11 },
+    xl: { ic: '', name: 'TSAR 沙皇核彈', kind: 'msl', dmg: 30, clock: 3,   w: 4 },
+    b:  { ic: '', name: 'B-1B 轟炸機', kind: 'bmb', dmg: 6,  clock: 1,   w: 10 },
     net:{ ic: '🕸️', name: '攔截網', kind: 'def', w: 13 },
     dome:{ ic: '🔰', name: '天穹盾', kind: 'def', w: 6 },
   };
+  // 武器圖：所有飛彈用同一個比例畫，越長越粗威力越大；全部朝右畫
+  const MSL_SHAPE = { s: [26, 4.2], m: [36, 6], l: [46, 8.5], xl: [54, 16] };   // [長, 粗]
+  function wpnSVG(k, sc = 1) {
+    if (k === 'b') {
+      // B-1B：細長機身、後掠翼、尾翼（俯視）
+      const w = 60 * sc, h = 44 * sc;
+      return `<svg class="wpn" viewBox="0 0 60 44" width="${w.toFixed(1)}" height="${h.toFixed(1)}" aria-hidden="true">
+        <path d="M33 21 L19 3 L14.5 3 L24 21 Z M33 23 L19 41 L14.5 41 L24 23 Z" fill="#59616d"/>
+        <path d="M11 21 L5 12 L2.5 12 L6 21 Z M11 23 L5 32 L2.5 32 L6 23 Z" fill="#59616d"/>
+        <path d="M2 22 Q3 19.6 8 19.4 L48 19.6 Q55 20 59 22 Q55 24 48 24.4 L8 24.6 Q3 24.4 2 22 Z" fill="#7b8491" stroke="#3b414a" stroke-width=".6"/>
+        <path d="M30 20.2 L36 13 L38.5 13 L35 20.2 Z M30 23.8 L36 31 L38.5 31 L35 23.8 Z" fill="#6b7480"/>
+        <path d="M50 21 Q54 21.3 56 22 Q54 22.7 50 23 Z" fill="#2a3442"/>
+      </svg>`;
+    }
+    const [L, D] = MSL_SHAPE[k], x0 = (60 - L) / 2, y = 10;
+    const w = 60 * sc, h = 20 * sc;
+    if (k === 'xl') {
+      // 沙皇核彈：又胖又長的彈體、尾翼盒、黃色警示環
+      return `<svg class="wpn" viewBox="0 0 60 20" width="${w.toFixed(1)}" height="${h.toFixed(1)}" aria-hidden="true">
+        <rect x="${x0}" y="${y - 6}" width="9" height="12" rx="1.5" fill="#4b5243" stroke="#2e3329" stroke-width=".6"/>
+        <path d="M${x0 + 2} ${y - 8} L${x0 + 9} ${y - 5} L${x0 + 9} ${y + 5} L${x0 + 2} ${y + 8} Z" fill="#4b5243"/>
+        <ellipse cx="${x0 + 33}" cy="${y}" rx="${L / 2 - 4}" ry="${D / 2}" fill="#6f7a62" stroke="#2e3329" stroke-width=".7"/>
+        <rect x="${x0 + 40}" y="${y - D / 2 + 0.6}" width="3.2" height="${D - 1.2}" fill="#f2c230"/>
+        <ellipse cx="${x0 + 26}" cy="${y - 3.5}" rx="12" ry="1.6" fill="#ffffff2a"/>
+      </svg>`;
+    }
+    const bx = x0 + L * 0.12, bw = L * 0.66, nose = x0 + L, fin = D * 0.75;
+    return `<svg class="wpn" viewBox="0 0 60 20" width="${w.toFixed(1)}" height="${h.toFixed(1)}" aria-hidden="true">
+      <path d="M${bx} ${y - D / 2} L${bx + L * .16} ${y - D / 2} L${bx} ${y - D / 2 - fin} Z M${bx} ${y + D / 2} L${bx + L * .16} ${y + D / 2} L${bx} ${y + D / 2 + fin} Z" fill="#59616d"/>
+      <rect x="${x0}" y="${y - D * .3}" width="${L * .12}" height="${D * .6}" fill="#3b414a"/>
+      <rect x="${bx}" y="${y - D / 2}" width="${bw}" height="${D}" fill="#ece7da" stroke="#59616d" stroke-width=".5"/>
+      <path d="M${bx + bw} ${y - D / 2} Q${nose - L * .06} ${y - D / 2} ${nose} ${y} Q${nose - L * .06} ${y + D / 2} ${bx + bw} ${y + D / 2} Z" fill="#d9483b" stroke="#8f1f17" stroke-width=".5"/>
+      <rect x="${bx + bw * .62}" y="${y - D / 2}" width="${Math.max(1.2, L * .04)}" height="${D}" fill="#3b414a"/>
+    </svg>`;
+  }
+  for (const k of ['s', 'm', 'l', 'xl', 'b']) ITEMS[k].ic = wpnSVG(k, k === 'b' ? 0.5 : 0.8);
   const WEAPONS = ['xl', 'l', 'm', 'b', 's'];
+  ['s', 'm', 'l', 'xl', 'b'].forEach(k => { const el = document.getElementById('r_' + k); if (el) el.innerHTML = wpnSVG(k, k === 'b' ? 0.55 : 0.9); });
   const SHIELDS = ['dome', 'net'];
   const cityIcon = p => p <= 0 ? '🕳️' : p < 5 ? '⛺' : p < 10 ? '🛖' : p < 20 ? '🏠' : p < 30 ? '🏢' : '🏙️';
   const FACES = ['😡', '🙁', '😐', '🙂', '😍'];
@@ -523,13 +562,13 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     S.clock = Math.max(0, Math.round((S.clock - v) * 10) / 10);
     if (S.clock <= 0) { S.winter = true; log.push({ fx: [{ t: 'ev', k: 'snow', big: true }], text: '🕛 末日鐘走到午夜！<b>核冬天</b>來了，從現在起每回合所有城市少 8% 人口。', cls: 'bad' }); }
   }
-  function hitCity(att, vi, ci, dmg, label) {
+  function hitCity(att, vi, ci, dmg, label, w) {
     const v = S.N[vi];
     if (v.cities[ci] <= 0) { log.push({ text: `${nm(att)}的${label}打中${cname(vi, ci)}……那裡早就是坑了，白打一場「軍事演習」。`, cls: '' }); return 0; }
     let d = dmg * rnd(0.6, 1.4);
     let extra = '';
     const roll = Math.random();
-    if (roll < 0.08) { log.push({ text: `${nm(att)}的${label}是啞彈，掉在${cname(vi, ci)}的田裡，農夫拿來當稻草人。`, cls: 'good', fx: [{ t: 'ev', k: 'dud', n: vi, c: ci }] }); return 0; }
+    if (roll < 0.08) { log.push({ text: `${nm(att)}的${label}是啞彈，掉在${cname(vi, ci)}的田裡，農夫拿來當稻草人。`, cls: 'good', fx: [{ t: 'ev', k: 'dud', n: vi, c: ci, w }] }); return 0; }
     if (roll > 0.95) { d *= 2; const ks = Object.keys(v.inv).filter(k => v.inv[k] > 0); if (ks.length) { const k = pickOne(ks); v.inv[k]--; extra = `，還引爆軍火庫炸掉一個${ITEMS[k].name}`; } else extra = '，正中要害'; }
     if (v.bunker) d *= 0.6;
     d = Math.min(d, v.cities[ci]);
@@ -551,7 +590,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     let cs = [p.c];
     if (it.kind === 'bmb') { const nb = [p.c - 1, p.c + 1].filter(c => c >= 0 && c < 5 && v.cities[c] > 0); if (nb.length) cs.push(pickOne(nb)); }
     log.push({ text: `${it.kind === 'bmb' ? '✈️' : '🚀'} ${nm(i)}按下按鈕，${it.ic}${it.name}${it.kind === 'bmb' ? '起飛前往' : '飛向'}${land(p.n)}！`, cls: 'bad',
-      fx: [{ t: 'nation', n: i, k: 'act' }, { t: 'launch', from: i, n: p.n, cs: blocked || fell ? [p.c] : cs, kind: it.kind, size: it.dmg, fate: blocked ? 'block' : fell ? 'fall' : 'hit', shield: v.shield, netFail }] });
+      fx: [{ t: 'nation', n: i, k: 'act' }, { t: 'launch', from: i, n: p.n, cs: blocked || fell ? [p.c] : cs, kind: it.kind, size: it.dmg, fate: blocked ? 'block' : fell ? 'fall' : 'hit', shield: v.shield, netFail, w: p.w }] });
     // shields
     if (blocked) {
       log.push({ text: `${v.shield === 'dome' ? '🔰 天穹盾' : '🕸️ 攔截網'}把它擋下來了！${nm(p.n)}鬆了一口氣。`, cls: 'good', fx: [{ t: 'shield', n: p.n }] });
@@ -563,7 +602,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
       if (fell) { log.push({ text: `牛排將軍把兩顆彈頭綁在一起，結果飛到一半掉進海裡。`, cls: 'ev' }); onNuked(i, p.n); return; }
       dmg *= 2; label = '綁了兩顆彈頭的' + label;
     }
-    for (const c of cs) hitCity(i, p.n, c, dmg, label);
+    for (const c of cs) hitCity(i, p.n, c, dmg, label, p.w);
     if (netFail) log.push({ text: p.n === 0 ? `🕸️ 你的攔截網只擋得住小飛彈，擋不住${it.ic}${it.name}這麼大的！想擋大飛彈要用 🔰 天穹盾。` : `🕸️ ${nm(p.n)}的攔截網擋不住${it.ic}${it.name}這麼大的飛彈。`, cls: 'ev' });
     onNuked(i, p.n);
   }
@@ -889,7 +928,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     let lastPuff = 0;
     tween(dur, k => {
       const [x, y] = at(k), [xa, ya] = at(Math.min(1, k + 0.02)), [xb, yb] = at(Math.max(0, k - 0.02));
-      const ang = Math.atan2(ya - yb, xa - xb) * 180 / Math.PI + 45;   // emoji 本身朝右上 45°
+      const ang = Math.atan2(ya - yb, xa - xb) * 180 / Math.PI;   // 武器圖朝右畫
       const sc = opts.scale ? opts.scale(k) : 1;
       el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${ang}deg) scale(${sc})`;
       if (opts.trail && performance.now() - lastPuff > 28) { lastPuff = performance.now(); layerEl('puff', x, y); }
@@ -905,8 +944,8 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     const p0 = avaPt(f.from);
     const targets = f.cs.map(c => cityPt(f.n, c));
     for (let j = 0; j < 5; j++) setTimeout(() => layerEl('puff', p0[0] + rnd(-14, 14), p0[1] + rnd(-6, 10)), j * 40);
-    const el = layerEl('fly', 0, 0, f.kind === 'bmb' ? '✈️' : '🚀');
-    el.style.fontSize = (f.kind === 'bmb' ? 34 : 20 + f.size * 0.8) + 'px';
+    const wk = f.w || (f.kind === 'bmb' ? 'b' : f.size >= 30 ? 'xl' : f.size >= 15 ? 'l' : f.size >= 7 ? 'm' : 's');
+    const el = layerEl('fly', 0, 0, ''); el.innerHTML = wpnSVG(wk, wk === 'b' ? 1.05 : 1.15);
     const span = Math.hypot(targets[0][0] - p0[0], targets[0][1] - p0[1]);
     const done = () => el.remove();
     if (f.fate === 'block') { intercept(f, el, p0, targets[0], span); return; }
@@ -928,7 +967,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     if (f.fate === 'fall') {
       // 綁了兩顆彈頭，飛到一半掉下去
       const mid = [(p0[0] + targets[0][0]) / 2, Math.min(p0[1], targets[0][1]) - lift * 0.5];
-      flyArc(el, p0, mid, 450, lift * 0.4, { trail: true }, () => { const [x, y] = mid; tween(450, k => { el.style.transform = `translate(${x + 20 * k}px, ${y + 220 * k}px) translate(-50%, -50%) rotate(${135 + 40 * k}deg)`; el.style.opacity = 1 - k; }, done); });
+      flyArc(el, p0, mid, 450, lift * 0.4, { trail: true }, () => { const [x, y] = mid; tween(450, k => { el.style.transform = `translate(${x + 20 * k}px, ${y + 220 * k}px) translate(-50%, -50%) rotate(${90 + 40 * k}deg)`; el.style.opacity = 1 - k; }, done); });
       return;
     }
     if (f.netFail) {
@@ -977,7 +1016,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
         const dir = p0[0] < tgt[0] ? 1 : -1;
         tween(900, k => {
           const xx = x + dir * 90 * k, yy = y + 260 * k * k;
-          el.style.transform = `translate(${xx}px, ${yy}px) translate(-50%, -50%) rotate(${45 + dir * 540 * k}deg) scale(${1.1 - .5 * k})`;
+          el.style.transform = `translate(${xx}px, ${yy}px) translate(-50%, -50%) rotate(${dir * 540 * k}deg) scale(${1.1 - .5 * k})`;
           el.style.opacity = k < .7 ? 1 : (1 - k) / .3;
           if (performance.now() - last > 35) { last = performance.now(); layerEl('puff dark', xx, yy); }
         }, () => el.remove());
@@ -1138,8 +1177,8 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     } else if (f.k === 'dud') {
       // 啞彈插在田裡，冒一點煙，農夫走過來拿去當稻草人
       const [x, y] = cityPt(f.n, f.c);
-      const m = bigEl('🚀', 30, x, y);
-      tween(300, k => { m.style.transform = `translate(${x}px, ${y + 4 - Math.sin(k * Math.PI) * 14}px) translate(-50%, -50%) rotate(${135 + Math.sin(k * 20) * 10 * (1 - k)}deg)`; }, () => {
+      const m = bigEl('', 30, x, y); m.innerHTML = wpnSVG(f.w && f.w !== 'b' ? f.w : 'm', 1);
+      tween(300, k => { m.style.transform = `translate(${x}px, ${y + 4 - Math.sin(k * Math.PI) * 14}px) translate(-50%, -50%) rotate(${90 + Math.sin(k * 20) * 10 * (1 - k)}deg)`; }, () => {
         layerEl('say', x, y - 22, '噗……');
         for (let j = 0; j < 3; j++) setTimeout(() => layerEl('puff', x + rnd(-8, 8), y - 10), j * 120);
         flash(f.n, f.c, 'gain');
@@ -1177,7 +1216,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     };
     const items = f.n === 0 ? f.items : f.items.map(() => '📦');
     items.forEach((ic, j) => setTimeout(() => {
-      const it = bigEl(ic, 26, fx0, fy0);
+      const it = bigEl('', 26, fx0, fy0); if (ic.startsWith('<svg')) it.innerHTML = ic; else it.textContent = ic;
       const [tx, ty] = dest();
       const lift = 70 + j * 10;
       tween(560, k => {
@@ -1224,7 +1263,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     const p = plan, me = S.N[0];
     if (!p.a) return '先選一個行動。';
     if (p.a === 'build') return me.prev === 'build' ? '🏭 生產。<b>注意：</b>連續兩回合生產，大家都會開始討厭你。' : '🏭 讓兵工廠生產武器或防護罩。';
-    if (p.a === 'guard') { const sh = shieldsOf(me); return sh.length ? `🛡️ 選要啟用的防護罩：${p.w ? ITEMS[p.w].ic + '<b>' + ITEMS[p.w].name + '</b>' + (p.w === 'net' ? '。<b>注意：</b>攔截網只擋鞭炮、晚安飛彈和轟炸機，擋不住 ☄️地平線和 🌋老大哥。' : '，這回合什麼都擋得住。') : '（選一個）'}` : '🛡️ 你沒有防護罩，只能叫全國躲防空洞（這回合核彈傷害減少 40%）。'; }
+    if (p.a === 'guard') { const sh = shieldsOf(me); return sh.length ? `🛡️ 選要啟用的防護罩：${p.w ? ITEMS[p.w].ic + '<b>' + ITEMS[p.w].name + '</b>' + (p.w === 'net' ? '。<b>注意：</b>攔截網只擋 SRBM、IRBM 和 B-1B，擋不住 SLBM 和 TSAR。' : '，這回合什麼都擋得住。') : '（選一個）'}` : '🛡️ 你沒有防護罩，只能叫全國躲防空洞（這回合核彈傷害減少 40%）。'; }
     if (p.a === 'call') return p.n != null ? `☎️ 打熱線給 ${nm(p.n)}。` : '☎️ 點上方一位領袖的卡片，打電話給他。';
     if (p.a === 'lure') return p.c != null ? `📣 對${cname(p.n, p.c)}放送宣傳。` : '📣 點上方一座敵方城市，對它放送宣傳。';
     if (p.a === 'fire') {
