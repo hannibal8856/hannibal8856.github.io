@@ -274,7 +274,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
         <li>📣 <b>宣傳</b>：選一座敵方城市，拐走 100 萬～600 萬人到你的國家。有 15% 機率出包。被宣傳的國家會不太高興。</li>
         <li>🛡️ <b>防禦</b>：啟用一個防護罩，這回合有效。沒有防護罩就只能躲防空洞，這回合受到的核彈傷害減少 40%。</li>
         <li>🚀 <b>發射</b>：選一個武器和一座敵方城市，這回合就打過去。</li>
-        <li>☎️ <b>熱線</b>：打電話給一位領袖套交情，他對你的好感會上升（騙子和瘋子不一定）。</li>
+        <li>☎️ <b>熱線</b>：打電話給一位領袖套交情，他對你的好感會上升（深藏不露和多變的人不一定）。</li>
       </ul>
       <h4>武器和防護罩</h4>
       <table>
@@ -293,12 +293,11 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
       <h4>好感度和個性</h4>
       <ul>
         <li>每位領袖對每個國家都有 0～100 的好感度，卡片右上角是他對你的感覺。好感越低，越可能打你。</li>
-        <li class="sub" style="list-style:none;margin-left:-20px">真實人物的角色組用比較中性的名稱：務實＝老實、溫和＝和平、深藏不露＝騙子、多變＝瘋子、強硬＝好戰。</li>
-        <li><b>老實</b>：你對他好他就對你好，被打就記仇。</li>
-        <li><b>和平</b>：很少用核武，宣傳效果加倍；被核彈打會非常生氣，但喜歡愛用宣傳的人。</li>
-        <li><b>騙子</b>：顯示給你看的好感度可能是假的（黃色數字），常常笑著偷襲。</li>
-        <li><b>瘋子</b>：行為隨機，好感說變就變。</li>
-        <li><b>好戰</b>：你幫他打他討厭的人，他就喜歡你；你用宣傳他會看不起你。</li>
+        <li><b>務實</b>：你對他好他就對你好，被打就記仇。</li>
+        <li><b>溫和</b>：很少用核武，宣傳效果加倍；被核彈打會非常生氣，但喜歡愛用宣傳的人。</li>
+        <li><b>深藏不露</b>：顯示給你看的好感度可能是假的（黃色數字），常常笑著偷襲。</li>
+        <li><b>多變</b>：行為隨機，好感說變就變。</li>
+        <li><b>強硬</b>：你幫他打他討厭的人，他就喜歡你；你用宣傳他會看不起你。</li>
         <li>打某國時，喜歡那一國的人會討厭你；被打的人會非常討厭你。</li>
       </ul>
       <h4>末日鐘</h4>
@@ -371,12 +370,12 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     { id: 'sharif', ava: '🏏', name: '夏立夫', land: '巴基斯坦', type: 'honest', note: '一直盯著隔壁鄰居的一舉一動。' },
     { id: 'kim', ava: '🚀', name: '金正恩', land: '北韓', type: 'war', note: '三不五時試射飛彈，讓大家都很緊張。' },
   ];
+  // 搞笑原創組（LEADERS）先保留資料，但不放在選單裡
   const PACKS = {
-    fun: { name: '搞笑原創', leaders: LEADERS, labels: null, note: '' },
-    cold: { name: '冷戰時期', leaders: COLD, labels: REAL_LABELS, note: '1980 年代的真實領袖。' },
     now: { name: '當代大國', leaders: NOW, labels: REAL_LABELS, note: '2026 年 11 月在任的大國領袖。' },
+    cold: { name: '冷戰時期', leaders: COLD, labels: REAL_LABELS, note: '1980 年代的真實領袖。' },
   };
-  let pack = 'fun';
+  let pack = 'now';
   try { const k = localStorage.getItem('nuke-pack'); if (PACKS[k]) pack = k; } catch (e) {}
   const tname = (type, pk = pack) => (PACKS[pk].labels || {})[type] || TYPES[type].name;
   const ME = { id: 'me', ava: '🫵', name: '你', land: '你的國家', type: 'me' };
