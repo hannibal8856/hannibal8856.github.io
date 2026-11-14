@@ -10,8 +10,9 @@
 addEventListener('DOMContentLoaded', function () {
   if (!(navigator.standalone || matchMedia('(display-mode: standalone)').matches)) return;
   var a = document.createElement('a');
-  a.id = 'hg-home'; a.href = './'; a.textContent = '⌂ 大廳'; a.setAttribute('aria-label', '回遊戲大廳');
-  a.style.cssText = 'position:fixed;left:calc(6px + env(safe-area-inset-left));bottom:calc(6px + env(safe-area-inset-bottom));z-index:2147483647;padding:5px 9px;border-radius:14px;background:rgba(0,0,0,.45);color:#fff;font:600 12px system-ui,-apple-system,sans-serif;text-decoration:none;opacity:.7;-webkit-tap-highlight-color:transparent';
+  a.id = 'hg-home'; a.href = './'; a.textContent = '⌂';
+  a.onclick = function (e) { if (!confirm('回遊戲大廳？這一局的進度會消失。')) e.preventDefault(); }; a.setAttribute('aria-label', '回遊戲大廳');
+  a.style.cssText = 'position:fixed;left:env(safe-area-inset-left);top:50%;transform:translateY(-50%);z-index:2147483647;padding:10px 6px 10px 4px;border-radius:0 10px 10px 0;background:rgba(0,0,0,.5);color:#fff;font:600 15px/1 system-ui,-apple-system,sans-serif;text-decoration:none;opacity:.55;-webkit-tap-highlight-color:transparent';
   document.body.appendChild(a);
 });
 </script>
@@ -48,6 +49,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
 .pill.clock b { color: var(--hazard); }
 .pill.clock.winter { border-color: var(--alarm); }
 .pill.clock.winter b { color: var(--alarm); }
+@media (max-width: 440px) { .meta { gap: 5px; } .pill { padding: 4px 8px; font-size: 12.5px; } .link { padding: 4px 9px !important; } }
 .link { background: none; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; cursor: pointer; font-size: 13px; }
 
 /* nations */
@@ -86,6 +88,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
 .shieldfx { animation: shield 1s ease-out; }
 @keyframes shield { 0%{ box-shadow: 0 0 0 0 #6aa8ffcc; } 100%{ box-shadow: 0 0 0 16px #6aa8ff00; } }
 .foot { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.foot .bigm { color: var(--alarm); font-weight: 700; }
 .foot b { color: var(--ink); font-family: var(--f-num); font-weight: 400; font-variant-numeric: tabular-nums; }
 .tag { position: absolute; top: -9px; right: 10px; background: var(--alarm); color: #fff; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 0 6px; }
 
@@ -544,11 +547,12 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     const v = S.N[p.n];
     moveClock(it.clock);
     const blocked = v.shield === 'dome' || (v.shield === 'net' && (p.w === 's' || p.w === 'm' || p.w === 'b'));
+    const netFail = v.shield === 'net' && !blocked;   // 攔截網擋不住大飛彈
     const steak = !blocked && n.id === 'steak' && Math.random() < 0.25, fell = steak && Math.random() < 0.35;
     let cs = [p.c];
     if (it.kind === 'bmb') { const nb = [p.c - 1, p.c + 1].filter(c => c >= 0 && c < 5 && v.cities[c] > 0); if (nb.length) cs.push(pickOne(nb)); }
     log.push({ text: `${it.kind === 'bmb' ? '✈️' : '🚀'} ${nm(i)}按下按鈕，${it.ic}${it.name}${it.kind === 'bmb' ? '起飛前往' : '飛向'}${land(p.n)}！`, cls: 'bad',
-      fx: [{ t: 'nation', n: i, k: 'act' }, { t: 'launch', from: i, n: p.n, cs: blocked || fell ? [p.c] : cs, kind: it.kind, size: it.dmg, fate: blocked ? 'block' : fell ? 'fall' : 'hit', shield: v.shield }] });
+      fx: [{ t: 'nation', n: i, k: 'act' }, { t: 'launch', from: i, n: p.n, cs: blocked || fell ? [p.c] : cs, kind: it.kind, size: it.dmg, fate: blocked ? 'block' : fell ? 'fall' : 'hit', shield: v.shield, netFail }] });
     // shields
     if (blocked) {
       log.push({ text: `${v.shield === 'dome' ? '🔰 天穹盾' : '🕸️ 攔截網'}把它擋下來了！${nm(p.n)}鬆了一口氣。`, cls: 'good', fx: [{ t: 'shield', n: p.n }] });
@@ -561,6 +565,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
       dmg *= 2; label = '綁了兩顆彈頭的' + label;
     }
     for (const c of cs) hitCity(i, p.n, c, dmg, label);
+    if (netFail) log.push({ text: p.n === 0 ? `🕸️ 你的攔截網只擋得住小飛彈，擋不住${it.ic}${it.name}這麼大的！想擋大飛彈要用 🔰 天穹盾。` : `🕸️ ${nm(p.n)}的攔截網擋不住${it.ic}${it.name}這麼大的飛彈。`, cls: 'ev' });
     onNuked(i, p.n);
   }
   function resolveLure(i, p) {
@@ -823,6 +828,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
         if (f.kind === 'bmb') { SND.whistle(0.9, 0.8); SND.thud(1.65); }
       }
       if (f.fate === 'fall') { SND.whistle(0.45, 0.45); SND.thud(0.9); }
+      if (f.netFail) { SND.zip(0.3); tone(2400, 1800, 0.12, 0.08, 'triangle', 0.63, 0.002); SND.buzzer(0.66); }
       return;
     }
     if (f.t === 'city' && f.k === 'boom') return SND.boom(false);
@@ -925,6 +931,19 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
       const mid = [(p0[0] + targets[0][0]) / 2, Math.min(p0[1], targets[0][1]) - lift * 0.5];
       flyArc(el, p0, mid, 450, lift * 0.4, { trail: true }, () => { const [x, y] = mid; tween(450, k => { el.style.transform = `translate(${x + 20 * k}px, ${y + 220 * k}px) translate(-50%, -50%) rotate(${135 + 40 * k}deg)`; el.style.opacity = 1 - k; }, done); });
       return;
+    }
+    if (f.netFail) {
+      // 攔截彈射上去，被大飛彈彈開
+      const b = boxOf(f.n), r = b.getBoundingClientRect(), t0 = targets[0];
+      const meet = [t0[0] + (p0[0] < t0[0] ? -40 : 40), r.top - 40];
+      setTimeout(() => {
+        const m = layerEl('fly', 0, 0, '🔹'); m.style.fontSize = '16px'; let last = 0;
+        tween(330, k => { const x = t0[0] + (meet[0] - t0[0]) * k, y = t0[1] + (meet[1] - t0[1]) * (1 - (1 - k) ** 2); m.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`; if (performance.now() - last > 25) { last = performance.now(); layerEl('puff blue', x, y); } }, () => {
+          layerEl('spark', meet[0], meet[1], '💢'); layerEl('say', meet[0], meet[1] - 16, '太大顆了！');
+          const dir = p0[0] < t0[0] ? -1 : 1;
+          tween(500, k => { m.style.transform = `translate(${meet[0] + dir * 60 * k}px, ${meet[1] + 120 * k * k}px) translate(-50%, -50%) rotate(${300 * k}deg)`; m.style.opacity = 1 - k; }, () => m.remove());
+        });
+      }, 300);
     }
     flyArc(el, p0, targets[0], 740, lift, { trail: true }, done);
   }
@@ -1206,7 +1225,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
     const p = plan, me = S.N[0];
     if (!p.a) return '先選一個行動。';
     if (p.a === 'build') return me.prev === 'build' ? '🏭 生產。<b>注意：</b>連續兩回合生產，大家都會開始討厭你。' : '🏭 讓兵工廠生產武器或防護罩。';
-    if (p.a === 'guard') { const sh = shieldsOf(me); return sh.length ? `🛡️ 選要啟用的防護罩：${p.w ? ITEMS[p.w].ic + '<b>' + ITEMS[p.w].name + '</b>' : '（選一個）'}` : '🛡️ 你沒有防護罩，只能叫全國躲防空洞（這回合核彈傷害減少 40%）。'; }
+    if (p.a === 'guard') { const sh = shieldsOf(me); return sh.length ? `🛡️ 選要啟用的防護罩：${p.w ? ITEMS[p.w].ic + '<b>' + ITEMS[p.w].name + '</b>' + (p.w === 'net' ? '。<b>注意：</b>攔截網只擋鞭炮、晚安飛彈和轟炸機，擋不住 ☄️地平線和 🌋老大哥。' : '，這回合什麼都擋得住。') : '（選一個）'}` : '🛡️ 你沒有防護罩，只能叫全國躲防空洞（這回合核彈傷害減少 40%）。'; }
     if (p.a === 'call') return p.n != null ? `☎️ 打熱線給 ${nm(p.n)}。` : '☎️ 點上方一位領袖的卡片，打電話給他。';
     if (p.a === 'lure') return p.c != null ? `📣 對${cname(p.n, p.c)}放送宣傳。` : '📣 點上方一座敵方城市，對它放送宣傳。';
     if (p.a === 'fire') {
@@ -1257,7 +1276,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
       if (!isMe && plan.n === n.idx && plan.c === i) c.push('sel');
       return `<div class="${c.join(' ')}" data-c="${i}" title="${cname(n.idx, i)}：${p > 0 ? fmt(p) + ' 百萬人' : '坑洞'}"><span class="ic">${cityIcon(p)}</span><span class="p">${p > 0 ? fmt(p) : '—'}</span></div>`;
     }).join('');
-    const mis = countKind(n, 'msl') + countKind(n, 'bmb'), def = countKind(n, 'def');
+    const mis = countKind(n, 'msl') + countKind(n, 'bmb'), def = countKind(n, 'def'), bigM = n.inv.l + n.inv.xl;
     return `<div class="${cls.join(' ')}">
       ${n.alive && !isMe && n.prev === 'build' ? '<span class="tag">擴軍中</span>' : ''}
       <div class="head"><div class="ava">${n.ava}</div>
@@ -1265,7 +1284,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
         ${isMe ? '' : `<div class="mood" title="${n.name}對你的好感${n.type === 'liar' ? '（可能是假的）' : ''}"><span class="face">${n.alive ? faceOf(shown) : '💀'}</span><span class="num${n.type === 'liar' ? ' lie' : ''}">${n.alive ? shown : '—'}</span></div>`}
       </div>
       <div class="cities">${cities}</div>
-      <div class="foot"><span>人口 <b>${fmt(pop(n))}</b> 百萬</span>${isMe ? '' : `<span>🚀<b>${mis}</b> 🛡️<b>${def}</b></span>`}</div>
+      <div class="foot"><span>人口 <b>${fmt(pop(n))}</b> 百萬</span>${isMe ? '' : `<span>🚀<b>${mis}</b>${bigM ? `<small class="bigm" title="其中大飛彈（地平線、老大哥）">（大${bigM}）</small>` : ''} 🛡️<b>${def}</b></span>`}</div>
       ${isMe ? `<div class="arsenal">${Object.keys(ITEMS).filter(k => n.inv[k] > 0).map(k => `<span class="chip">${ITEMS[k].ic}${ITEMS[k].name}<b>×${n.inv[k]}</b></span>`).join('') || '<span class="empty">軍火庫是空的。</span>'}</div>` : ''}
     </div>`;
   }
