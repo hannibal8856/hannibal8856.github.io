@@ -123,6 +123,10 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
 #fxLayer .snow { position: absolute; top: -30px; color: #e8f2ff; line-height: 1; }
 #fxLayer .skull { position: absolute; font-size: 80px; line-height: 1; animation: skull 1.6s ease-out forwards; }
 @keyframes skull { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.3); } 25% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -70%) scale(1.2); } }
+#fxLayer .gear { position: absolute; line-height: 1; animation: gear 1.6s linear forwards; }
+@keyframes gear { 0% { opacity: 0; transform: translate(-50%, -50%) rotate(0); } 10%,85% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -50%) rotate(540deg); } }
+#fxLayer .smoke { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: #8a8f99; animation: smoke 1s ease-out forwards; }
+@keyframes smoke { from { opacity: .85; transform: translate(0, 0) scale(.6); } to { opacity: 0; transform: translate(var(--dx, 10px), -46px) scale(2.2); } }
 .nation.shake { animation: shake .45s ease-in-out; }
 @keyframes shake { 0%,100% { translate: 0 0; } 20% { translate: -6px 2px; } 40% { translate: 5px -2px; } 60% { translate: -4px 1px; } 80% { translate: 3px 0; } }
 
@@ -640,7 +644,7 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
       if (p.a === 'build') {
         const got = drawItems(n);
         onBuild(n.idx);
-        log.push({ text: n.idx === 0 ? `🏭 兵工廠交貨：${got.map(k => ITEMS[k].ic + ITEMS[k].name).join('、')}。` : `🏭 ${nm(n.idx)}的兵工廠忙了一整回合，做出 ${got.length} 件東西。${n.prev === 'build' ? '大家開始覺得不對勁。' : ''}`, cls: '', fx: [{ t: 'nation', n: n.idx, k: 'act' }] });
+        log.push({ text: n.idx === 0 ? `🏭 兵工廠交貨：${got.map(k => ITEMS[k].ic + ITEMS[k].name).join('、')}。` : `🏭 ${nm(n.idx)}的兵工廠忙了一整回合，做出 ${got.length} 件東西。${n.prev === 'build' ? '大家開始覺得不對勁。' : ''}`, cls: '', fx: [{ t: 'nation', n: n.idx, k: 'act' }, { t: 'build', n: n.idx, items: got.map(k => ITEMS[k].ic), again: n.prev === 'build' }] });
       }
     }
     // 宣傳
@@ -1008,9 +1012,45 @@ button:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
       layerEl('skull', cx, cy, '☠️');
     }
   }
+  // 兵工廠：工廠冒出來、煙囪冒煙、齒輪轉，貨一件一件跳進軍火庫
+  function buildFx(f) {
+    const r = cardRect(f.n); if (!r) return;
+    const [ax, ay] = avaPt(f.n);
+    const fx0 = r.right - (f.n === 0 ? 40 : 84), fy0 = ay + 2;
+    const fac = bigEl('🏭', 36, fx0, fy0);
+    tween(260, k => { const sc = k < .7 ? k / .7 * 1.2 : 1.2 - (k - .7) / .3 * .2; fac.style.transform = `translate(${fx0}px, ${fy0}px) translate(-50%, -50%) scale(${sc})`; });
+    const g1 = layerEl('gear', fx0 - 30, fy0 + 8, '⚙️'); g1.style.fontSize = '20px';
+    const g2 = layerEl('gear', fx0 - 44, fy0 - 6, '⚙️'); g2.style.fontSize = '14px'; g2.style.animationDirection = 'reverse';
+    for (let j = 0; j < 12; j++) setTimeout(() => { const sm = layerEl('smoke', fx0 + 8 + rnd(-3, 3), fy0 - 16); sm.style.setProperty('--dx', rnd(4, 22) + 'px'); }, j * 100);
+    if (f.n === 0) layerEl('say', fx0, fy0 - 26, f.again ? '又要加班？' : '加班趕工中！');
+    else if (f.again) layerEl('say', fx0, fy0 - 26, '擴軍中……');
+    // 目的地：你的軍火庫，或電腦國家卡片右下角的武器數量
+    const dest = () => {
+      const b = boxOf(f.n);
+      const el = f.n === 0 ? b && b.querySelector('.arsenal') : b && b.querySelector('.foot span:last-child');
+      if (!el) return [r.right - 30, r.bottom - 14];
+      const q = el.getBoundingClientRect();
+      return f.n === 0 ? [q.left + Math.min(q.width, 220) * rnd(.2, .8), q.top + q.height / 2] : [q.left + q.width / 2, q.top + q.height / 2];
+    };
+    const items = f.n === 0 ? f.items : f.items.map(() => '📦');
+    items.forEach((ic, j) => setTimeout(() => {
+      const it = bigEl(ic, 26, fx0, fy0);
+      const [tx, ty] = dest();
+      const lift = 70 + j * 10;
+      tween(560, k => {
+        const x = fx0 + (tx - fx0) * k, y = fy0 + (ty - fy0) * k - Math.sin(k * Math.PI) * lift;
+        it.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) scale(${k < .2 ? .4 + k * 3 : 1}) rotate(${k * 360}deg)`;
+      }, () => {
+        it.remove();
+        const sp = layerEl('spark', tx, ty, '✨'); sp.style.fontSize = '18px';
+      });
+    }, 420 + j * 260));
+    setTimeout(() => fadeOut(fac, 300), 600 + items.length * 260 + 500);
+  }
   function flash(n, c, k) { const b = boxOf(n), el = b && b.querySelector(`[data-c="${c}"]`); if (el) { el.classList.remove(k); void el.offsetWidth; el.classList.add(k); } }
   function fx(f) {
     if (f.t === 'launch') { if (!quiet()) launch(f); return; }
+    if (f.t === 'build') { if (!quiet()) buildFx(f); return; }
     if (f.t === 'oops') { if (!quiet()) oopsFx(f); return; }
     if (f.t === 'ev') { if (!quiet()) evFx(f); else if (f.c != null && f.c >= 0) flash(f.to != null ? f.to : f.n, f.c, f.k === 'meteor' ? 'boom' : 'gain'); return; }
     if (f.t === 'lure') { if (quiet()) { flash(f.n, f.c, 'lure'); flash(f.from, f.dest, 'gain'); } else lureFx(f); return; }
