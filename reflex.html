@@ -1,0 +1,345 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="遊戲廳">
+<meta name="theme-color" content="#12202c">
+<script>
+addEventListener('DOMContentLoaded', function () {
+  if (!(navigator.standalone || matchMedia('(display-mode: standalone)').matches)) return;
+  var a = document.createElement('a');
+  a.id = 'hg-home'; a.href = './'; a.textContent = '⌂';
+  a.onclick = function (e) { if (!confirm('回遊戲大廳？這一局的進度會消失。')) e.preventDefault(); }; a.setAttribute('aria-label', '回遊戲大廳');
+  a.style.cssText = 'position:fixed;left:env(safe-area-inset-left);top:50%;transform:translateY(-50%);z-index:2147483647;padding:10px 6px 10px 4px;border-radius:0 10px 10px 0;background:rgba(0,0,0,.5);color:#fff;font:600 15px/1 system-ui,-apple-system,sans-serif;text-decoration:none;opacity:.55;-webkit-tap-highlight-color:transparent';
+  document.body.appendChild(a);
+});
+</script>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}[hidden]{display:none!important}img{max-width:100%}</style><title>手足反射區大考驗</title>
+<meta name="description" content="依手足反射區海報重畫的簡化圖：學習模式點一點看名稱，測驗模式限時找出胃、肝、腎在腳底和手掌的位置。">
+<style>
+/* Layout: one big picture (a foot or a hand) in the middle, the question card above it, mode and picture tabs on top. Light paper theme like the poster. */
+:root {
+  --bg: #f6f1e3; --paper: #fffdf6; --ink: #2d2a20; --muted: #7b735e; --line: #ddd2b4;
+  --acc: #3f7d3a; --acc2: #2c5c29; --skin: #f7e7c6; --skin2: #e9cf9c; --ok: #2f9e44; --bad: #d9480f; --hi: #ffd43b;
+  --ui: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { background: var(--bg); }
+body { margin: 0; color: var(--ink); font-family: var(--ui); -webkit-tap-highlight-color: transparent; }
+.wrap { max-width: 560px; margin: 0 auto; padding: 10px 16px 30px; display: flex; flex-direction: column; gap: 10px; }
+h1 { margin: 2px 0; font-size: 1.5rem; color: var(--acc); letter-spacing: .06em; }
+h1 small { font-size: .74rem; color: var(--muted); letter-spacing: 0; margin-left: 6px; font-weight: 400; }
+.top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.pill { border: 1px solid var(--line); background: var(--paper); color: var(--ink); border-radius: 999px; padding: 6px 12px; font-size: .85rem; cursor: pointer; font-family: var(--ui); }
+.seg { display: flex; gap: 4px; background: #ece3cb; border-radius: 12px; padding: 4px; }
+.seg button { flex: 1; border: 0; background: transparent; border-radius: 9px; padding: 8px 2px; font: inherit; font-size: .9rem; cursor: pointer; color: var(--ink); }
+.seg button.on { background: var(--paper); box-shadow: 0 1px 3px #0002; font-weight: 800; color: var(--acc2); }
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.q { font-size: 1.15rem; line-height: 1.45; }
+.q b { color: var(--bad); font-size: 1.35rem; }
+.q .where { display: inline-block; background: var(--acc); color: #fff; border-radius: 8px; padding: 0 8px; font-size: .9rem; margin-right: 4px; vertical-align: 2px; }
+.stat { display: flex; justify-content: space-between; font-size: .85rem; color: var(--muted); }
+.stat b { color: var(--ink); }
+.timer { height: 6px; background: #ece3cb; border-radius: 3px; overflow: hidden; }
+.timer i { display: block; height: 100%; background: var(--acc); transform-origin: left; }
+.pic { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 6px; position: relative; }
+.pic svg { display: block; width: 100%; height: auto; max-height: 64vh; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.pic .lab { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); font-weight: 900; color: var(--acc2); font-size: .95rem; }
+svg .outline { fill: var(--skin); stroke: #6b5a3a; stroke-width: 2.2; }
+svg .z { stroke: #0003; stroke-width: .8; cursor: pointer; transition: opacity .15s; }
+svg .z.dim { opacity: .55; }
+svg .z.sel { stroke: #000; stroke-width: 2.2; opacity: 1; }
+svg .z.good { stroke: var(--ok); stroke-width: 3; opacity: 1; }
+svg .z.hint { stroke: var(--bad); stroke-width: 3; opacity: 1; animation: blink .5s 4 alternate; }
+@keyframes blink { to { opacity: .3; } }
+svg .tag { font-size: 8.5px; font-weight: 700; fill: #2d2a20; paint-order: stroke; stroke: #fffdf6; stroke-width: 2.4px; pointer-events: none; text-anchor: middle; }
+svg .mark { pointer-events: none; }
+.btn { border: 0; border-radius: 12px; padding: 11px 18px; font: inherit; font-weight: 800; background: var(--acc); color: #fff; cursor: pointer; }
+.btn.alt { background: var(--paper); color: var(--acc2); border: 2px solid var(--acc); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.note { font-size: .78rem; color: var(--muted); line-height: 1.6; }
+.info { font-size: .95rem; min-height: 1.5em; }
+.info b { color: var(--acc2); font-size: 1.1rem; }
+.fb { font-weight: 800; }
+.fb.ok { color: var(--ok); } .fb.bad { color: var(--bad); }
+.big { font-size: 2.6rem; font-weight: 900; color: var(--acc2); text-align: center; }
+.list { display: flex; flex-wrap: wrap; gap: 4px; }
+.list span { font-size: .8rem; background: #ece3cb; border-radius: 8px; padding: 2px 8px; }
+.list span.x { background: #ffd8c2; }
+.chk { display: flex; gap: 6px; align-items: center; font-size: .88rem; }
+</style>
+
+<div class="wrap" id="app"></div>
+
+<script>
+(() => {
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const rint = (n) => Math.floor(Math.random() * n);
+const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = rint(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
+
+// ---------- pictures ----------
+// colours follow the poster loosely: brain/head blue-yellow, lungs blue, digestion yellow/orange, urinary blue, heart red
+const C = { head: '#ffe066', brain: '#ffd43b', pit: '#4dabf7', sense: '#74c0fc', neck: '#ffa94d', gland: '#f783ac', lung: '#4c6ef5', liver: '#2b8a3e', gall: '#495057', heart: '#e03131', spleen: '#f59f00', stom: '#fff3bf', panc: '#ffc078', duo: '#a9e34b', kid: '#343a40', adr: '#868e96', uret: '#adb5bd', blad: '#91a7ff', colon: '#e9c46a', small: '#f4d8a8', sex: '#fcc2d7', knee: '#d0bfff', shoulder: '#b2f2bb', solar: '#ff8787', spine: '#e599f7', rect: '#d6a26b' };
+// zones: [name, shape, x, y, a, b, rot]  shape e = ellipse (rx=a, ry=b), r = rect (w=a, h=b)
+const FOOT_COMMON = [
+  ['大腦', 'e', 150, 46, 17, 17, 0, 'brain'],
+  ['腦下垂體', 'e', 151, 66, 6, 6, 0, 'pit'],
+  ['三叉神經', 'e', 129, 58, 5, 14, 0, 'sense'],
+  ['鼻子', 'e', 172, 64, 5, 13, 0, 'sense'],
+  ['小腦、延髓', 'e', 141, 86, 11, 7, 0, 'head'],
+  ['頸項', 'e', 151, 100, 22, 5, 0, 'neck'],
+  ['額竇', 'e', 113, 31, 7, 7, 0, 'pit'], ['額竇', 'e', 88, 37, 6, 6, 0, 'pit'], ['額竇', 'e', 67, 50, 6, 6, 0, 'pit'], ['額竇', 'e', 50, 69, 5, 5, 0, 'pit'],
+  ['@eye', 'e', 100, 80, 19, 8, 0, 'sense'],
+  ['@ear', 'e', 60, 94, 15, 8, -15, 'sense'],
+  ['副甲狀腺', 'e', 177, 128, 5, 11, 0, 'gland'],
+  ['甲狀腺', 'e', 157, 128, 14, 12, 0, 'gland'],
+  ['斜方肌（僧帽肌）', 'e', 98, 113, 34, 6, 0, 'shoulder'],
+  ['@shoulder', 'e', 49, 135, 8, 15, 0, 'shoulder'],
+  ['肺、支氣管', 'e', 100, 142, 33, 15, 0, 'lung'],
+  ['太陽神經叢', 'e', 126, 172, 10, 10, 0, 'solar'],
+  ['胃', 'e', 151, 192, 15, 17, 0, 'stom'],
+  ['胰臟', 'e', 141, 220, 18, 7, 0, 'panc'],
+  ['十二指腸', 'e', 151, 239, 13, 7, 0, 'duo'],
+  ['腎上腺', 'e', 110, 196, 6, 6, 0, 'adr'],
+  ['腎臟', 'e', 112, 223, 10, 15, 0, 'kid'],
+  ['輸尿管', 'r', 127, 280, 6, 70, -22, 'uret'],
+  ['膀胱', 'e', 150, 330, 13, 10, 0, 'blad'],
+  ['橫行結腸', 'e', 104, 260, 54, 7, 0, 'colon'],
+  ['小腸', 'e', 106, 312, 30, 36, 0, 'small'],
+  ['生殖腺（睪丸、卵巢）', 'e', 110, 408, 22, 20, 0, 'sex'],
+];
+const FOOT_RIGHT = [
+  ['肝臟', 'e', 76, 190, 25, 21, 0, 'liver'],
+  ['膽囊', 'e', 86, 206, 7, 7, 0, 'gall'],
+  ['上行結腸', 'e', 62, 303, 7, 38, 0, 'colon'],
+  ['迴腸入口（迴盲瓣）', 'e', 66, 348, 7, 6, 0, 'duo'],
+  ['盲腸', 'e', 70, 364, 7, 6, 0, 'rect'],
+  ['右膝', 'e', 52, 384, 6, 13, 0, 'knee'],
+];
+const FOOT_LEFT = [ // drawn in right-foot coordinates, then mirrored
+  ['心臟', 'e', 80, 186, 18, 16, 0, 'heart'],
+  ['脾臟', 'e', 74, 220, 12, 11, 0, 'spleen'],
+  ['下行結腸', 'e', 62, 303, 7, 38, 0, 'colon'],
+  ['直腸（乙狀結腸）', 'e', 98, 352, 30, 6, 0, 'rect'],
+  ['肛門', 'e', 138, 352, 6, 6, 0, 'rect'],
+  ['左膝', 'e', 52, 384, 6, 13, 0, 'knee'],
+];
+const FOOT_OUT = 'M60 120 C40 160 38 230 50 290 C58 330 50 380 58 412 C68 452 152 452 162 412 C172 372 162 330 160 290 C158 250 178 200 180 150 C182 118 172 104 150 100 C120 96 80 100 60 120 Z';
+const TOES = [[150, 62, 24, 34], [113, 46, 13, 22], [88, 50, 12, 20], [67, 61, 11, 18], [50, 79, 10, 15]];
+
+const HAND_COMMON = [
+  ['腦下垂體', 'e', 34, 140, 6, 6, 0, 'pit'],
+  ['頭部', 'e', 44, 162, 9, 12, -30, 'head'],
+  ['喉嚨', 'e', 62, 196, 7, 7, 0, 'neck'],
+  ['眼睛', 'e', 104, 132, 13, 6, 0, 'sense'],
+  ['耳朵', 'e', 164, 134, 13, 6, 0, 'sense'],
+  ['肺臟', 'e', 126, 160, 32, 11, 0, 'lung'],
+  ['胸腺', 'e', 154, 184, 8, 8, 0, 'gland'],
+  ['腎上腺', 'e', 124, 186, 6, 6, 0, 'adr'],
+  ['腎臟', 'e', 124, 205, 8, 10, 0, 'kid'],
+  ['胃', 'e', 156, 210, 13, 9, 0, 'stom'],
+  ['胰臟', 'e', 116, 230, 14, 6, 0, 'panc'],
+  ['結腸', 'e', 140, 246, 30, 8, 0, 'colon'],
+  ['膀胱', 'e', 124, 270, 15, 8, 0, 'blad'],
+  ['痔（肛門）', 'e', 130, 288, 10, 5, 0, 'rect'],
+  ['脊椎', 'r', 58, 240, 7, 54, 0, 'spine'],
+  ['臀股', 'e', 182, 300, 8, 9, 0, 'knee'],
+  ['肩膀', 'e', 192, 160, 6, 12, 0, 'shoulder'],
+  ['生殖器官', 'e', 72, 304, 9, 9, 0, 'sex'],
+];
+const HAND_RIGHT = [ // right hand, palm view (thumb on the left of the picture)
+  ['肝臟', 'e', 92, 196, 15, 13, 0, 'liver'],
+  ['膽囊', 'e', 94, 214, 6, 6, 0, 'gall'],
+  ['盲腸', 'e', 88, 252, 8, 7, 0, 'rect'],
+  ['甲狀腺', 'e', 194, 238, 6, 20, 0, 'gland'],
+];
+const HAND_LEFT = [ // drawn in right-hand coordinates, then mirrored
+  ['脾臟', 'e', 92, 200, 13, 12, 0, 'spleen'],
+  ['心臟', 'e', 194, 238, 7, 20, 0, 'heart'],
+];
+const HAND_OUT = 'M70 150 C70 140 78 130 92 128 L180 128 C192 130 200 140 200 152 L200 290 C200 312 186 326 164 326 L100 326 C80 326 68 312 66 292 Z';
+const FINGERS = [[90, 76, 13, 46], [120, 62, 13, 52], [151, 70, 12, 48], [180, 94, 10, 38]];
+const THUMB = [48, 168, 16, 42, -35];
+
+function nameOf(raw, side, kind) {
+  if (raw === '@eye') return side === 'R' ? '左眼' : '右眼'; // the poster crosses eyes and ears over
+  if (raw === '@ear') return side === 'R' ? '左耳' : '右耳';
+  if (raw === '@shoulder') return side === 'R' ? '右肩' : '左肩';
+  return raw;
+}
+function buildPic(kind, side) {
+  const W = kind === 'foot' ? 220 : 240, H = kind === 'foot' ? 460 : 340;
+  const raw = kind === 'foot' ? [...FOOT_COMMON, ...(side === 'R' ? FOOT_RIGHT : FOOT_LEFT)] : [...HAND_COMMON, ...(side === 'R' ? HAND_RIGHT : HAND_LEFT)];
+  const mirror = side === 'L';
+  const zones = raw.map((z, k) => {
+    const [n, sh, x, y, a, b, rot, col] = z;
+    return { id: k, name: nameOf(n, side, kind), sh, x: mirror ? W - x : x, y, a, b, rot: mirror ? -rot : rot, col: C[col] };
+  });
+  return { kind, side, W, H, zones, label: (side === 'R' ? '右' : '左') + (kind === 'foot' ? '腳腳底' : '手手掌') };
+}
+const PICS = { RF: buildPic('foot', 'R'), LF: buildPic('foot', 'L'), RH: buildPic('hand', 'R'), LH: buildPic('hand', 'L') };
+
+function zoneSVG(z, cls) {
+  const t = z.rot ? ` transform="rotate(${z.rot} ${z.x} ${z.y})"` : '';
+  if (z.sh === 'r') return `<rect class="z ${cls}" data-z="${z.id}" x="${z.x - z.a / 2}" y="${z.y - z.b / 2}" width="${z.a}" height="${z.b}" rx="${z.a / 2}" fill="${z.col}"${t}/>`;
+  return `<ellipse class="z ${cls}" data-z="${z.id}" cx="${z.x}" cy="${z.y}" rx="${z.a}" ry="${z.b}" fill="${z.col}"${t}/>`;
+}
+function picSVG(p, opt = {}) {
+  const mir = p.side === 'L' ? `transform="translate(${p.W} 0) scale(-1 1)"` : '';
+  let body;
+  if (p.kind === 'foot') body = `<g ${mir}>${TOES.map(([x, y, a, b]) => `<ellipse class="outline" cx="${x}" cy="${y}" rx="${a}" ry="${b}"/>`).join('')}<path class="outline" d="${FOOT_OUT}"/></g>`;
+  else body = `<g ${mir}>${FINGERS.map(([x, y, a, b]) => `<ellipse class="outline" cx="${x}" cy="${y}" rx="${a}" ry="${b}"/>`).join('')}<ellipse class="outline" cx="${THUMB[0]}" cy="${THUMB[1]}" rx="${THUMB[2]}" ry="${THUMB[3]}" transform="rotate(${THUMB[4]} ${THUMB[0]} ${THUMB[1]})"/><path class="outline" d="${HAND_OUT}"/></g>`;
+  // small zones last so they sit on top
+  const order = p.zones.slice().sort((a, b) => area(b) - area(a));
+  const zs = order.map(z => zoneSVG(z, (opt.cls && opt.cls(z)) || '')).join('');
+  const tags = opt.tags ? order.filter(z => opt.tags(z)).map(z => `<text class="tag" x="${z.x}" y="${z.y + 3}">${esc(z.name)}</text>`).join('') : '';
+  const mark = opt.mark ? `<g class="mark"><circle cx="${opt.mark[0]}" cy="${opt.mark[1]}" r="5" fill="none" stroke="${opt.mark[2]}" stroke-width="2.5"/><circle cx="${opt.mark[0]}" cy="${opt.mark[1]}" r="1.6" fill="${opt.mark[2]}"/></g>` : '';
+  return `<svg viewBox="0 0 ${p.W} ${p.H}" id="svg" role="img" aria-label="${p.label}反射區圖">${body}${zs}${tags}${mark}</svg>`;
+}
+const area = (z) => z.sh === 'r' ? z.a * z.b : Math.PI * z.a * z.b;
+function inside(z, x, y) {
+  let dx = x - z.x, dy = y - z.y;
+  if (z.rot) { const r = -z.rot * Math.PI / 180, c = Math.cos(r), s = Math.sin(r); [dx, dy] = [dx * c - dy * s, dx * s + dy * c]; }
+  if (z.sh === 'r') return Math.abs(dx) <= z.a / 2 && Math.abs(dy) <= z.b / 2;
+  return (dx * dx) / (z.a * z.a) + (dy * dy) / (z.b * z.b) <= 1;
+}
+function edgeDist(z, x, y) { // rough distance from a point to the zone outline
+  let dx = x - z.x, dy = y - z.y;
+  if (z.rot) { const r = -z.rot * Math.PI / 180, c = Math.cos(r), s = Math.sin(r); [dx, dy] = [dx * c - dy * s, dx * s + dy * c]; }
+  if (z.sh === 'r') return Math.hypot(Math.max(0, Math.abs(dx) - z.a / 2), Math.max(0, Math.abs(dy) - z.b / 2));
+  const k = Math.sqrt((dx * dx) / (z.a * z.a) + (dy * dy) / (z.b * z.b));
+  return k <= 1 ? 0 : Math.hypot(dx, dy) * (1 - 1 / k);
+}
+// which zone did the finger mean: the smallest zone under it, else the nearest one within a few units
+function hit(p, x, y) {
+  const under = p.zones.filter(z => inside(z, x, y)).sort((a, b) => area(a) - area(b));
+  if (under.length) return under[0];
+  let best = null, bd = 9;
+  for (const z of p.zones) { const d = edgeDist(z, x, y); if (d < bd) { bd = d; best = z; } }
+  return best;
+}
+function svgPoint(ev) {
+  const svg = $('#svg'); const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+  const m = svg.getScreenCTM(); if (!m) return null; const q = pt.matrixTransform(m.inverse()); return [q.x, q.y];
+}
+
+// ---------- state ----------
+let mode = 'learn', picKey = 'RF', learnSel = null, showAll = false;
+let Q = null; // quiz
+let set = store.get('rx-set') || 'foot';
+const SETS = { foot: ['RF', 'LF'], hand: ['RH', 'LH'], all: ['RF', 'LF', 'RH', 'LH'] };
+const QN = 10, QT = 15;
+
+function makeQuiz() {
+  const pool = [];
+  for (const k of SETS[set]) { const seen = new Set(); for (const z of PICS[k].zones) if (!seen.has(z.name)) { seen.add(z.name); pool.push({ k, name: z.name }); } }
+  return { list: shuffle(pool).slice(0, QN), i: 0, score: 0, right: 0, missed: [], t0: 0, state: 'ask', mark: null, timer: null, last: null };
+}
+function startQuiz() { Q = makeQuiz(); nextQ(true); }
+function nextQ(first) {
+  if (!first) Q.i++;
+  if (Q.i >= Q.list.length) return endQuiz();
+  Q.state = 'ask'; Q.mark = null; Q.last = null; Q.t0 = performance.now();
+  render();
+  clearInterval(Q.timer);
+  Q.timer = setInterval(() => {
+    const left = QT - (performance.now() - Q.t0) / 1000;
+    const bar = $('#tbar'); if (bar) bar.style.transform = `scaleX(${Math.max(0, left / QT)})`;
+    if (left <= 0 && Q.state === 'ask') answerQ(null);
+  }, 100);
+}
+function answerQ(pt) {
+  const it = Q.list[Q.i], p = PICS[it.k];
+  const z = pt ? hit(p, pt[0], pt[1]) : null;
+  const ok = !!z && z.name === it.name;
+  const secs = (performance.now() - Q.t0) / 1000;
+  clearInterval(Q.timer);
+  Q.state = 'shown';
+  if (ok) { const pts = 100 + Math.max(0, Math.round((QT - secs) * 10)); Q.score += pts; Q.right++; Q.last = { ok, text: `答對！+${pts} 分` }; }
+  else { Q.missed.push(it.name); Q.last = { ok, text: !pt ? '時間到！正確位置在這裡。' : z ? `那裡是「${z.name}」，正確位置在這裡。` : '沒點到任何反射區，正確位置在這裡。' }; }
+  Q.mark = pt ? [pt[0], pt[1], ok ? '#2f9e44' : '#d9480f'] : null;
+  render();
+  setTimeout(() => { if (Q && Q.state === 'shown') nextQ(); }, ok ? 1100 : 2300);
+}
+function endQuiz() {
+  clearInterval(Q.timer); Q.state = 'end';
+  const key = 'rx-best-' + set, prev = +(store.get(key) || 0);
+  Q.best = Math.max(prev, Q.score); Q.newBest = Q.score > prev; store.set(key, String(Q.best));
+  render();
+}
+
+// ---------- render ----------
+function render() {
+  const app = $('#app');
+  const setSeg = `<div class="seg">${[['foot', '腳底'], ['hand', '手掌'], ['all', '手＋腳']].map(([k, l]) => `<button data-set="${k}" class="${set === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+  let main = '';
+  if (mode === 'learn') {
+    if (!SETS[set].includes(picKey)) picKey = SETS[set][0];
+    const p = PICS[picKey];
+    const tabs = `<div class="seg">${SETS[set].map(k => `<button data-pic="${k}" class="${picKey === k ? 'on' : ''}">${PICS[k].label}</button>`).join('')}</div>`;
+    const sel = learnSel && learnSel.k === picKey ? learnSel.name : null;
+    main = `${tabs}
+      <div class="card"><div class="info">${sel ? `<b>${esc(sel)}</b> 反射區` : '點圖上的色塊，看看那是哪個部位的反射區。'}</div>
+      <label class="chk"><input type="checkbox" id="all" ${showAll ? 'checked' : ''}> 標出全部名稱</label></div>
+      <div class="pic">${picSVG(p, { cls: z => sel ? (z.name === sel ? 'sel' : 'dim') : '', tags: z => showAll || z.name === sel })}</div>
+      <div class="row"><button class="btn" id="go">開始測驗（${QN} 題）</button></div>`;
+  } else if (Q.state === 'end') {
+    const rate = Math.round(Q.right / Q.list.length * 100);
+    main = `<div class="card" style="text-align:center"><div>測驗結束</div><div class="big">${Q.score} 分</div>
+      <div>答對 ${Q.right} / ${Q.list.length} 題（${rate}%）${Q.newBest ? '・🎉 新紀錄！' : `・最高紀錄 ${Q.best} 分`}</div>
+      ${Q.missed.length ? `<div class="note" style="text-align:left">要再複習：</div><div class="list">${Q.missed.map(n => `<span class="x">${esc(n)}</span>`).join('')}</div>` : '<div>全部答對，太厲害了！</div>'}
+      <div class="row" style="justify-content:center"><button class="btn" id="again">再考一次</button><button class="btn alt" id="learn">回學習模式</button></div></div>`;
+  } else {
+    const it = Q.list[Q.i], p = PICS[it.k];
+    const show = Q.state === 'shown';
+    main = `<div class="card">
+      <div class="stat"><span>第 <b>${Q.i + 1}</b> / ${Q.list.length} 題</span><span>得分 <b>${Q.score}</b></span></div>
+      <div class="q"><span class="where">${p.label}</span>點出 <b>${esc(it.name)}</b> 的反射區</div>
+      <div class="timer"><i id="tbar" style="transform:scaleX(${show ? 0 : 1})"></i></div>
+      ${show ? `<div class="fb ${Q.last.ok ? 'ok' : 'bad'}">${esc(Q.last.text)}</div>` : '<div class="note">越快點到分數越高。點在色塊旁邊一點點也算。</div>'}</div>
+      <div class="pic">${picSVG(p, { cls: z => show ? (z.name === it.name ? (Q.last.ok ? 'good' : 'hint') : 'dim') : '', tags: z => show && z.name === it.name, mark: Q.mark })}</div>
+      <div class="row"><button class="btn alt" id="quit">結束測驗</button></div>`;
+  }
+  app.innerHTML = `
+  <div class="top"><h1>手足反射區大考驗</h1><button class="pill" id="about">說明</button></div>
+  <div class="seg">${[['learn', '📖 學習'], ['quiz', '⏱️ 測驗']].map(([k, l]) => `<button data-mode="${k}" class="${mode === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+  ${setSeg}
+  ${main}
+  <p class="note">依「五臟六腑與神經反射分配於手掌及腳掌部位圖」海報重新畫的簡化圖，位置是大概的。反射區是民俗保健的說法，這個遊戲只是好玩、幫忙記位置，不能用來診斷或治療，身體不舒服請看醫生。</p>`;
+  app.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { if (b.dataset.mode === mode) return; mode = b.dataset.mode; if (Q) clearInterval(Q.timer); if (mode === 'quiz') startQuiz(); else { Q = null; render(); } });
+  app.querySelectorAll('[data-set]').forEach(b => b.onclick = () => { set = b.dataset.set; store.set('rx-set', set); learnSel = null; if (mode === 'quiz') startQuiz(); else render(); });
+  app.querySelectorAll('[data-pic]').forEach(b => b.onclick = () => { picKey = b.dataset.pic; learnSel = null; render(); });
+  const on = (id, f) => { const e = $('#' + id); if (e) e.onclick = f; };
+  on('go', () => { mode = 'quiz'; startQuiz(); });
+  on('again', startQuiz);
+  on('learn', () => { mode = 'learn'; Q = null; render(); });
+  on('quit', () => { clearInterval(Q.timer); endQuiz(); });
+  on('about', about);
+  const al = $('#all'); if (al) al.onchange = () => { showAll = al.checked; render(); };
+  const svg = $('#svg');
+  if (svg) svg.addEventListener('pointerdown', ev => {
+    const pt = svgPoint(ev); if (!pt) return;
+    if (mode === 'learn') { const z = hit(PICS[picKey], pt[0], pt[1]); learnSel = z ? { k: picKey, name: z.name } : null; render(); }
+    else if (Q && Q.state === 'ask') answerQ(pt);
+  });
+}
+function about() {
+  const d = document.createElement('div');
+  d.style.cssText = 'position:fixed;inset:0;background:#0006;display:grid;place-items:center;padding:16px;z-index:9';
+  d.innerHTML = `<div class="card" style="max-width:440px"><b style="font-size:1.1rem;color:var(--acc2)">怎麼玩</b>
+    <p class="note" style="font-size:.9rem;color:var(--ink)">📖 <b>學習</b>：切換右腳、左腳、右手、左手，點色塊看名稱，也可以勾「標出全部名稱」。<br>⏱️ <b>測驗</b>：每題 ${QT} 秒，在圖上點出指定的反射區，越快分數越高，答錯會標出正確位置。可以只考腳底、只考手掌，或手腳一起考，最高紀錄分開記。</p>
+    <p class="note">海報上左右腳的器官不一樣：肝、膽、上行結腸、盲腸在右腳；心臟、脾臟、下行結腸、直腸在左腳。眼睛和耳朵左右交叉：右腳是左眼、左耳。手掌圖是依海報簡化的手心圖。</p>
+    <p class="note">反射區是民俗保健的說法，不能取代醫療。</p><button class="btn" id="x">知道了</button></div>`;
+  document.body.appendChild(d); d.onclick = e => { if (e.target === d || e.target.id === 'x') d.remove(); };
+}
+render();
+window.__rx = { PICS, hit, start: () => { mode = 'quiz'; set = 'all'; startQuiz(); }, Q: () => Q, answer: (x, y) => answerQ([x, y]) };
+})();
+</script>
+</html>
