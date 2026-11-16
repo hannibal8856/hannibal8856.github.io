@@ -1,0 +1,753 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"><link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="遊戲廳">
+<meta name="theme-color" content="#12202c">
+<script>
+addEventListener('DOMContentLoaded', function () {
+  if (!(navigator.standalone || matchMedia('(display-mode: standalone)').matches)) return;
+  var a = document.createElement('a');
+  a.id = 'hg-home'; a.href = './'; a.textContent = '⌂';
+  a.onclick = function (e) { if (!confirm('回遊戲大廳？這一局的進度會消失。')) e.preventDefault(); }; a.setAttribute('aria-label', '回遊戲大廳');
+  a.style.cssText = 'position:fixed;left:env(safe-area-inset-left);top:50%;transform:translateY(-50%);z-index:2147483647;padding:10px 6px 10px 4px;border-radius:0 10px 10px 0;background:rgba(0,0,0,.5);color:#fff;font:600 15px/1 system-ui,-apple-system,sans-serif;text-decoration:none;opacity:.55;-webkit-tap-highlight-color:transparent';
+  document.body.appendChild(a);
+});
+</script>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}[hidden]{display:none!important}</style>
+<title>河濱騎單車</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="用兩隻手指輪流點螢幕踩踏板、傾斜手機轉彎和煞車，沿著淡水河的河濱自行車道騎單車。">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Noto+Sans+TC:wght@500;700;900&display=swap">
+<style>
+/* 傍晚的河濱：天空漸層、河面、草地和紅磚色車道；介面用深藍半透明面板＋向日葵黃強調色 */
+:root {
+  --ink: #fff8ec; --muted: #d6dbe6; --panel: rgba(16, 28, 48, .72); --line: rgba(255,255,255,.18);
+  --sun: #ffc93c; --go: #3ccf8e; --stop: #ff5a4f;
+  --f-num: "Bungee", "Arial Black", system-ui, sans-serif;
+  --f-ui: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; overflow: hidden; background: #1a2a44; color: var(--ink); font-family: var(--f-ui); touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+#cv { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+button { font: inherit; color: inherit; }
+button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
+
+.hud { position: fixed; left: 0; right: 0; top: 0; display: flex; gap: 8px; align-items: flex-start; pointer-events: none;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 8px); padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); }
+.chip { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 4px 10px; display: grid; gap: 0; backdrop-filter: blur(4px); }
+.chip small { font-size: 11px; color: var(--muted); letter-spacing: .06em; }
+.chip b { font-family: var(--f-num); font-weight: 400; font-size: 22px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.chip b i { font-style: normal; font-size: 12px; margin-left: 2px; font-family: var(--f-ui); }
+.chip.speed b { font-size: 30px; color: var(--sun); }
+.hud .grow { flex: 1; }
+.tools { display: flex; gap: 6px; pointer-events: auto; }
+.tbtn { background: var(--panel); border: 1px solid var(--line); border-radius: 50%; width: 40px; height: 40px; font-size: 18px; cursor: pointer; display: grid; place-items: center; }
+.route { position: fixed; left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); top: calc(env(safe-area-inset-top, 0px) + 72px); pointer-events: none; }
+.bar { height: 6px; background: rgba(255,255,255,.2); border-radius: 3px; position: relative; }
+.bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--sun); border-radius: 3px; }
+.bar .dot { position: absolute; top: -3px; width: 2px; height: 12px; background: rgba(255,255,255,.6); }
+.next { margin-top: 4px; font-size: 12.5px; color: var(--muted); text-shadow: 0 1px 2px #0008; }
+.next b { color: var(--ink); }
+.toast { position: fixed; left: 50%; top: 30%; transform: translateX(-50%); background: rgba(20, 90, 60, .92); border: 2px solid #fff; color: #fff; border-radius: 10px; padding: 8px 16px; font-weight: 900; font-size: 18px; white-space: nowrap; pointer-events: none; animation: toast 2.6s ease-out forwards; }
+@keyframes toast { 0% { opacity: 0; transform: translate(-50%, 10px); } 10%, 80% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }
+
+/* 踩踏指示：左右下角 */
+.pedal { position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); width: 64px; height: 64px; border-radius: 50%; border: 3px solid rgba(255,255,255,.35); background: rgba(0,0,0,.25); display: grid; place-items: center; font-weight: 900; font-size: 13px; color: rgba(255,255,255,.75); pointer-events: none; transition: transform .08s, background .08s; }
+.pedal.l { left: max(14px, env(safe-area-inset-left, 0px)); }
+.pedal.r { right: max(14px, env(safe-area-inset-right, 0px)); }
+.pedal.on { background: var(--go); color: #08321f; transform: scale(.88); border-color: #fff; }
+.pedal.next { border-color: var(--sun); }
+.meter { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 92px); display: flex; gap: 10px; pointer-events: none; font-size: 12px; color: var(--muted); }
+.meter span { background: var(--panel); border-radius: 999px; padding: 2px 10px; white-space: nowrap; }
+.meter .brk.on { background: var(--stop); color: #fff; }
+/* 沒有感應器時的螢幕按鈕 */
+.pad { position: fixed; top: 46%; width: 58px; height: 58px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); font-size: 24px; display: grid; place-items: center; touch-action: none; }
+.pad.left { left: max(10px, env(safe-area-inset-left, 0px)); }
+.pad.right { right: max(10px, env(safe-area-inset-right, 0px)); }
+.pad.brake { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 92px); right: max(10px, env(safe-area-inset-right, 0px)); width: auto; padding: 0 12px; font-size: 15px; font-weight: 900; color: #fff; background: rgba(160, 30, 24, .8); }
+.pad.on { background: var(--sun); color: #3a2a00; }
+
+.screen { position: fixed; inset: 0; background: rgba(10, 18, 34, .78); display: grid; place-items: center; overflow-y: auto; z-index: 20; touch-action: auto;
+  padding-block: calc(env(safe-area-inset-top, 0px) + 16px) calc(env(safe-area-inset-bottom, 0px) + 16px); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.card { width: min(460px, 100%); background: rgba(18, 32, 56, .96); border: 2px solid var(--line); border-radius: 18px; padding: 20px; display: grid; gap: 12px; }
+.card h1 { margin: 0; font-size: 30px; font-weight: 900; letter-spacing: .06em; text-wrap: balance; }
+.card h1 span { color: var(--sun); }
+.card p { margin: 0; line-height: 1.65; }
+.card .sub { color: var(--muted); font-size: 13px; }
+.howto { display: grid; gap: 8px; }
+.howto div { display: grid; grid-template-columns: 44px 1fr; gap: 10px; align-items: center; background: rgba(255,255,255,.06); border-radius: 12px; padding: 8px 10px; }
+.howto .ic { font-size: 26px; text-align: center; }
+.howto b { color: var(--sun); }
+.go { background: var(--go); color: #08321f; border: 0; border-radius: 14px; padding: 14px; font-weight: 900; font-size: 18px; letter-spacing: .1em; cursor: pointer; box-shadow: 0 4px 0 #1d7a52; }
+.go:active { transform: translateY(3px); box-shadow: 0 1px 0 #1d7a52; }
+.ghost { background: rgba(255,255,255,.08); border: 1px solid var(--line); border-radius: 12px; padding: 10px; font-weight: 700; cursor: pointer; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.row > * { flex: 1; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+.stats div { background: rgba(255,255,255,.06); border-radius: 12px; padding: 8px 4px; }
+.stats b { display: block; font-family: var(--f-num); font-weight: 400; font-size: 22px; color: var(--sun); font-variant-numeric: tabular-nums; }
+.stats small { color: var(--muted); font-size: 12px; }
+.opt { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--muted); }
+.opt input { width: 18px; height: 18px; accent-color: var(--sun); }
+.warn { color: var(--sun); font-size: 13px; }
+@media (prefers-reduced-motion: reduce) { .toast { animation-duration: .01s; } }
+</style>
+
+<canvas id="cv" aria-label="河濱自行車道"></canvas>
+
+<div class="hud" id="hud">
+  <div class="chip speed"><small>時速</small><b id="hSpeed">0<i>km/h</i></b></div>
+  <div class="chip"><small>里程</small><b id="hDist">0.00<i>km</i></b></div>
+  <div class="chip"><small>踏頻</small><b id="hCad">0<i>rpm</i></b></div>
+  <div class="grow"></div>
+  <div class="tools">
+    <button class="tbtn" id="bellBtn" type="button" aria-label="按鈴">🔔</button>
+    <button class="tbtn" id="muteBtn" type="button" aria-label="關閉聲音">🔊</button>
+    <button class="tbtn" id="pauseBtn" type="button" aria-label="暫停">⏸</button>
+  </div>
+</div>
+<div class="route" id="route">
+  <div class="bar" id="bar"><i id="barFill"></i></div>
+  <div class="next" id="nextTxt"></div>
+</div>
+<div class="pedal l" id="pedL">左踏</div>
+<div class="pedal r" id="pedR">右踏</div>
+<div class="meter"><span id="mSteer">方向 ｜</span><span class="brk" id="mBrake">煞車</span></div>
+<button class="pad left" id="padL" type="button" aria-label="向左" hidden>◀</button>
+<button class="pad right" id="padR" type="button" aria-label="向右" hidden>▶</button>
+<button class="pad brake" id="padB" type="button" hidden>煞車</button>
+
+<div class="screen" id="startScreen">
+  <div class="card">
+    <h1>河濱<span>騎單車</span></h1>
+    <p>從大稻埕碼頭出發，沿著淡水河的自行車道一路騎到關渡。傍晚的河風吹著，慢慢騎就好。</p>
+    <div class="howto">
+      <div><span class="ic">✌️</span><span><b>兩隻手指輪流點</b>螢幕左半邊和右半邊，就是左右腳踩踏板。點越快騎越快，停下來會慢慢滑行減速。</span></div>
+      <div><span class="ic">📱</span><span>手機<b>往左、往右傾斜</b>就會轉彎，騎出車道到草地會變慢。</span></div>
+      <div><span class="ic">🛑</span><span>手機<b>上緣往自己的方向轉</b>就是煞車，轉越多煞越快。</span></div>
+      <div><span class="ic">🔔</span><span>前面有人時按右上角的鈴，他們會讓開。撞到人會摔車。</span></div>
+    </div>
+    <label class="opt"><input type="checkbox" id="invBrake"> 煞車方向反過來（手機上緣往前倒才煞車）</label>
+    <p class="sub" id="sensorNote">開始時會把你現在拿手機的角度當成「正中間」，騎到一半覺得歪了可以按暫停重新校正。電腦上可以用鍵盤：A／L 輪流踩、← → 轉彎、↓ 煞車、空白鍵按鈴。</p>
+    <button class="go" id="startBtn" type="button">出發</button>
+  </div>
+</div>
+
+<div class="screen" id="pauseScreen" hidden>
+  <div class="card">
+    <h1>休息一下</h1>
+    <div class="stats" id="pauseStats"></div>
+    <div class="row">
+      <button class="go" id="resumeBtn" type="button">繼續騎</button>
+    </div>
+    <div class="row">
+      <button class="ghost" id="calBtn" type="button">把現在的角度設成正中間</button>
+      <button class="ghost" id="restartBtn" type="button">回到起點</button>
+    </div>
+  </div>
+</div>
+
+<div class="screen" id="finishScreen" hidden>
+  <div class="card">
+    <h1>抵達<span>關渡</span>！</h1>
+    <p>夕陽剛好落在觀音山後面。辛苦了！</p>
+    <div class="stats" id="finishStats"></div>
+    <div class="row">
+      <button class="go" id="againBtn" type="button">再騎一趟</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('cv'), g = cv.getContext('2d');
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
+
+  // ---------- 世界：路段式假 3D（每段 2 公尺） ----------
+  const SEG = 200;              // 一段長度（公分）
+  const ROADW = 160;            // 車道半寬（公分），車道寬 3.2 公尺
+  const CAMH = 150;             // 眼睛高度
+  const DRAW = 260;             // 看得到幾段
+  const FOV = 100, CAMD = 1 / Math.tan((FOV / 2) * Math.PI / 180);
+  const TOTAL_KM = 12, N = TOTAL_KM * 500;
+  // 沿途地標（公里數是遊戲設定，大約而已）
+  const MARKS = [
+    { km: 0, name: '大稻埕碼頭', bridge: false },
+    { km: 1.4, name: '臺北橋', bridge: true },
+    { km: 3.6, name: '重陽橋', bridge: true },
+    { km: 5.4, name: '百齡橋', bridge: true },
+    { km: 7.6, name: '社子島', bridge: false },
+    { km: 9.4, name: '洲美橋', bridge: true },
+    { km: 12, name: '關渡宮', bridge: false },
+  ];
+  const segs = [];
+  function lastY() { return segs.length ? segs[segs.length - 1].p2.y : 0; }
+  function addSeg(curve, y) {
+    const n = segs.length;
+    segs.push({ i: n, p1: { x: 0, y: lastY(), z: n * SEG, sx: 0, sy: 0, sw: 0, sc: 0 }, p2: { x: 0, y, z: (n + 1) * SEG, sx: 0, sy: 0, sw: 0, sc: 0 }, curve, sprites: [], clip: 0 });
+  }
+  const easeIn = (a, b, t) => a + (b - a) * t * t, easeInOut = (a, b, t) => a + (b - a) * (-Math.cos(t * Math.PI) / 2 + .5);
+  function addRoad(enter, hold, leave, curve, hill) {
+    const y0 = lastY(), y1 = y0 + hill * SEG, total = enter + hold + leave;
+    for (let n = 0; n < enter; n++) addSeg(easeIn(0, curve, n / enter), easeInOut(y0, y1, n / total));
+    for (let n = 0; n < hold; n++) addSeg(curve, easeInOut(y0, y1, (enter + n) / total));
+    for (let n = 0; n < leave; n++) addSeg(easeInOut(curve, 0, n / leave), easeInOut(y0, y1, (enter + hold + n) / total));
+  }
+  // 固定亂數，每次路線都一樣
+  let seed = 20261116; const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+  function buildTrack() {
+    segs.length = 0; seed = 20261116;
+    addRoad(0, 60, 0, 0, 0);
+    while (segs.length < N) {
+      const len = 40 + Math.floor(rnd() * 120);
+      const curve = rnd() < .35 ? 0 : (rnd() - .5) * 3.2;
+      const hill = rnd() < .7 ? 0 : (rnd() - .5) * 1.2;
+      addRoad(20, len, 20, curve, hill);
+    }
+    segs.length = N;
+    // 景物：右邊樹、路燈、長椅；左邊河邊欄杆、偶爾釣客
+    for (let i = 8; i < N; i++) {
+      const s = segs[i];
+      if (i % 14 === 0) s.sprites.push({ t: 'lamp', x: 1.35 });
+      if (i % 14 === 7) s.sprites.push({ t: 'lamp', x: -1.35 });
+      if (rnd() < .22) s.sprites.push({ t: 'tree', x: 2.2 + rnd() * 2.4, h: .8 + rnd() * .6, k: Math.floor(rnd() * 3) });
+      if (rnd() < .05) s.sprites.push({ t: 'tree', x: -2.0 - rnd() * .5, h: .7 + rnd() * .4, k: Math.floor(rnd() * 3) });
+      if (i % 95 === 40) s.sprites.push({ t: 'bench', x: 1.7 });
+      if (rnd() < .006) s.sprites.push({ t: 'fisher', x: -2.5 });
+      if (i % 250 === 0) s.sprites.push({ t: 'km', x: 1.55, km: i / 500 });
+    }
+    for (const m of MARKS) {
+      const i = Math.min(N - 1, Math.round(m.km * 500));
+      if (m.bridge) { segs[i].bridge = m.name; for (let k = -2; k <= 2; k++) segs[clamp(i + k, 0, N - 1)].shade = true; }
+      if (i > 30) segs[i - 30].sprites.push({ t: 'sign', x: 1.6, text: m.name });
+    }
+  }
+  const segAt = z => segs[Math.floor(z / SEG) % N];
+
+  // ---------- 狀態 ----------
+  let W = 0, H = 0, DPR = 1;
+  const S = { z: 0, x: 0, v: 0, dist: 0, time: 0, maxV: 0, crashes: 0, bells: 0, running: false, paused: false, crashT: 0, steer: 0, brake: 0, shake: 0, sky: 0, lastPedal: '', strokes: [], bob: 0, nextMark: 1, finished: false };
+  let npcs = [];
+
+  function resize() {
+    DPR = Math.min(2, devicePixelRatio || 1);
+    W = innerWidth; H = innerHeight;
+    cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+    g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+
+  // ---------- 投影與繪圖 ----------
+  const HOR = () => H * 0.44;   // 地平線位置
+  function project(p, cx, cy, cz) {
+    const dx = p.x - cx, dy = p.y - cy, dz = p.z - cz;
+    p.sc = CAMD / dz;
+    p.sx = W / 2 + p.sc * dx * W / 2;
+    p.sy = HOR() - p.sc * dy * W / 2;
+    p.sw = p.sc * ROADW * W / 2;
+  }
+  function quad(c, x1, y1, w1, x2, y2, w2) {
+    g.fillStyle = c; g.beginPath();
+    g.moveTo(x1 - w1, y1); g.lineTo(x2 - w2, y2); g.lineTo(x2 + w2, y2); g.lineTo(x1 + w1, y1); g.closePath(); g.fill();
+  }
+  function poly(c, pts) { g.fillStyle = c; g.beginPath(); g.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]); g.closePath(); g.fill(); }
+
+  // 背景：天空、雲、觀音山、對岸城市
+  const skyline = []; { let s = 7; const r = () => ((s = (s * 9301 + 49297) % 233280) / 233280); for (let i = 0; i < 90; i++) skyline.push({ w: 10 + r() * 26, h: 10 + r() * 46, gap: r() * 6 }); }
+  function drawBack() {
+    const hor = HOR();
+    const sky = g.createLinearGradient(0, 0, 0, hor);
+    sky.addColorStop(0, '#2b4b86'); sky.addColorStop(.55, '#e08a6a'); sky.addColorStop(1, '#ffd08a');
+    g.fillStyle = sky; g.fillRect(0, 0, W, hor + 2);
+    // 夕陽
+    const sx = W * .22 - S.sky * .3, sy = hor - H * .07;
+    const sun = g.createRadialGradient(sx, sy, 4, sx, sy, H * .16);
+    sun.addColorStop(0, 'rgba(255,240,190,1)'); sun.addColorStop(.2, 'rgba(255,200,120,.8)'); sun.addColorStop(1, 'rgba(255,170,100,0)');
+    g.fillStyle = sun; g.fillRect(0, 0, W, hor);
+    // 雲
+    g.fillStyle = 'rgba(255,225,210,.55)';
+    for (let i = 0; i < 6; i++) {
+      const x = ((i * 173 - S.sky * .15) % (W + 260) + W + 260) % (W + 260) - 130, y = hor * (.18 + (i % 3) * .14);
+      g.beginPath(); g.ellipse(x, y, 60 + (i % 2) * 30, 10, 0, 0, Math.PI * 2); g.ellipse(x + 30, y - 6, 34, 9, 0, 0, Math.PI * 2); g.fill();
+    }
+    // 觀音山（左遠方）
+    const mx = W * .18 - S.sky * .25;
+    g.fillStyle = '#5a5778';
+    g.beginPath(); g.moveTo(mx - W * .6, hor);
+    const pk = [[-.45, .05], [-.3, .09], [-.18, .07], [-.06, .16], [.04, .12], [.14, .2], [.24, .13], [.36, .08], [.5, .03]];
+    for (const [px, py] of pk) g.lineTo(mx + px * W, hor - py * H * .5);
+    g.lineTo(mx + W * .7, hor); g.closePath(); g.fill();
+    // 對岸城市剪影（右遠方），帶一點點燈光
+    let x = W * .4 - S.sky * .35;
+    g.fillStyle = '#4b4f6e';
+    for (const b of skyline) {
+      const xx = ((x % (W * 2.2)) + W * 2.2) % (W * 2.2) - W * .4;
+      g.fillRect(xx, hor - b.h * H / 700, b.w * W / 400, b.h * H / 700);
+      x += b.w * W / 400 + b.gap;
+    }
+  }
+
+  function render() {
+    const base = segAt(S.z), baseIdx = base.i;
+    const pct = (S.z % SEG) / SEG;
+    const playerY = lerp(base.p1.y, base.p2.y, pct);
+    const camY = playerY + CAMH + Math.sin(S.bob) * 2.5 + (S.shake ? (Math.random() - .5) * S.shake * 6 : 0);
+    const camX = S.x * ROADW;
+    let dx = -(base.curve * pct), xAcc = 0, maxy = H, drewNear = false;
+    drawBack();
+    const hor = HOR();
+    g.fillStyle = '#4e7d3a'; g.fillRect(0, hor, W, H - hor);
+    for (let n = 0; n < DRAW; n++) {
+      const s = segs[(baseIdx + n) % N], loop = baseIdx + n >= N ? N * SEG : 0;
+      s.p1.x = xAcc; s.p2.x = xAcc + dx;
+      const z0 = S.z - loop;
+      project(s.p1, camX, camY, z0); project(s.p2, camX, camY, z0);
+      xAcc += dx; dx += s.curve;
+      s.clip = maxy;
+      if (s.p1.sc <= 0 || s.p2.sy >= maxy || s.p1.sy <= s.p2.sy - 0.5) continue;
+      const a = s.p1, b = { ...s.p2, sy: s.p2.sy - 1 };   // 往遠處多畫 1px，蓋掉接縫
+      // 最近的一段：把路往下延伸到螢幕底部（直線外插）
+      if (!drewNear && a.sy < H) {
+        drewNear = true;
+        const t = (H + 2 - a.sy) / Math.max(1, a.sy - s.p2.sy);
+        const bot = { sx: a.sx + (a.sx - s.p2.sx) * t, sy: H + 2, sw: a.sw + (a.sw - s.p2.sw) * t, sc: a.sc + (a.sc - s.p2.sc) * t };
+        drawGround(s, bot, a);
+      }
+      drawGround(s, a, b);
+      maxy = b.sy;
+    }
+    // 景物、行人和橋：從遠到近
+    for (let n = DRAW - 1; n > 0; n--) {
+      const s = segs[(baseIdx + n) % N];
+      if (s.p1.sc <= 0) continue;
+      for (const sp of s.sprites) drawSprite(s, sp);
+      for (const p of npcs) if (Math.floor(p.z / SEG) % N === s.i) drawNpc(s, p);
+      if (s.bridge) drawBridge(s);
+    }
+    drawBike();
+    if (S.crashT > 0) { g.fillStyle = `rgba(255,255,255,${S.crashT * .5})`; g.fillRect(0, 0, W, H); }
+  }
+
+  function drawGround(s, a, b) {
+      const alt = Math.floor(s.i / 3) % 2;
+      const shade = s.shade ? .6 : 1;
+      const col = (r, gg, bb) => `rgb(${Math.round(r * shade)},${Math.round(gg * shade)},${Math.round(bb * shade)})`;
+      // 草地
+      g.fillStyle = alt ? col(84, 140, 64) : col(78, 132, 58);
+      g.fillRect(0, b.sy, W, a.sy - b.sy);
+      // 河（左邊）：河岸線之外都是水
+      const rv1 = a.sx - a.sw * 3.0, rv2 = b.sx - b.sw * 3.0;
+      poly(alt ? col(62, 128, 168) : col(70, 138, 178), [0, a.sy, rv1, a.sy, rv2, b.sy, 0, b.sy]);
+      poly(col(120, 110, 80), [rv1, a.sy, rv1 + a.sw * .25, a.sy, rv2 + b.sw * .25, b.sy, rv2, b.sy]);
+      // 河邊欄杆
+      if (s.i % 2 === 0) {
+        const ph = a.sc * 100 * W / 2;
+        g.fillStyle = '#d8d2c4'; g.fillRect(rv1 + a.sw * .25, a.sy - ph, Math.max(1, a.sw * .03), ph);
+      }
+      g.strokeStyle = '#d8d2c4'; g.lineWidth = Math.max(1, a.sc * 6 * W / 2);
+      g.beginPath(); g.moveTo(rv1 + a.sw * .25, a.sy - a.sc * 100 * W / 2); g.lineTo(rv2 + b.sw * .25, b.sy - b.sc * 100 * W / 2); g.stroke();
+      // 堤防牆（右邊遠處）
+      const wl1 = a.sx + a.sw * 6, wl2 = b.sx + b.sw * 6, wh1 = a.sc * 260 * W / 2, wh2 = b.sc * 260 * W / 2;
+      poly(alt ? col(150, 154, 156) : col(140, 144, 148), [wl1, a.sy, wl2, b.sy, wl2, b.sy - wh2, wl1, a.sy - wh1]);
+      poly(col(190, 186, 176), [wl1, a.sy - wh1, wl2, b.sy - wh2, wl2 + b.sw * .6, b.sy - wh2, wl1 + a.sw * .6, a.sy - wh1]);
+      // 車道邊的路肩
+      quad(alt ? col(196, 190, 170) : col(176, 170, 150), a.sx, a.sy, a.sw * 1.12, b.sx, b.sy, b.sw * 1.12);
+      // 車道（紅磚色柏油）
+      quad(alt ? col(150, 82, 70) : col(142, 76, 64), a.sx, a.sy, a.sw, b.sx, b.sy, b.sw);
+      // 白色邊線
+      quad('#efe9dc', a.sx - a.sw * .94, a.sy, a.sw * .025, b.sx - b.sw * .94, b.sy, b.sw * .025);
+      quad('#efe9dc', a.sx + a.sw * .94, a.sy, a.sw * .025, b.sx + b.sw * .94, b.sy, b.sw * .025);
+      // 黃色中線（虛線）
+      if (Math.floor(s.i / 2) % 2 === 0) quad('#f2c94c', a.sx, a.sy, a.sw * .022, b.sx, b.sy, b.sw * .022);
+  }
+  function clipTo(s, fn) { g.save(); g.beginPath(); g.rect(0, 0, W, s.clip); g.clip(); fn(); g.restore(); }
+  function drawSprite(s, sp) {
+    const sc = s.p1.sc, x = s.p1.sx + sc * sp.x * ROADW * W / 2, y = s.p1.sy, u = sc * W / 2;   // u：每公分幾像素
+    if (y < HOR() - 4 || x < -400 || x > W + 400) return;
+    clipTo(s, () => {
+      if (sp.t === 'tree') {
+        const h = 700 * sp.h * u, tw = Math.max(1, 40 * u);
+        g.fillStyle = '#5b3d26'; g.fillRect(x - tw / 2, y - h * .45, tw, h * .45);
+        const c = ['#2f6b34', '#3d7d3a', '#4a8c3f'][sp.k];
+        g.fillStyle = c; g.beginPath(); g.ellipse(x, y - h * .62, h * .3, h * .33, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = 'rgba(255,220,150,.18)'; g.beginPath(); g.ellipse(x - h * .08, y - h * .7, h * .16, h * .16, 0, 0, Math.PI * 2); g.fill();
+      } else if (sp.t === 'lamp') {
+        const h = 480 * u, pw = Math.max(1, 12 * u);
+        g.fillStyle = '#3b4250'; g.fillRect(x - pw / 2, y - h, pw, h);
+        const dir = sp.x > 0 ? -1 : 1;
+        g.fillRect(x, y - h, dir * 60 * u, pw);
+        g.fillStyle = '#fff1b8'; g.beginPath(); g.ellipse(x + dir * 60 * u, y - h + pw * 1.5, 16 * u, 8 * u, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = 'rgba(255,230,150,.12)'; g.beginPath(); g.ellipse(x + dir * 60 * u, y - h + 40 * u, 60 * u, 60 * u, 0, 0, Math.PI * 2); g.fill();
+      } else if (sp.t === 'bench') {
+        g.fillStyle = '#7a4b2a'; g.fillRect(x - 90 * u, y - 45 * u, 180 * u, 10 * u); g.fillRect(x - 90 * u, y - 80 * u, 180 * u, 8 * u);
+        g.fillStyle = '#333'; g.fillRect(x - 80 * u, y - 45 * u, 6 * u, 45 * u); g.fillRect(x + 74 * u, y - 45 * u, 6 * u, 45 * u);
+      } else if (sp.t === 'km') {
+        g.fillStyle = '#ddd'; g.fillRect(x - 4 * u, y - 120 * u, 8 * u, 120 * u);
+        g.fillStyle = '#1f6f4a'; g.fillRect(x - 40 * u, y - 160 * u, 80 * u, 50 * u);
+        if (u > .08) { g.fillStyle = '#fff'; g.font = `700 ${Math.round(28 * u)}px system-ui`; g.textAlign = 'center'; g.fillText(sp.km.toFixed(1) + 'K', x, y - 124 * u); }
+      } else if (sp.t === 'sign') {
+        g.fillStyle = '#ccc'; g.fillRect(x - 5 * u, y - 220 * u, 10 * u, 220 * u);
+        g.fillStyle = '#126b4a'; g.fillRect(x - 130 * u, y - 300 * u, 260 * u, 90 * u);
+        g.strokeStyle = '#fff'; g.lineWidth = Math.max(1, 5 * u); g.strokeRect(x - 122 * u, y - 292 * u, 244 * u, 74 * u);
+        if (u > .05) { g.fillStyle = '#fff'; g.font = `900 ${Math.round(44 * u)}px "Noto Sans TC", system-ui`; g.textAlign = 'center'; g.fillText(sp.text + ' →', x, y - 240 * u); }
+      } else if (sp.t === 'fisher') {
+        emoji('🎣', x, y, 150 * u);
+      }
+    });
+  }
+  function emoji(ch, x, y, h, flip) {
+    if (h < 3) return;
+    g.save(); g.fillStyle = '#000'; g.font = `${Math.round(h)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'bottom';
+    if (flip) { g.translate(x, 0); g.scale(-1, 1); g.fillText(ch, 0, y); } else g.fillText(ch, x, y);
+    g.restore();
+  }
+  function drawNpc(s, p) {
+    const sc = s.p1.sc, u = sc * W / 2, x = s.p1.sx + sc * p.x * ROADW * W / 2, y = s.p1.sy;
+    if (y < HOR() - 4) return;
+    clipTo(s, () => {
+      g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.ellipse(x, y, 50 * u, 12 * u, 0, 0, Math.PI * 2); g.fill();
+      emoji(p.e, x, y + Math.abs(Math.sin(p.ph)) * -6 * u, p.h * u, p.flip);
+      if (p.say && p.sayT > 0 && u > .12) {
+        g.font = '700 13px "Noto Sans TC", system-ui'; const tw = g.measureText(p.say).width + 14;
+        g.fillStyle = '#fff'; g.beginPath(); g.roundRect(x - tw / 2, y - p.h * u - 30, tw, 22, 8); g.fill();
+        g.fillStyle = '#1b2a44'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(p.say, x, y - p.h * u - 19);
+      }
+    });
+  }
+  function drawBridge(s) {
+    const sc = s.p1.sc, u = sc * W / 2, x = s.p1.sx, y = s.p1.sy;
+    if (y < HOR() - 2) return;
+    const deckB = y - 520 * u, deckT = y - 700 * u, half = ROADW * 9 * u;
+    clipTo(s, () => {
+      // 橋墩
+      g.fillStyle = '#8f8a82';
+      for (const k of [-2.6, 2.6, -6, 6]) { const px = x + k * ROADW * u; g.fillRect(px - 45 * u, deckB, 90 * u, y - deckB); }
+      // 橋面
+      g.fillStyle = '#a7a196'; g.fillRect(x - half, deckT, half * 2, deckB - deckT);
+      g.fillStyle = '#6e6a63'; g.fillRect(x - half, deckB - 30 * u, half * 2, 30 * u);
+      g.fillStyle = '#d9d3c5'; g.fillRect(x - half, deckT - 40 * u, half * 2, 12 * u);
+      for (let k = -half; k < half; k += 60 * u) g.fillRect(x + k, deckT - 40 * u, Math.max(1, 6 * u), 40 * u);
+      if (u > .03) { g.fillStyle = '#fff'; g.font = `900 ${Math.round(70 * u)}px "Noto Sans TC", system-ui`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(s.bridge, x, (deckT + deckB) / 2); }
+    });
+  }
+
+  // 第一人稱的單車把手
+  function drawBike() {
+    const cx = W / 2, by = H + 6 + Math.sin(S.bob) * 3 + (S.shake ? (Math.random() - .5) * S.shake * 4 : 0);
+    const sz = Math.min(W * .9, H * .56);
+    g.save(); g.translate(cx, by); g.rotate(S.steer * 0.16);
+    // 前輪
+    g.fillStyle = '#16181c'; g.beginPath(); g.ellipse(0, -sz * .02, sz * .07, sz * .26, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#3a3f48'; g.beginPath(); g.ellipse(0, -sz * .02, sz * .03, sz * .22, 0, 0, Math.PI * 2); g.fill();
+    // 前叉與龍頭
+    g.fillStyle = '#d64545'; g.fillRect(-sz * .05, -sz * .3, sz * .1, sz * .12);
+    g.fillStyle = '#c23b3b'; g.fillRect(-sz * .022, -sz * .42, sz * .044, sz * .14);
+    // 車燈
+    g.fillStyle = '#e9e9e9'; g.beginPath(); g.roundRect(-sz * .04, -sz * .24, sz * .08, sz * .05, 6); g.fill();
+    g.fillStyle = '#fff6c0'; g.beginPath(); g.arc(0, -sz * .215, sz * .018, 0, Math.PI * 2); g.fill();
+    // 把手
+    g.strokeStyle = '#2d3138'; g.lineCap = 'round'; g.lineWidth = sz * .035;
+    g.beginPath(); g.moveTo(-sz * .46, -sz * .32); g.quadraticCurveTo(-sz * .2, -sz * .46, 0, -sz * .43); g.quadraticCurveTo(sz * .2, -sz * .46, sz * .46, -sz * .32); g.stroke();
+    // 握把與手
+    for (const sgn of [-1, 1]) {
+      g.fillStyle = '#1d1f23'; g.beginPath(); g.roundRect(sgn * sz * .46 - sz * .06, -sz * .35, sz * .12, sz * .06, sz * .03); g.fill();
+      g.fillStyle = '#f0c8a8'; g.beginPath(); g.ellipse(sgn * sz * .44, -sz * .31, sz * .07, sz * .055, sgn * .3, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#3d6fb6'; g.beginPath(); g.ellipse(sgn * sz * .5, -sz * .24, sz * .08, sz * .07, sgn * .4, 0, Math.PI * 2); g.fill();
+      // 煞車拉桿：煞車時往內收
+      g.strokeStyle = '#9aa1ab'; g.lineWidth = sz * .012;
+      g.beginPath(); g.moveTo(sgn * sz * .36, -sz * .36); g.lineTo(sgn * (sz * .5 - S.brake * sz * .05), -sz * .385 + S.brake * sz * .02); g.stroke();
+    }
+    // 鈴鐺
+    g.fillStyle = '#f2c230'; g.beginPath(); g.arc(sz * .26, -sz * .465, sz * .028, Math.PI, 0); g.fill(); g.fillRect(sz * .232, -sz * .465, sz * .056, sz * .008);
+    // 碼表
+    g.fillStyle = '#111'; g.beginPath(); g.roundRect(-sz * .085, -sz * .5, sz * .17, sz * .075, 8); g.fill();
+    g.fillStyle = '#9fe870'; g.font = `400 ${Math.round(sz * .045)}px Bungee, system-ui`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(S.v.toFixed(1), 0, -sz * .462);
+    g.restore();
+  }
+
+  // ---------- 行人與其他單車 ----------
+  const NPC_TYPES = [
+    { e: '🚶', v: 4.5, h: 170, w: .4 }, { e: '🚶‍♀️', v: 4, h: 165, w: .4 }, { e: '🏃', v: 9, h: 170, w: .4 },
+    { e: '🏃‍♀️', v: 8.5, h: 165, w: .4 }, { e: '🚴', v: 17, h: 170, w: .5 }, { e: '🚴‍♀️', v: 15, h: 165, w: .5 }, { e: '🛴', v: 10, h: 150, w: .4 },
+  ];
+  const SAYS = ['小心！', '叮叮叮～', '騎慢一點啦', '哇！', '看路！'];
+  function spawnNpc(ahead) {
+    const T = NPC_TYPES[Math.floor(Math.random() * NPC_TYPES.length)];
+    const oncoming = Math.random() < .45;   // 對向來的走左邊
+    const z = S.z + (ahead ? SEG * (60 + Math.random() * 180) : SEG * (DRAW - 5));
+    npcs.push({ ...T, z: z % (N * SEG), x: oncoming ? -.5 + (Math.random() - .5) * .3 : .45 + (Math.random() - .5) * .3, v: (oncoming ? -1 : 1) * T.v * (.85 + Math.random() * .3), flip: !oncoming, ph: Math.random() * 6, say: '', sayT: 0, dodge: 0 });
+  }
+  function updateNpcs(dt) {
+    for (const p of npcs) {
+      p.z = (p.z + p.v / 3.6 * 100 * dt * FEEL + N * SEG) % (N * SEG);
+      p.ph += dt * (Math.abs(p.v) > 12 ? 6 : 9);
+      if (p.dodge) { p.x = lerp(p.x, p.dodge, dt * 2.5); }
+      if (p.sayT > 0) p.sayT -= dt;
+    }
+    // 太遠或已經被超過的就換掉
+    npcs = npcs.filter(p => { const d = relZ(p.z); return d > -SEG * 6 && d < SEG * DRAW; });
+    while (npcs.length < 7) spawnNpc(false);
+  }
+  const relZ = z => { let d = z - S.z; if (d < -N * SEG / 2) d += N * SEG; if (d > N * SEG / 2) d -= N * SEG; return d; };
+  function bell() {
+    S.bells++; SND.bell();
+    for (const p of npcs) { const d = relZ(p.z); if (d > 0 && d < SEG * 40 && Math.abs(p.x - S.x) < .7) { p.dodge = p.x > S.x ? Math.min(1.25, p.x + .6) : Math.max(-1.25, p.x - .6); if (Math.random() < .5) { p.say = pickOne(['好～', '借過借過', '👍', '不好意思']); p.sayT = 1.6; } } }
+  }
+  const pickOne = a => a[Math.floor(Math.random() * a.length)];
+
+  // ---------- 操作：踩踏、傾斜、煞車 ----------
+  const FEEL = 1.35;           // 畫面速度感加成
+  const VMAX = 45;
+  const ctl = { steerKey: 0, brakeKey: 0, padSteer: 0, padBrake: 0, tiltSteer: 0, tiltBrake: 0, haveSensor: false, g0: null, b0: null, gamma: 0, beta: 0, invBrake: false };
+  function pedal(side) {
+    if (!S.running || S.paused) return;
+    const now = performance.now();
+    const alt = S.lastPedal && S.lastPedal !== side;
+    S.lastPedal = side;
+    S.strokes.push(now); S.strokes = S.strokes.filter(t => now - t < 2500);
+    const eff = alt ? 1 : 0.45;   // 同一隻腳一直踩效果比較差
+    S.v = Math.min(VMAX, S.v + 2.3 * eff * (1 - S.v / (VMAX + 3)));
+    S.bob += Math.PI / 2;
+    SND.tick(alt);
+    const el = side === 'L' ? $('pedL') : $('pedR');
+    el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 110);
+    $('pedL').classList.toggle('next', side === 'R'); $('pedR').classList.toggle('next', side === 'L');
+  }
+  // 觸控：每一根新放上的手指算一次踩踏，看點在左半邊還右半邊
+  cv.addEventListener('touchstart', e => {
+    e.preventDefault();
+    for (const t of e.changedTouches) pedal(t.clientX < W / 2 ? 'L' : 'R');
+  }, { passive: false });
+  cv.addEventListener('mousedown', e => pedal(e.clientX < W / 2 ? 'L' : 'R'));
+  addEventListener('keydown', e => {
+    if (e.repeat) return;
+    const k = e.key.toLowerCase();
+    if (k === 'a' || k === 'z') pedal('L');
+    else if (k === 'l' || k === 'x' || k === '/') pedal('R');
+    else if (k === 'arrowleft') ctl.steerKey = -1;
+    else if (k === 'arrowright') ctl.steerKey = 1;
+    else if (k === 'arrowdown') ctl.brakeKey = 1;
+    else if (k === ' ') { e.preventDefault(); if (S.running && !S.paused) bell(); }
+    else if (k === 'escape' || k === 'p') togglePause();
+  });
+  addEventListener('keyup', e => {
+    const k = e.key.toLowerCase();
+    if ((k === 'arrowleft' && ctl.steerKey < 0) || (k === 'arrowright' && ctl.steerKey > 0)) ctl.steerKey = 0;
+    if (k === 'arrowdown') ctl.brakeKey = 0;
+  });
+  // 螢幕按鈕（沒有感應器時）
+  function holdBtn(el, on, off) {
+    el.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); el.classList.add('on'); on(); }, { passive: false });
+    el.addEventListener('touchend', e => { e.preventDefault(); el.classList.remove('on'); off(); }, { passive: false });
+    el.addEventListener('mousedown', e => { e.stopPropagation(); el.classList.add('on'); on(); });
+    addEventListener('mouseup', () => { el.classList.remove('on'); off(); });
+  }
+  holdBtn($('padL'), () => ctl.padSteer = -1, () => { if (ctl.padSteer < 0) ctl.padSteer = 0; });
+  holdBtn($('padR'), () => ctl.padSteer = 1, () => { if (ctl.padSteer > 0) ctl.padSteer = 0; });
+  holdBtn($('padB'), () => ctl.padBrake = 1, () => ctl.padBrake = 0);
+
+  // 傾斜感應：依螢幕方向換算成「左右傾」和「前後傾」
+  function readTilt(e) {
+    if (e.gamma == null || e.beta == null) return;
+    const ang = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+    let side, fwd;
+    if (ang === 90) { side = e.beta; fwd = -e.gamma; }
+    else if (ang === -90 || ang === 270) { side = -e.beta; fwd = e.gamma; }
+    else { side = e.gamma; fwd = e.beta; }
+    ctl.gamma = side; ctl.beta = fwd;
+    if (!ctl.haveSensor) { ctl.haveSensor = true; showPads(false); }
+    if (ctl.g0 == null) calibrate();
+    const ds = ctl.gamma - ctl.g0;
+    let st = clamp(ds / 22, -1, 1);
+    st = Math.abs(st) < .1 ? 0 : (st - Math.sign(st) * .1) / .9;
+    ctl.tiltSteer = st;
+    const df = (ctl.beta - ctl.b0) * (ctl.invBrake ? -1 : 1);   // 上緣往自己轉 → 前後傾角變大
+    ctl.tiltBrake = clamp((df - 9) / 20, 0, 1);
+  }
+  function calibrate() { ctl.g0 = ctl.gamma; ctl.b0 = ctl.beta; }
+  function showPads(on) { $('padL').hidden = $('padR').hidden = $('padB').hidden = !on; }
+  let sensorOn = false;
+  async function enableSensor() {
+    let denied = false;
+    try {
+      // iPhone 要先問權限（必須在按鈕的點擊裡問）
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        const r = await DeviceOrientationEvent.requestPermission();
+        denied = r !== 'granted';
+      }
+    } catch (e) { denied = true; }
+    if (!sensorOn) { addEventListener('deviceorientation', readTilt); sensorOn = true; }
+    // 1.2 秒內沒收到感應資料，就改用螢幕按鈕
+    setTimeout(() => {
+      if (ctl.haveSensor) return;
+      if (matchMedia('(pointer: coarse)').matches) showPads(true);
+      if (denied) toast('沒有拿到傾斜感應的權限，改用螢幕按鈕');
+    }, 1200);
+  }
+
+  // ---------- 遊戲迴圈 ----------
+  let last = 0;
+  function update(dt) {
+    const steerIn = clamp(ctl.tiltSteer + ctl.steerKey + ctl.padSteer, -1, 1);
+    const brakeIn = clamp(ctl.tiltBrake + ctl.brakeKey + ctl.padBrake, 0, 1);
+    S.steer = lerp(S.steer, steerIn, Math.min(1, dt * 8));
+    S.brake = lerp(S.brake, brakeIn, Math.min(1, dt * 10));
+    const seg = segAt(S.z);
+    const off = Math.abs(S.x) > 1.05;   // 騎出車道
+    // 減速：滾動阻力＋風阻＋煞車＋草地
+    let decel = 0.55 + 0.0042 * S.v * S.v + S.brake * 16 + (off ? 4.5 : 0);
+    if (S.v > 0) S.v = Math.max(0, S.v - decel * dt);
+    S.shake = off && S.v > 2 ? Math.min(1, S.v / 15) : Math.max(0, S.shake - dt * 3);
+    if (S.crashT > 0) S.crashT -= dt;
+    // 轉向與彎道離心
+    const vp = S.v / 30;
+    S.x += S.steer * dt * (0.6 + vp * 1.6) * (S.v > .5 ? 1 : 0);
+    S.x -= seg.curve * vp * vp * dt * 0.9;
+    S.x = clamp(S.x, -2.3, 3.6);
+    // 前進
+    const dz = S.v / 3.6 * 100 * dt * FEEL;
+    S.z += dz; S.dist += S.v / 3.6 * dt;
+    S.sky += seg.curve * vp * dt * 40;
+    S.time += dt; S.maxV = Math.max(S.maxV, S.v);
+    if (S.z >= N * SEG) { S.z -= N * SEG; }
+    // 地標
+    const km = S.dist / 1000;
+    if (S.nextMark < MARKS.length && km >= MARKS[S.nextMark].km) {
+      toast((MARKS[S.nextMark].bridge ? '🌉 ' : '📍 ') + MARKS[S.nextMark].name);
+      S.nextMark++;
+      if (S.nextMark >= MARKS.length) finish();
+    }
+    updateNpcs(dt);
+    // 撞到人
+    for (const p of npcs) {
+      const d = relZ(p.z);
+      if (d > -40 && d < 120 && Math.abs(p.x - S.x) < p.w && S.v > 3 && !p.hit) {
+        p.hit = true; S.crashes++; S.v = 0; S.crashT = .8; SND.crash();
+        p.say = pickOne(SAYS); p.sayT = 1.8; p.dodge = p.x > S.x ? p.x + .7 : p.x - .7;
+        toast('摔車了！按鈴可以請前面的人讓開');
+      }
+    }
+    SND.wind(S.v, off);
+  }
+  function hud() {
+    $('hSpeed').innerHTML = `${S.v.toFixed(0)}<i>km/h</i>`;
+    $('hDist').innerHTML = `${(S.dist / 1000).toFixed(2)}<i>km</i>`;
+    const now = performance.now(), recent = S.strokes.filter(t => now - t < 2500);
+    $('hCad').innerHTML = `${Math.round(recent.length / 2.5 * 60 / 2)}<i>rpm</i>`;
+    const km = S.dist / 1000;
+    $('barFill').style.width = clamp(km / TOTAL_KM * 100, 0, 100) + '%';
+    const nx = MARKS[Math.min(S.nextMark, MARKS.length - 1)];
+    $('nextTxt').innerHTML = S.finished ? '抵達終點' : `下一站 <b>${nx.name}</b> · 還有 ${Math.max(0, nx.km - km).toFixed(1)} km`;
+    const st = S.steer, arrow = st < -.15 ? '◀ 左轉' : st > .15 ? '右轉 ▶' : '直走 ｜';
+    $('mSteer').textContent = arrow;
+    $('mBrake').classList.toggle('on', S.brake > .1);
+    $('mBrake').textContent = S.brake > .1 ? `煞車 ${Math.round(S.brake * 100)}%` : '煞車';
+  }
+  function frame(t) {
+    const dt = Math.min(.05, (t - last) / 1000 || 0); last = t;
+    if (S.running && !S.paused) update(dt);
+    render();
+    if (S.running) hud();
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- 介面流程 ----------
+  function toast(text) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = text; document.body.appendChild(d); setTimeout(() => d.remove(), 2700); }
+  function statsHTML() {
+    const km = S.dist / 1000, mins = S.time / 60, avg = S.time > 1 ? km / (S.time / 3600) : 0;
+    const best = +(store.get('bike-best') || 0);
+    return `<div><b>${km.toFixed(2)}</b><small>公里</small></div><div><b>${Math.floor(mins)}:${String(Math.floor(S.time % 60)).padStart(2, '0')}</b><small>騎乘時間</small></div><div><b>${avg.toFixed(1)}</b><small>平均時速</small></div>
+      <div><b>${S.maxV.toFixed(0)}</b><small>最高時速</small></div><div><b>${S.crashes}</b><small>摔車</small></div><div><b>${best ? Math.floor(best / 60) + ':' + String(Math.floor(best % 60)).padStart(2, '0') : '—'}</b><small>最快全程</small></div>`;
+  }
+  function togglePause() {
+    if (!S.running || S.finished) return;
+    S.paused = !S.paused;
+    if (S.paused) { $('pauseStats').innerHTML = statsHTML(); $('pauseScreen').hidden = false; SND.wind(0); }
+    else $('pauseScreen').hidden = true;
+  }
+  function finish() {
+    S.finished = true; S.running = false;
+    const best = +(store.get('bike-best') || 0);
+    if (!best || S.time < best) store.set('bike-best', S.time);
+    $('finishStats').innerHTML = statsHTML();
+    setTimeout(() => { $('finishScreen').hidden = false; }, 1200);
+    SND.wind(0);
+  }
+  function reset() {
+    Object.assign(S, { z: 0, x: 0, v: 0, dist: 0, time: 0, maxV: 0, crashes: 0, bells: 0, paused: false, crashT: 0, steer: 0, brake: 0, shake: 0, sky: 0, lastPedal: '', strokes: [], nextMark: 1, finished: false });
+    npcs = []; for (let i = 0; i < 6; i++) spawnNpc(true);
+  }
+  let wake = null;
+  async function keepAwake() { try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch (e) {} }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.running) keepAwake(); else if (S.running && !S.paused) togglePause(); });
+
+  $('startBtn').addEventListener('click', async () => {
+    ctl.invBrake = $('invBrake').checked; store.set('bike-inv', ctl.invBrake ? '1' : '0');
+    SND.init();
+    await enableSensor();
+    ctl.g0 = null;   // 下一筆感應資料當作正中間
+    reset(); S.running = true;
+    $('startScreen').hidden = true;
+    keepAwake();
+    toast('📍 大稻埕碼頭出發！兩隻手指輪流點螢幕');
+    if (!matchMedia('(pointer: coarse)').matches) showPads(false);
+  });
+  $('invBrake').checked = store.get('bike-inv') === '1';
+  $('pauseBtn').addEventListener('click', togglePause);
+  $('resumeBtn').addEventListener('click', togglePause);
+  $('calBtn').addEventListener('click', () => { calibrate(); toast('已重新校正'); togglePause(); });
+  $('restartBtn').addEventListener('click', () => { reset(); S.running = true; togglePause(); });
+  $('againBtn').addEventListener('click', () => { $('finishScreen').hidden = true; reset(); S.running = true; });
+  $('bellBtn').addEventListener('click', e => { e.stopPropagation(); if (S.running && !S.paused) bell(); });
+  ['bellBtn', 'muteBtn', 'pauseBtn'].forEach(id => $(id).addEventListener('touchstart', e => e.stopPropagation(), { passive: true }));
+
+  // ---------- 音效（Web Audio 合成） ----------
+  const SND = (() => {
+    let ac = null, master = null, windG = null, windF = null, muted = store.get('bike-mute') === '1';
+    function init() {
+      if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
+      try {
+        ac = new (window.AudioContext || window.webkitAudioContext)();
+        master = ac.createGain(); master.gain.value = muted ? 0 : .6; master.connect(ac.destination);
+        const buf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate), d = buf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        const src = ac.createBufferSource(); src.buffer = buf; src.loop = true;
+        windF = ac.createBiquadFilter(); windF.type = 'lowpass'; windF.frequency.value = 300;
+        windG = ac.createGain(); windG.gain.value = 0;
+        src.connect(windF); windF.connect(windG); windG.connect(master); src.start();
+      } catch (e) { ac = null; }
+    }
+    function tone(f0, f1, dur, vol, type = 'sine', at = 0) {
+      if (!ac) return; const t = ac.currentTime + at, o = ac.createOscillator(), gg = ac.createGain();
+      o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+      gg.gain.setValueAtTime(.0001, t); gg.gain.exponentialRampToValueAtTime(vol, t + .005); gg.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      o.connect(gg); gg.connect(master); o.start(t); o.stop(t + dur + .05);
+    }
+    return {
+      init,
+      tick: alt => { tone(alt ? 1800 : 1200, alt ? 1500 : 900, .04, .05, 'square'); },
+      bell: () => { for (const at of [0, .16]) { tone(2350, 2300, .7, .12, 'sine', at); tone(3520, 3480, .5, .05, 'sine', at); tone(4700, 4650, .3, .02, 'sine', at); } },
+      crash: () => { tone(160, 50, .4, .4, 'sawtooth'); tone(900, 300, .25, .1, 'square', .05); },
+      wind: (v, off) => { if (!ac) return; const t = ac.currentTime; windG.gain.setTargetAtTime(Math.min(.35, v / 120) + (off ? .06 : 0), t, .2); windF.frequency.setTargetAtTime(200 + v * 30 + (off ? 600 : 0), t, .3); },
+      setMute: m => { muted = m; store.set('bike-mute', m ? '1' : '0'); if (master) master.gain.value = m ? 0 : .6; },
+      get muted() { return muted; },
+    };
+  })();
+  const syncMute = () => { $('muteBtn').textContent = SND.muted ? '🔇' : '🔊'; $('muteBtn').setAttribute('aria-label', SND.muted ? '開啟聲音' : '關閉聲音'); };
+  $('muteBtn').addEventListener('click', e => { e.stopPropagation(); SND.init(); SND.setMute(!SND.muted); syncMute(); });
+  syncMute();
+
+  addEventListener('resize', resize);
+  resize(); buildTrack(); reset();
+  requestAnimationFrame(frame);
+  // 測試入口
+  window.__bike = { S, ctl, pedal, bell, get npcs() { return npcs; }, segs, MARKS };
+})();
+</script>
