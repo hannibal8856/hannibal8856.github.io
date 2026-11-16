@@ -85,7 +85,7 @@ const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { 
 
 // ---------- pictures ----------
 // colours follow the poster loosely: brain/head blue-yellow, lungs blue, digestion yellow/orange, urinary blue, heart red
-const C = { head: '#ffe066', brain: '#ffd43b', pit: '#4dabf7', sense: '#74c0fc', neck: '#ffa94d', gland: '#f783ac', lung: '#4c6ef5', liver: '#2b8a3e', gall: '#495057', heart: '#e03131', spleen: '#f59f00', stom: '#fff3bf', panc: '#ffc078', duo: '#a9e34b', kid: '#343a40', adr: '#868e96', uret: '#adb5bd', blad: '#91a7ff', colon: '#e9c46a', small: '#f4d8a8', sex: '#fcc2d7', knee: '#d0bfff', shoulder: '#b2f2bb', solar: '#ff8787', spine: '#e599f7', rect: '#d6a26b' };
+const C = { mer: '#c3e7a5', mer2: '#b8d8f0', heart2: '#ffc9c9', lung2: '#bac8ff', kid2: '#ced4da', head: '#ffe066', brain: '#ffd43b', pit: '#4dabf7', sense: '#74c0fc', neck: '#ffa94d', gland: '#f783ac', lung: '#4c6ef5', liver: '#2b8a3e', gall: '#495057', heart: '#e03131', spleen: '#f59f00', stom: '#fff3bf', panc: '#ffc078', duo: '#a9e34b', kid: '#343a40', adr: '#868e96', uret: '#adb5bd', blad: '#91a7ff', colon: '#e9c46a', small: '#f4d8a8', sex: '#fcc2d7', knee: '#d0bfff', shoulder: '#b2f2bb', solar: '#ff8787', spine: '#e599f7', rect: '#d6a26b' };
 // zones: [name, shape, x, y, a, b, rot]  shape e = ellipse (rx=a, ry=b), r = rect (w=a, h=b)
 const FOOT_COMMON = [
   ['大腦', 'e', 150, 46, 17, 17, 0, 'brain'],
@@ -133,35 +133,56 @@ const FOOT_LEFT = [ // drawn in right-foot coordinates, then mirrored
 const FOOT_OUT = 'M60 120 C40 160 38 230 50 290 C58 330 50 380 58 412 C68 452 152 452 162 412 C172 372 162 330 160 290 C158 250 178 200 180 150 C182 118 172 104 150 100 C120 96 80 100 60 120 Z';
 const TOES = [[150, 62, 24, 34], [113, 46, 13, 22], [88, 50, 12, 20], [67, 61, 11, 18], [50, 79, 10, 15]];
 
+// hands: palm view in the left hand's frame (thumb on the left, like the poster's left hand); the right hand is the mirror image
 const HAND_COMMON = [
+  // thumb
   ['腦下垂體', 'e', 34, 140, 6, 6, 0, 'pit'],
   ['頭部', 'e', 44, 162, 9, 12, -30, 'head'],
-  ['喉嚨', 'e', 62, 196, 7, 7, 0, 'neck'],
-  ['眼睛', 'e', 104, 132, 13, 6, 0, 'sense'],
-  ['耳朵', 'e', 164, 134, 13, 6, 0, 'sense'],
-  ['肺臟', 'e', 126, 160, 32, 11, 0, 'lung'],
-  ['胸腺', 'e', 154, 184, 8, 8, 0, 'gland'],
-  ['腎上腺', 'e', 124, 186, 6, 6, 0, 'adr'],
-  ['腎臟', 'e', 124, 205, 8, 10, 0, 'kid'],
-  ['胃', 'e', 156, 210, 13, 9, 0, 'stom'],
-  ['胰臟', 'e', 116, 230, 14, 6, 0, 'panc'],
-  ['結腸', 'e', 140, 246, 30, 8, 0, 'colon'],
-  ['膀胱', 'e', 124, 270, 15, 8, 0, 'blad'],
-  ['痔（肛門）', 'e', 130, 288, 10, 5, 0, 'rect'],
-  ['脊椎', 'r', 58, 240, 7, 54, 0, 'spine'],
-  ['臀股', 'e', 182, 300, 8, 9, 0, 'knee'],
-  ['肩膀', 'e', 192, 160, 6, 12, 0, 'shoulder'],
-  ['生殖器官', 'e', 72, 304, 9, 9, 0, 'sex'],
+  ['脾經', 'e', 30, 176, 4, 12, -35, 'mer'],
+  ['神經系統', 'e', 50, 206, 4, 11, -20, 'mer2'],
+  // fingers: meridians
+  ['肝經', 'e', 90, 46, 9, 13, 0, 'mer'],
+  ['神經中樞', 'e', 90, 80, 9, 12, 0, 'head'],
+  ['大腸經', 'e', 80, 108, 4, 11, 0, 'mer2'],
+  ['心經', 'e', 120, 30, 9, 15, 0, 'heart2'],
+  ['神經中樞', 'e', 120, 70, 9, 13, 0, 'head'],
+  ['肺經', 'e', 151, 42, 8, 13, 0, 'lung2'],
+  ['耳朵', 'e', 151, 74, 8, 10, 0, 'neck'],
+  ['心包經', 'e', 151, 102, 8, 10, 0, 'heart2'],
+  ['精力氣力', 'e', 180, 70, 6, 11, 0, 'sex'],
+  ['小腸經', 'e', 191, 126, 3, 8, 0, 'mer2'],
+  // palm
+  ['眼睛', 'e', 100, 132, 11, 5, 0, 'sense'],
+  ['喉嚨', 'e', 66, 182, 6, 8, 0, 'neck'],
+  ['胃', 'e', 84, 160, 9, 8, 0, 'stom'],
+  ['肺臟', 'e', 136, 152, 28, 9, 0, 'lung'],
+  ['胸腺', 'e', 164, 180, 8, 8, 0, 'gland'],
+  ['腎上腺', 'e', 134, 184, 6, 6, 0, 'adr'],
+  ['腎臟', 'e', 134, 204, 8, 10, 0, 'kid'],
+  ['胰臟', 'e', 160, 214, 12, 6, 0, 'panc'],
+  ['膀胱', 'e', 132, 256, 14, 8, 0, 'blad'],
+  ['痔（肛門）', 'e', 134, 280, 10, 5, 0, 'rect'],
+  ['脊椎', 'r', 72, 250, 6, 44, 0, 'spine'],
+  ['肩膀', 'e', 195, 176, 5, 13, 0, 'shoulder'],
+  ['臀股', 'e', 186, 286, 8, 9, 0, 'knee'],
+  ['攝護腺、子宮', 'e', 82, 306, 9, 9, 0, 'sex'],
+  ['睪丸、卵巢', 'e', 180, 308, 10, 9, 0, 'sex'],
 ];
-const HAND_RIGHT = [ // right hand, palm view (thumb on the left of the picture)
-  ['肝臟', 'e', 92, 196, 15, 13, 0, 'liver'],
-  ['膽囊', 'e', 94, 214, 6, 6, 0, 'gall'],
-  ['盲腸', 'e', 88, 252, 8, 7, 0, 'rect'],
-  ['甲狀腺', 'e', 194, 238, 6, 20, 0, 'gland'],
+const HAND_LEFT = [
+  ['膀胱經', 'e', 180, 104, 6, 12, 0, 'blad'],
+  ['脾臟', 'e', 106, 184, 11, 10, 0, 'spleen'],
+  ['結腸', 'e', 108, 222, 16, 7, -20, 'colon'],
+  ['甲狀腺', 'e', 86, 240, 5, 13, 0, 'gland'],
+  ['心臟', 'e', 192, 220, 6, 18, 0, 'heart'],
 ];
-const HAND_LEFT = [ // drawn in right-hand coordinates, then mirrored
-  ['脾臟', 'e', 92, 200, 13, 12, 0, 'spleen'],
-  ['心臟', 'e', 194, 238, 7, 20, 0, 'heart'],
+const HAND_RIGHT = [ // in the left hand's frame, then mirrored
+  ['腎經', 'e', 180, 96, 6, 8, 0, 'kid2'],
+  ['膀胱經', 'e', 180, 116, 6, 8, 0, 'blad'],
+  ['肝臟', 'e', 184, 198, 9, 16, 0, 'liver'],
+  ['膽囊', 'e', 176, 222, 6, 6, 0, 'gall'],
+  ['結腸', 'e', 140, 234, 18, 7, 0, 'colon'],
+  ['甲狀腺', 'e', 88, 240, 5, 13, 0, 'gland'],
+  ['盲腸', 'e', 176, 248, 7, 7, 0, 'rect'],
 ];
 const HAND_OUT = 'M70 150 C70 140 78 130 92 128 L180 128 C192 130 200 140 200 152 L200 290 C200 312 186 326 164 326 L100 326 C80 326 68 312 66 292 Z';
 const FINGERS = [[90, 76, 13, 46], [120, 62, 13, 52], [151, 70, 12, 48], [180, 94, 10, 38]];
@@ -176,7 +197,7 @@ function nameOf(raw, side, kind) {
 function buildPic(kind, side) {
   const W = kind === 'foot' ? 220 : 240, H = kind === 'foot' ? 460 : 340;
   const raw = kind === 'foot' ? [...FOOT_COMMON, ...(side === 'R' ? FOOT_RIGHT : FOOT_LEFT)] : [...HAND_COMMON, ...(side === 'R' ? HAND_RIGHT : HAND_LEFT)];
-  const mirror = side === 'L';
+  const mirror = kind === 'foot' ? side === 'L' : side === 'R';
   const zones = raw.map((z, k) => {
     const [n, sh, x, y, a, b, rot, col] = z;
     return { id: k, name: nameOf(n, side, kind), sh, x: mirror ? W - x : x, y, a, b, rot: mirror ? -rot : rot, col: C[col] };
@@ -191,7 +212,7 @@ function zoneSVG(z, cls) {
   return `<ellipse class="z ${cls}" data-z="${z.id}" cx="${z.x}" cy="${z.y}" rx="${z.a}" ry="${z.b}" fill="${z.col}"${t}/>`;
 }
 function picSVG(p, opt = {}) {
-  const mir = p.side === 'L' ? `transform="translate(${p.W} 0) scale(-1 1)"` : '';
+  const mir = (p.kind === 'foot' ? p.side === 'L' : p.side === 'R') ? `transform="translate(${p.W} 0) scale(-1 1)"` : '';
   let body;
   if (p.kind === 'foot') body = `<g ${mir}>${TOES.map(([x, y, a, b]) => `<ellipse class="outline" cx="${x}" cy="${y}" rx="${a}" ry="${b}"/>`).join('')}<path class="outline" d="${FOOT_OUT}"/></g>`;
   else body = `<g ${mir}>${FINGERS.map(([x, y, a, b]) => `<ellipse class="outline" cx="${x}" cy="${y}" rx="${a}" ry="${b}"/>`).join('')}<ellipse class="outline" cx="${THUMB[0]}" cy="${THUMB[1]}" rx="${THUMB[2]}" ry="${THUMB[3]}" transform="rotate(${THUMB[4]} ${THUMB[0]} ${THUMB[1]})"/><path class="outline" d="${HAND_OUT}"/></g>`;
@@ -334,7 +355,7 @@ function about() {
   d.style.cssText = 'position:fixed;inset:0;background:#0006;display:grid;place-items:center;padding:16px;z-index:9';
   d.innerHTML = `<div class="card" style="max-width:440px"><b style="font-size:1.1rem;color:var(--acc2)">怎麼玩</b>
     <p class="note" style="font-size:.9rem;color:var(--ink)">📖 <b>學習</b>：切換右腳、左腳、右手、左手，點色塊看名稱，也可以勾「標出全部名稱」。<br>⏱️ <b>測驗</b>：每題 ${QT} 秒，在圖上點出指定的反射區，越快分數越高，答錯會標出正確位置。可以只考腳底、只考手掌，或手腳一起考，最高紀錄分開記。</p>
-    <p class="note">海報上左右腳的器官不一樣：肝、膽、上行結腸、盲腸在右腳；心臟、脾臟、下行結腸、直腸在左腳。眼睛和耳朵左右交叉：右腳是左眼、左耳。手掌圖是依海報簡化的手心圖。</p>
+    <p class="note">海報上左右腳的器官不一樣：肝、膽、上行結腸、盲腸在右腳；心臟、脾臟、下行結腸、直腸在左腳。眼睛和耳朵左右交叉：右腳是左眼、左耳。手掌圖是依海報簡化的手心圖：左手拇指在左、右手拇指在右，手指上標了經絡（肝經、心經、肺經、心包經等）。</p>
     <p class="note">反射區是民俗保健的說法，不能取代醫療。</p><button class="btn" id="x">知道了</button></div>`;
   document.body.appendChild(d); d.onclick = e => { if (e.target === d || e.target.id === 'x') d.remove(); };
 }
