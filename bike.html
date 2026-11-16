@@ -94,6 +94,16 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
 .opt { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--muted); }
 .opt input { width: 18px; height: 18px; accent-color: var(--sun); }
 .warn { color: var(--sun); font-size: 13px; }
+.bikes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.bk { background: rgba(255,255,255,.06); border: 2px solid var(--line); border-radius: 14px; padding: 8px 6px 10px; cursor: pointer; display: grid; gap: 4px; justify-items: center; text-align: center; }
+.bk[aria-checked="true"] { border-color: var(--sun); background: rgba(255,201,60,.14); }
+.bk svg { width: 100%; max-width: 110px; height: auto; }
+.bk b { font-size: 15px; }
+.bk small { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+.bk .bars { display: grid; gap: 3px; width: 100%; font-size: 10.5px; color: var(--muted); }
+.bk .bars span { display: grid; grid-template-columns: 26px 1fr; gap: 4px; align-items: center; text-align: left; }
+.bk .bars i { display: block; height: 5px; border-radius: 3px; background: linear-gradient(90deg, var(--sun) var(--w), rgba(255,255,255,.15) var(--w)); }
+#mini { position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); top: calc(env(safe-area-inset-top, 0px) + 108px); width: 104px; height: 104px; pointer-events: none; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); }
 @media (prefers-reduced-motion: reduce) { .toast { animation-duration: .01s; } }
 </style>
 
@@ -116,6 +126,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
 </div>
 <div class="pedal l" id="pedL">左踏</div>
 <div class="pedal r" id="pedR">右踏</div>
+<canvas id="mini" aria-hidden="true"></canvas>
 <div class="meter"><span id="mSteer">方向 ｜</span><span class="brk" id="mBrake">煞車</span></div>
 <button class="pad left" id="padL" type="button" aria-label="向左" hidden>◀</button>
 <button class="pad right" id="padR" type="button" aria-label="向右" hidden>▶</button>
@@ -124,13 +135,14 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
 <div class="screen" id="startScreen">
   <div class="card">
     <h1>河濱<span>騎單車</span></h1>
-    <p>從大稻埕碼頭出發，沿著淡水河的自行車道一路騎到關渡。傍晚的河風吹著，慢慢騎就好。</p>
+    <p>從大稻埕碼頭出發，沿淡水河往北，經過臺北橋、重陽橋，騎上百齡橋過基隆河，再沿著北岸經過社子大橋一路騎到關渡宮，大約 13 公里。</p>
     <div class="howto">
       <div><span class="ic">✌️</span><span><b>兩隻手指輪流點</b>螢幕左半邊和右半邊，就是左右腳踩踏板。點越快騎越快，停下來會慢慢滑行減速。</span></div>
       <div><span class="ic">📱</span><span>手機<b>往左、往右傾斜</b>就會轉彎，騎出車道到草地會變慢。</span></div>
       <div><span class="ic">🛑</span><span>手機<b>上緣往自己的方向轉</b>就是煞車，轉越多煞越快。</span></div>
       <div><span class="ic">🔔</span><span>前面有人時按右上角的鈴，他們會讓開。撞到人會摔車。</span></div>
     </div>
+    <div class="bikes" role="radiogroup" aria-label="選擇單車"><button class="bk" type="button" role="radio" data-k="city" aria-checked="false"><svg viewBox="0 0 120 70" aria-hidden="true"><g fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="25" cy="48" r="17" stroke="#cfd6e0"/><circle cx="95" cy="48" r="17" stroke="#cfd6e0"/><path d="M25 48 L50 48 L44 24 M50 48 Q62 30 84 22 L95 48 M84 22 L80 14 Q74 12 70 14" stroke="#7fd6c2"/><path d="M38 20 h14" stroke="#cfd6e0"/></g><rect x="84" y="20" width="18" height="11" rx="2" fill="#b8864e"/></svg><b>城市車</b><small>有菜籃，坐姿挺，慢慢騎最舒服</small><span class="bars"><span>極速<i style="--w:45%"></i></span><span>起步<i style="--w:60%"></i></span><span>靈活<i style="--w:65%"></i></span></span></button><button class="bk" type="button" role="radio" data-k="road" aria-checked="false"><svg viewBox="0 0 120 70" aria-hidden="true"><g fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="48" r="18" stroke="#cfd6e0"/><circle cx="96" cy="48" r="18" stroke="#cfd6e0"/><path d="M24 48 L52 48 L42 20 L86 18 L52 48 M86 18 L96 48 M42 20 L24 48" stroke="#ff6b5a"/><path d="M36 18 h12 M86 18 l4 -6 h6 q5 2 2 9 l-3 1" stroke="#cfd6e0"/></g></svg><b>公路車</b><small>彎把細胎，騎得最快，但草地很顛</small><span class="bars"><span>極速<i style="--w:100%"></i></span><span>起步<i style="--w:55%"></i></span><span>靈活<i style="--w:40%"></i></span></span></button><button class="bk" type="button" role="radio" data-k="birdy" aria-checked="false"><svg viewBox="0 0 120 70" aria-hidden="true"><g fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="52" r="11" stroke="#cfd6e0"/><circle cx="88" cy="52" r="11" stroke="#cfd6e0"/><path d="M32 52 L52 34 L78 34 L88 52 M52 34 L50 16 M78 34 L76 10" stroke="#f0a030"/><path d="M44 16 h12 M70 10 h12" stroke="#cfd6e0"/></g></svg><b>Birdy 小摺</b><small>小輪摺疊車，起步快、轉彎靈活</small><span class="bars"><span>極速<i style="--w:70%"></i></span><span>起步<i style="--w:100%"></i></span><span>靈活<i style="--w:100%"></i></span></span></button></div>
     <label class="opt"><input type="checkbox" id="invBrake"> 煞車方向反過來（手機上緣往前倒才煞車）</label>
     <p class="sub" id="sensorNote">開始時會把你現在拿手機的角度當成「正中間」，騎到一半覺得歪了可以按暫停重新校正。電腦上可以用鍵盤：A／L 輪流踩、← → 轉彎、↓ 煞車、空白鍵按鈴。</p>
     <button class="go" id="startBtn" type="button">出發</button>
@@ -154,7 +166,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
 <div class="screen" id="finishScreen" hidden>
   <div class="card">
     <h1>抵達<span>關渡</span>！</h1>
-    <p>夕陽剛好落在觀音山後面。辛苦了！</p>
+    <p id="finTxt">夕陽剛好落在觀音山後面。辛苦了！</p>
     <div class="stats" id="finishStats"></div>
     <div class="row">
       <button class="go" id="againBtn" type="button">再騎一趟</button>
@@ -176,58 +188,100 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
   const CAMH = 150;             // 眼睛高度
   const DRAW = 260;             // 看得到幾段
   const FOV = 100, CAMD = 1 / Math.tan((FOV / 2) * Math.PI / 180);
-  const TOTAL_KM = 12, N = TOTAL_KM * 500;
-  // 沿途地標（公里數是遊戲設定，大約而已）
+  // 畫面速度感加成：路段前進得比真實距離快一點，所以每公里有 500×1.35 段
+  const FEEL = 1.35, SEGKM = Math.round(500 * FEEL);
+  const TOTAL_KM = 13, FIN = TOTAL_KM * SEGKM, N = FIN + 320;   // 終點後面多留一段直路，免得看到起點
+  // 沿途地標：順序和大方向照真實路線（淡水河東岸往北 → 百齡橋過基隆河 → 基隆河北岸往西北到關渡），公里數是大約值
+  // over：從橋下經過；cross：騎上橋過河
   const MARKS = [
-    { km: 0, name: '大稻埕碼頭', bridge: false },
-    { km: 1.4, name: '臺北橋', bridge: true },
-    { km: 3.6, name: '重陽橋', bridge: true },
-    { km: 5.4, name: '百齡橋', bridge: true },
-    { km: 7.6, name: '社子島', bridge: false },
-    { km: 9.4, name: '洲美橋', bridge: true },
-    { km: 12, name: '關渡宮', bridge: false },
+    { km: 0, name: '大稻埕碼頭' },
+    { km: 1.0, name: '臺北橋', over: true },
+    { km: 3.2, name: '重陽橋', over: true },
+    { km: 5.95, name: '百齡橋', cross: true },
+    { km: 7.6, name: '社子大橋', over: true },
+    { km: 9.6, name: '社子島（對岸）' },
+    { km: 13, name: '關渡宮' },
   ];
+  // 彎道：[起點 km, 終點 km, 轉幾度]，正數右轉。照地圖上的大致走向，不是 GPS 精準軌跡
+  const LEGS = [
+    [0.15, 0.8, 8],
+    [0.88, 0.95, 16], [0.95, 1.04, -16],            // 臺北橋下的 S 彎
+    [1.2, 2.9, -28],                                // 沿淡水河微微往左（西北）
+    [3.08, 3.15, -14], [3.15, 3.24, 14],            // 重陽橋下的 S 彎
+    [3.4, 4.2, 32], [4.4, 5.35, 42],                // 往右轉向東北，沿基隆河南岸
+    [5.55, 5.85, -52],                              // 上百齡橋的引道（左彎上坡）
+    [6.15, 6.45, -92],                              // 下橋（左急彎下坡），轉向西
+    [6.8, 7.3, 12],
+    [7.5, 7.57, 14], [7.57, 7.66, -14],             // 社子大橋下的 S 彎
+    [8.0, 9.2, 16],
+    [9.8, 11.4, -24],                               // 社子島尖端，河面變寬
+    [11.6, 12.6, 36],                               // 往右彎向關渡
+  ];
+  const RAMP_UP = [5.55, 5.85], DECK = [5.85, 6.15], RAMP_DN = [6.15, 6.45], BRIDGE_H = 850;
+  const WARN_AT = [0.82, 3.0, 5.42, 6.05, 7.42, 11.5];   // 「前方彎道」警告牌
   const segs = [];
-  function lastY() { return segs.length ? segs[segs.length - 1].p2.y : 0; }
-  function addSeg(curve, y) {
-    const n = segs.length;
-    segs.push({ i: n, p1: { x: 0, y: lastY(), z: n * SEG, sx: 0, sy: 0, sw: 0, sc: 0 }, p2: { x: 0, y, z: (n + 1) * SEG, sx: 0, sy: 0, sw: 0, sc: 0 }, curve, sprites: [], clip: 0 });
-  }
-  const easeIn = (a, b, t) => a + (b - a) * t * t, easeInOut = (a, b, t) => a + (b - a) * (-Math.cos(t * Math.PI) / 2 + .5);
-  function addRoad(enter, hold, leave, curve, hill) {
-    const y0 = lastY(), y1 = y0 + hill * SEG, total = enter + hold + leave;
-    for (let n = 0; n < enter; n++) addSeg(easeIn(0, curve, n / enter), easeInOut(y0, y1, n / total));
-    for (let n = 0; n < hold; n++) addSeg(curve, easeInOut(y0, y1, (enter + n) / total));
-    for (let n = 0; n < leave; n++) addSeg(easeInOut(curve, 0, n / leave), easeInOut(y0, y1, (enter + hold + n) / total));
+  const easeInOut = (a, b, t) => a + (b - a) * (-Math.cos(t * Math.PI) / 2 + .5);
+  const CURVE_K = 400;   // 每段轉角（弧度）換成畫面彎度的倍數；比實際誇張一點，彎道才看得出來
+  const inKm = (km, r) => km >= r[0] && km < r[1];
+  function elev(km) {
+    if (inKm(km, RAMP_UP)) return easeInOut(0, BRIDGE_H, (km - RAMP_UP[0]) / (RAMP_UP[1] - RAMP_UP[0]));
+    if (inKm(km, DECK)) return BRIDGE_H;
+    if (inKm(km, RAMP_DN)) return easeInOut(BRIDGE_H, 0, (km - RAMP_DN[0]) / (RAMP_DN[1] - RAMP_DN[0]));
+    return 40 * Math.sin(km * 2.3) + 25 * Math.sin(km * 5.1 + 1);   // 堤外步道的小起伏
   }
   // 固定亂數，每次路線都一樣
   let seed = 20261116; const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const route = [];   // 小地圖用的平面座標
   function buildTrack() {
-    segs.length = 0; seed = 20261116;
-    addRoad(0, 60, 0, 0, 0);
-    while (segs.length < N) {
-      const len = 40 + Math.floor(rnd() * 120);
-      const curve = rnd() < .35 ? 0 : (rnd() - .5) * 3.2;
-      const hill = rnd() < .7 ? 0 : (rnd() - .5) * 1.2;
-      addRoad(20, len, 20, curve, hill);
+    segs.length = 0; seed = 20261116; route.length = 0;
+    const turn = new Float64Array(N);
+    for (const [a, b, deg] of LEGS) {
+      const i0 = Math.round(a * SEGKM), i1 = Math.round(b * SEGKM), L = i1 - i0, rad = deg * Math.PI / 180;
+      for (let i = i0; i < i1; i++) { const t = (i - i0 + .5) / L; turn[i] += rad / L * 2 * Math.sin(Math.PI * t) ** 2; }
     }
-    segs.length = N;
-    // 景物：右邊樹、路燈、長椅；左邊河邊欄杆、偶爾釣客
+    let hx = 0, hy = 0, hd = 0;
+    for (let i = 0; i < N; i++) {
+      const km = i / SEGKM, onBridge = km >= RAMP_UP[0] - .05 && km < RAMP_DN[1] + .05;
+      // 河岸本來就不是一直線：加一點小蜿蜒（橋上不加）
+      const wig = onBridge || km > TOTAL_KM ? 0 : (Math.sin(i / 53) * .0012 + Math.sin(i / 131 + 2) * .0009);
+      const y0 = elev(km), y1 = elev((i + 1) / SEGKM);
+      segs.push({ i, p1: { x: 0, y: y0, z: i * SEG, sx: 0, sy: 0, sw: 0, sc: 0 }, p2: { x: 0, y: y1, z: (i + 1) * SEG, sx: 0, sy: 0, sw: 0, sc: 0 }, curve: (turn[i] + wig) * CURVE_K, sprites: [], clip: 0,
+        deck: inKm(km, DECK), ramp: inKm(km, RAMP_UP) || inKm(km, RAMP_DN) });
+      hd += turn[i] + wig;
+      if (i % 8 === 0 && i <= FIN) route.push([hx, hy]);
+      hx += Math.sin(hd); hy -= Math.cos(hd);
+    }
+    // 景物
     for (let i = 8; i < N; i++) {
-      const s = segs[i];
+      const s = segs[i], km = i / SEGKM;
+      if (s.deck) { if (i % 10 === 0) { s.sprites.push({ t: 'lamp', x: 1.3 }); } continue; }
+      if (s.ramp) { if (i % 14 === 0) s.sprites.push({ t: 'lamp', x: 1.3 }); continue; }
       if (i % 14 === 0) s.sprites.push({ t: 'lamp', x: 1.35 });
       if (i % 14 === 7) s.sprites.push({ t: 'lamp', x: -1.35 });
       if (rnd() < .22) s.sprites.push({ t: 'tree', x: 2.2 + rnd() * 2.4, h: .8 + rnd() * .6, k: Math.floor(rnd() * 3) });
       if (rnd() < .05) s.sprites.push({ t: 'tree', x: -2.0 - rnd() * .5, h: .7 + rnd() * .4, k: Math.floor(rnd() * 3) });
       if (i % 95 === 40) s.sprites.push({ t: 'bench', x: 1.7 });
       if (rnd() < .006) s.sprites.push({ t: 'fisher', x: -2.5 });
-      if (i % 250 === 0) s.sprites.push({ t: 'km', x: 1.55, km: i / 500 });
+      if (i % Math.round(SEGKM / 2) === 0 && km <= TOTAL_KM) s.sprites.push({ t: 'km', x: 1.55, km: Math.round(km * 2) / 2 });
+      // 各區的景色
+      if (km < 1.3 && rnd() < .02) s.sprites.push({ t: 'boat', x: -5 - rnd() * 4 });                 // 大稻埕碼頭的遊船
+      if (km < .6 && i % 40 === 20) s.sprites.push({ t: 'stall', x: 2.4 });                          // 碼頭貨櫃市集
+      if (km > 3.4 && km < 5.4 && rnd() < .12) s.sprites.push({ t: 'flower', x: 1.6 + rnd() * 2.5, k: Math.floor(rnd() * 3) });   // 社子花海
+      if (km > 9 && rnd() < .14) s.sprites.push({ t: 'reed', x: -1.7 - rnd() * .6 });                // 關渡的水筆仔和蘆葦
+      if (km > 10.5 && km < TOTAL_KM && rnd() < .05) s.sprites.push({ t: 'egret', x: -3 - rnd() * 3 });
+      if (km > 10 && rnd() < .08) s.sprites.push({ t: 'paddy', x: 3 + rnd() * 3 });                  // 關渡平原
     }
     for (const m of MARKS) {
-      const i = Math.min(N - 1, Math.round(m.km * 500));
-      if (m.bridge) { segs[i].bridge = m.name; for (let k = -2; k <= 2; k++) segs[clamp(i + k, 0, N - 1)].shade = true; }
-      if (i > 30) segs[i - 30].sprites.push({ t: 'sign', x: 1.6, text: m.name });
+      const i = Math.min(N - 1, Math.round(m.km * SEGKM));
+      if (m.over) { segs[i].bridge = m.name; for (let k = -2; k <= 2; k++) segs[clamp(i + k, 0, N - 1)].shade = true; }
+      if (m.km > 0 && !m.cross) segs[Math.max(1, i - 40)].sprites.push({ t: 'sign', x: 1.6, text: m.name });
     }
+    segs[Math.round(RAMP_UP[0] * SEGKM) - 40].sprites.push({ t: 'sign', x: 1.6, text: '上百齡橋' });
+    for (const km of WARN_AT) segs[Math.round(km * SEGKM)].sprites.push({ t: 'warn', x: 1.45, dir: 0 });
+    for (const seg of segs) for (const sp of seg.sprites) if (sp.t === 'warn') { let c = 0; for (let k = 0; k < 120; k++) c += segs[Math.min(N - 1, seg.i + k)].curve; sp.dir = Math.sign(c); }
+    for (let i = FIN - 40; i < FIN + 80; i++) segs[i].sprites = segs[i].sprites.filter(sp => sp.t !== 'tree');
+    segs[FIN + 30].sprites.push({ t: 'temple', x: 4.2 });
+    segs[FIN].finish = true;
   }
   const segAt = z => segs[Math.floor(z / SEG) % N];
 
@@ -338,6 +392,23 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
       const alt = Math.floor(s.i / 3) % 2;
       const shade = s.shade ? .6 : 1;
       const col = (r, gg, bb) => `rgb(${Math.round(r * shade)},${Math.round(gg * shade)},${Math.round(bb * shade)})`;
+      if (s.deck || s.ramp) {
+        // 橋上：兩邊都是河（引道下面是草地），護欄在車道兩側
+        g.fillStyle = s.deck ? (alt ? col(62, 128, 168) : col(70, 138, 178)) : (alt ? col(84, 140, 64) : col(78, 132, 58));
+        g.fillRect(0, b.sy, W, a.sy - b.sy);
+        quad(alt ? col(170, 166, 158) : col(158, 154, 146), a.sx, a.sy, a.sw * 1.3, b.sx, b.sy, b.sw * 1.3);
+        quad(alt ? col(150, 82, 70) : col(142, 76, 64), a.sx, a.sy, a.sw, b.sx, b.sy, b.sw);
+        quad('#efe9dc', a.sx - a.sw * .94, a.sy, a.sw * .025, b.sx - b.sw * .94, b.sy, b.sw * .025);
+        quad('#efe9dc', a.sx + a.sw * .94, a.sy, a.sw * .025, b.sx + b.sw * .94, b.sy, b.sw * .025);
+        if (Math.floor(s.i / 2) % 2 === 0) quad('#f2c94c', a.sx, a.sy, a.sw * .022, b.sx, b.sy, b.sw * .022);
+        for (const k of [-1.28, 1.28]) {
+          const rh1 = a.sc * 110 * W / 2, rh2 = b.sc * 110 * W / 2, x1 = a.sx + a.sw * k, x2 = b.sx + b.sw * k;
+          poly('rgba(160,200,230,.22)', [x1, a.sy, x2, b.sy, x2, b.sy - rh2, x1, a.sy - rh1]);
+          poly('#dfe7ee', [x1, a.sy - rh1, x2, b.sy - rh2, x2, b.sy - rh2 * .9, x1, a.sy - rh1 * .9]);
+          if (s.i % 3 === 0) { g.fillStyle = '#c9d2da'; g.fillRect(x1 - Math.max(1, a.sw * .012), a.sy - rh1, Math.max(2, a.sw * .024), rh1); }
+        }
+        return;
+      }
       // 草地
       g.fillStyle = alt ? col(84, 140, 64) : col(78, 132, 58);
       g.fillRect(0, b.sy, W, a.sy - b.sy);
@@ -365,6 +436,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
       quad('#efe9dc', a.sx + a.sw * .94, a.sy, a.sw * .025, b.sx + b.sw * .94, b.sy, b.sw * .025);
       // 黃色中線（虛線）
       if (Math.floor(s.i / 2) % 2 === 0) quad('#f2c94c', a.sx, a.sy, a.sw * .022, b.sx, b.sy, b.sw * .022);
+      if (s.finish) { for (let k = 0; k < 8; k++) quad(k % 2 ? '#111' : '#fff', a.sx - a.sw + a.sw * (k * 2 + 1) / 8, a.sy, a.sw / 8, b.sx - b.sw + b.sw * (k * 2 + 1) / 8, b.sy, b.sw / 8); }
   }
   function clipTo(s, fn) { g.save(); g.beginPath(); g.rect(0, 0, W, s.clip); g.clip(); fn(); g.restore(); }
   function drawSprite(s, sp) {
@@ -398,6 +470,38 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
         if (u > .05) { g.fillStyle = '#fff'; g.font = `900 ${Math.round(44 * u)}px "Noto Sans TC", system-ui`; g.textAlign = 'center'; g.fillText(sp.text + ' →', x, y - 240 * u); }
       } else if (sp.t === 'fisher') {
         emoji('🎣', x, y, 150 * u);
+      } else if (sp.t === 'boat') {
+        emoji('⛴️', x, y, 420 * u);
+      } else if (sp.t === 'stall') {
+        const cs = ['#d9534f', '#3c8dbc', '#f0ad4e'][Math.floor(x * 7) % 3 < 0 ? 0 : Math.floor(Math.abs(sp.x * 13)) % 3];
+        g.fillStyle = cs; g.fillRect(x - 200 * u, y - 260 * u, 400 * u, 260 * u);
+        g.fillStyle = 'rgba(0,0,0,.25)'; for (let k = -180; k < 200; k += 40) g.fillRect(x + k * u, y - 260 * u, 8 * u, 260 * u);
+        g.fillStyle = '#ffe6a8'; g.fillRect(x - 140 * u, y - 150 * u, 280 * u, 90 * u);
+      } else if (sp.t === 'flower') {
+        const fl = ['🌷', '🌼', '🌸'][sp.k]; emoji(fl, x - 30 * u, y, 60 * u); emoji(fl, x + 30 * u, y, 55 * u); emoji(fl, x, y - 8 * u, 62 * u);
+      } else if (sp.t === 'reed') {
+        emoji('🌿', x, y, 120 * u);
+      } else if (sp.t === 'egret') {
+        emoji('🕊️', x, y - 30 * u, 70 * u);
+      } else if (sp.t === 'paddy') {
+        emoji('🌾', x, y, 90 * u);
+      } else if (sp.t === 'warn') {
+        g.fillStyle = '#ccc'; g.fillRect(x - 4 * u, y - 170 * u, 8 * u, 170 * u);
+        g.fillStyle = '#ffcc00'; g.beginPath(); g.moveTo(x, y - 260 * u); g.lineTo(x + 50 * u, y - 210 * u); g.lineTo(x, y - 160 * u); g.lineTo(x - 50 * u, y - 210 * u); g.closePath(); g.fill();
+        g.strokeStyle = '#111'; g.lineWidth = Math.max(1, 5 * u); g.stroke();
+        g.beginPath(); g.moveTo(x - sp.dir * 16 * u, y - 180 * u); g.lineTo(x - sp.dir * 16 * u, y - 215 * u); g.lineTo(x + sp.dir * 18 * u, y - 235 * u); g.stroke();
+        g.beginPath(); g.moveTo(x + sp.dir * 22 * u, y - 236 * u); g.lineTo(x + sp.dir * 6 * u, y - 240 * u); g.lineTo(x + sp.dir * 14 * u, y - 226 * u); g.closePath(); g.fillStyle = '#111'; g.fill();
+        if (u > .07) { g.fillStyle = '#fff'; g.font = `900 ${Math.round(26 * u)}px "Noto Sans TC", system-ui`; g.textAlign = 'center'; g.fillText('減速慢行', x, y - 140 * u); }
+      } else if (sp.t === 'temple') {
+        // 關渡宮：紅牆、燕尾屋脊
+        const w = 1700 * u, h = 650 * u;
+        g.fillStyle = '#b8322a'; g.fillRect(x - w / 2, y - h, w, h);
+        g.fillStyle = '#7a1f1a'; g.fillRect(x - w * .12, y - h * .55, w * .24, h * .55);
+        g.fillStyle = '#e9b13b'; g.fillRect(x - w / 2, y - h * .72, w, h * .05);
+        poly('#2f5a46', [x - w * .62, y - h, x + w * .62, y - h, x + w * .45, y - h * 1.35, x - w * .45, y - h * 1.35]);
+        poly('#2f5a46', [x - w * .45, y - h * 1.35, x - w * .62, y - h * 1.55, x - w * .4, y - h * 1.38]);
+        poly('#2f5a46', [x + w * .45, y - h * 1.35, x + w * .62, y - h * 1.55, x + w * .4, y - h * 1.38]);
+        if (u > .03) { g.fillStyle = '#ffe08a'; g.font = `900 ${Math.round(80 * u)}px "Noto Sans TC", system-ui`; g.textAlign = 'center'; g.fillText('關渡宮', x, y - h * .78); }
       }
     });
   }
@@ -437,38 +541,81 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
     });
   }
 
-  // 第一人稱的單車把手
+  // 第一人稱的單車把手：三種車各畫各的
+  function hand(sz, gx, gy, ang) {
+    g.fillStyle = '#f0c8a8'; g.beginPath(); g.ellipse(gx, gy, sz * .065, sz * .05, ang, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#3d6fb6'; g.beginPath(); g.ellipse(gx + Math.sign(gx) * sz * .06, gy + sz * .075, sz * .08, sz * .07, Math.sign(gx) * .4, 0, Math.PI * 2); g.fill();
+  }
+  function meterBox(sz, y, w) {
+    g.fillStyle = '#111'; g.beginPath(); g.roundRect(-sz * w / 2, y, sz * w, sz * .075, 8); g.fill();
+    g.fillStyle = '#9fe870'; g.font = `400 ${Math.round(sz * .045)}px Bungee, system-ui`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(S.v.toFixed(1), 0, y + sz * .038);
+  }
   function drawBike() {
     const cx = W / 2, by = H + 6 + Math.sin(S.bob) * 3 + (S.shake ? (Math.random() - .5) * S.shake * 4 : 0);
     const sz = Math.min(W * .9, H * .56);
     g.save(); g.translate(cx, by); g.rotate(S.steer * 0.16);
-    // 前輪
-    g.fillStyle = '#16181c'; g.beginPath(); g.ellipse(0, -sz * .02, sz * .07, sz * .26, 0, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#3a3f48'; g.beginPath(); g.ellipse(0, -sz * .02, sz * .03, sz * .22, 0, 0, Math.PI * 2); g.fill();
-    // 前叉與龍頭
-    g.fillStyle = '#d64545'; g.fillRect(-sz * .05, -sz * .3, sz * .1, sz * .12);
-    g.fillStyle = '#c23b3b'; g.fillRect(-sz * .022, -sz * .42, sz * .044, sz * .14);
-    // 車燈
-    g.fillStyle = '#e9e9e9'; g.beginPath(); g.roundRect(-sz * .04, -sz * .24, sz * .08, sz * .05, 6); g.fill();
-    g.fillStyle = '#fff6c0'; g.beginPath(); g.arc(0, -sz * .215, sz * .018, 0, Math.PI * 2); g.fill();
-    // 把手
-    g.strokeStyle = '#2d3138'; g.lineCap = 'round'; g.lineWidth = sz * .035;
-    g.beginPath(); g.moveTo(-sz * .46, -sz * .32); g.quadraticCurveTo(-sz * .2, -sz * .46, 0, -sz * .43); g.quadraticCurveTo(sz * .2, -sz * .46, sz * .46, -sz * .32); g.stroke();
-    // 握把與手
-    for (const sgn of [-1, 1]) {
-      g.fillStyle = '#1d1f23'; g.beginPath(); g.roundRect(sgn * sz * .46 - sz * .06, -sz * .35, sz * .12, sz * .06, sz * .03); g.fill();
-      g.fillStyle = '#f0c8a8'; g.beginPath(); g.ellipse(sgn * sz * .44, -sz * .31, sz * .07, sz * .055, sgn * .3, 0, Math.PI * 2); g.fill();
-      g.fillStyle = '#3d6fb6'; g.beginPath(); g.ellipse(sgn * sz * .5, -sz * .24, sz * .08, sz * .07, sgn * .4, 0, Math.PI * 2); g.fill();
-      // 煞車拉桿：煞車時往內收
-      g.strokeStyle = '#9aa1ab'; g.lineWidth = sz * .012;
-      g.beginPath(); g.moveTo(sgn * sz * .36, -sz * .36); g.lineTo(sgn * (sz * .5 - S.brake * sz * .05), -sz * .385 + S.brake * sz * .02); g.stroke();
+    g.lineCap = 'round';
+    if (bikeK === 'road') {
+      // 公路車：細輪胎、長龍頭、彎把、手放在變把上
+      g.fillStyle = '#16181c'; g.beginPath(); g.ellipse(0, -sz * .02, sz * .032, sz * .27, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#c9262c'; g.fillRect(-sz * .03, -sz * .31, sz * .06, sz * .14);
+      g.fillStyle = '#1b1b1f'; g.fillRect(-sz * .02, -sz * .44, sz * .04, sz * .14);
+      g.strokeStyle = '#f2f2f2'; g.lineWidth = sz * .032;
+      g.beginPath(); g.moveTo(-sz * .27, -sz * .43); g.lineTo(sz * .27, -sz * .43); g.stroke();
+      for (const sg of [-1, 1]) {
+        g.beginPath(); g.moveTo(sg * sz * .27, -sz * .43); g.quadraticCurveTo(sg * sz * .34, -sz * .42, sg * sz * .33, -sz * .34);
+        g.quadraticCurveTo(sg * sz * .32, -sz * .24, sg * sz * .26, -sz * .22); g.stroke();
+        // 變把（煞車時拉桿往內收）
+        g.fillStyle = '#222'; g.beginPath(); g.roundRect(sg * sz * .31 - sz * .035, -sz * .47, sz * .07, sz * .09, sz * .025); g.fill();
+        g.strokeStyle = '#555'; g.lineWidth = sz * .016;
+        g.beginPath(); g.moveTo(sg * sz * .32, -sz * .39); g.quadraticCurveTo(sg * (sz * .35 - S.brake * sz * .04), -sz * .32, sg * (sz * .33 - S.brake * sz * .05), -sz * .26); g.stroke();
+        g.strokeStyle = '#f2f2f2'; g.lineWidth = sz * .032;
+        hand(sz, sg * sz * .31, -sz * .44, sg * .2);
+      }
+      meterBox(sz, -sz * .53, .15);
+    } else if (bikeK === 'birdy') {
+      // Birdy 小摺：小輪子、前避震、高高的摺疊立管、窄平把
+      g.fillStyle = '#16181c'; g.beginPath(); g.ellipse(0, sz * .03, sz * .055, sz * .17, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#3a3f48'; g.beginPath(); g.ellipse(0, sz * .03, sz * .022, sz * .14, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#f08a24'; g.fillRect(-sz * .045, -sz * .2, sz * .09, sz * .1);
+      g.fillStyle = '#8a8f98'; g.fillRect(-sz * .03, -sz * .26, sz * .06, sz * .07);
+      g.fillStyle = '#c9ccd2'; g.fillRect(-sz * .022, -sz * .5, sz * .044, sz * .26);
+      g.fillStyle = '#f08a24'; g.fillRect(-sz * .032, -sz * .36, sz * .064, sz * .03);
+      g.strokeStyle = '#2d3138'; g.lineWidth = sz * .03;
+      g.beginPath(); g.moveTo(-sz * .27, -sz * .49); g.lineTo(sz * .27, -sz * .49); g.stroke();
+      for (const sg of [-1, 1]) {
+        g.fillStyle = '#1d1f23'; g.beginPath(); g.roundRect(sg * sz * .27 - sz * .055, -sz * .515, sz * .11, sz * .05, sz * .025); g.fill();
+        g.strokeStyle = '#9aa1ab'; g.lineWidth = sz * .012;
+        g.beginPath(); g.moveTo(sg * sz * .18, -sz * .515); g.lineTo(sg * (sz * .3 - S.brake * sz * .04), -sz * .535 + S.brake * sz * .015); g.stroke();
+        hand(sz, sg * sz * .26, -sz * .48, sg * .3);
+      }
+      g.fillStyle = '#f2c230'; g.beginPath(); g.arc(sz * .13, -sz * .515, sz * .022, Math.PI, 0); g.fill();
+      meterBox(sz, -sz * .6, .14);
+    } else {
+      // 城市車：粗輪胎、菜籃、彎彎的高把手
+      g.fillStyle = '#16181c'; g.beginPath(); g.ellipse(0, -sz * .02, sz * .07, sz * .26, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#3a3f48'; g.beginPath(); g.ellipse(0, -sz * .02, sz * .03, sz * .22, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#5fbfa8'; g.fillRect(-sz * .05, -sz * .3, sz * .1, sz * .12);
+      g.fillStyle = '#4aa892'; g.fillRect(-sz * .022, -sz * .42, sz * .044, sz * .14);
+      // 菜籃
+      g.fillStyle = '#b8864e'; g.beginPath(); g.roundRect(-sz * .15, -sz * .27, sz * .3, sz * .13, 8); g.fill();
+      g.strokeStyle = 'rgba(80,50,20,.55)'; g.lineWidth = Math.max(1, sz * .006);
+      for (let k = -.13; k < .15; k += .035) { g.beginPath(); g.moveTo(sz * k, -sz * .27); g.lineTo(sz * k, -sz * .14); g.stroke(); }
+      for (let k = -.24; k < -.14; k += .03) { g.beginPath(); g.moveTo(-sz * .15, sz * k); g.lineTo(sz * .15, sz * k); g.stroke(); }
+      g.fillStyle = '#e9e9e9'; g.beginPath(); g.roundRect(-sz * .04, -sz * .16, sz * .08, sz * .045, 6); g.fill();
+      g.fillStyle = '#fff6c0'; g.beginPath(); g.arc(0, -sz * .138, sz * .016, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#2d3138'; g.lineWidth = sz * .035;
+      g.beginPath(); g.moveTo(-sz * .46, -sz * .32); g.quadraticCurveTo(-sz * .2, -sz * .46, 0, -sz * .43); g.quadraticCurveTo(sz * .2, -sz * .46, sz * .46, -sz * .32); g.stroke();
+      for (const sg of [-1, 1]) {
+        g.fillStyle = '#1d1f23'; g.beginPath(); g.roundRect(sg * sz * .46 - sz * .06, -sz * .35, sz * .12, sz * .06, sz * .03); g.fill();
+        g.strokeStyle = '#9aa1ab'; g.lineWidth = sz * .012;
+        g.beginPath(); g.moveTo(sg * sz * .36, -sz * .36); g.lineTo(sg * (sz * .5 - S.brake * sz * .05), -sz * .385 + S.brake * sz * .02); g.stroke();
+        hand(sz, sg * sz * .44, -sz * .31, sg * .3);
+      }
+      g.fillStyle = '#f2c230'; g.beginPath(); g.arc(sz * .26, -sz * .465, sz * .028, Math.PI, 0); g.fill(); g.fillRect(sz * .232, -sz * .465, sz * .056, sz * .008);
+      meterBox(sz, -sz * .5, .17);
     }
-    // 鈴鐺
-    g.fillStyle = '#f2c230'; g.beginPath(); g.arc(sz * .26, -sz * .465, sz * .028, Math.PI, 0); g.fill(); g.fillRect(sz * .232, -sz * .465, sz * .056, sz * .008);
-    // 碼表
-    g.fillStyle = '#111'; g.beginPath(); g.roundRect(-sz * .085, -sz * .5, sz * .17, sz * .075, 8); g.fill();
-    g.fillStyle = '#9fe870'; g.font = `400 ${Math.round(sz * .045)}px Bungee, system-ui`; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText(S.v.toFixed(1), 0, -sz * .462);
     g.restore();
   }
 
@@ -503,8 +650,14 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
   const pickOne = a => a[Math.floor(Math.random() * a.length)];
 
   // ---------- 操作：踩踏、傾斜、煞車 ----------
-  const FEEL = 1.35;           // 畫面速度感加成
-  const VMAX = 45;
+  // 三種車：極速、每踩一下的推力、滾動阻力、風阻、轉向靈敏度、騎上草地的減速
+  const BIKES = {
+    city:  { name: '城市車',     vmax: 30, push: 2.1, roll: .75, aero: .0062, steer: 1.0, off: 4.0 },
+    road:  { name: '公路車',     vmax: 50, push: 2.3, roll: .40, aero: .0034, steer: .8,  off: 8.5 },
+    birdy: { name: 'Birdy 小摺', vmax: 38, push: 3.1, roll: .62, aero: .0047, steer: 1.35, off: 6.0 },
+  };
+  let bikeK = BIKES[store.get('bike-type')] ? store.get('bike-type') : 'city';
+  const B = () => BIKES[bikeK];
   const ctl = { steerKey: 0, brakeKey: 0, padSteer: 0, padBrake: 0, tiltSteer: 0, tiltBrake: 0, haveSensor: false, g0: null, b0: null, gamma: 0, beta: 0, invBrake: false };
   function pedal(side) {
     if (!S.running || S.paused) return;
@@ -513,7 +666,8 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
     S.lastPedal = side;
     S.strokes.push(now); S.strokes = S.strokes.filter(t => now - t < 2500);
     const eff = alt ? 1 : 0.45;   // 同一隻腳一直踩效果比較差
-    S.v = Math.min(VMAX, S.v + 2.3 * eff * (1 - S.v / (VMAX + 3)));
+    const bk = B();
+    S.v = Math.min(bk.vmax, S.v + bk.push * eff * (1 - S.v / (bk.vmax + 3)));
     S.bob += Math.PI / 2;
     SND.tick(alt);
     const el = side === 'L' ? $('pedL') : $('pedR');
@@ -602,14 +756,23 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
     const seg = segAt(S.z);
     const off = Math.abs(S.x) > 1.05;   // 騎出車道
     // 減速：滾動阻力＋風阻＋煞車＋草地
-    let decel = 0.55 + 0.0042 * S.v * S.v + S.brake * 16 + (off ? 4.5 : 0);
+    const bk = B();
+    let decel = bk.roll + bk.aero * S.v * S.v + S.brake * 16 + (off ? bk.off : 0);
     if (S.v > 0) S.v = Math.max(0, S.v - decel * dt);
+    // 坡度：上坡變慢、下坡變快（1 = 45 度，重力約每秒 35 km/h）
+    const slope = (seg.p2.y - seg.p1.y) / SEG;
+    S.v = clamp(S.v - slope * 35 * dt, 0, 60);
+    S.slope = slope;
     S.shake = off && S.v > 2 ? Math.min(1, S.v / 15) : Math.max(0, S.shake - dt * 3);
     if (S.crashT > 0) S.crashT -= dt;
     // 轉向與彎道離心
     const vp = S.v / 30;
-    S.x += S.steer * dt * (0.6 + vp * 1.6) * (S.v > .5 ? 1 : 0);
-    S.x -= seg.curve * vp * vp * dt * 0.9;
+    S.x += S.steer * dt * (0.6 + vp * 1.6) * bk.steer * (S.v > .5 ? 1 : 0);
+    S.x -= seg.curve * vp * vp * dt * 0.35;   // 彎道離心：速度太快會被甩出去
+    if (seg.deck || seg.ramp) {   // 橋上有護欄：擦到會減速
+      S.x = clamp(S.x, -1.15, 1.15);
+      if (Math.abs(S.x) >= 1.15 && S.v > 8 && performance.now() - (S.railT || 0) > 3000) { S.railT = performance.now(); SND.crash(); toast('擦到護欄了！下橋的急彎要先煞車'); }
+    }
     S.x = clamp(S.x, -2.3, 3.6);
     // 前進
     const dz = S.v / 3.6 * 100 * dt * FEEL;
@@ -620,7 +783,8 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
     // 地標
     const km = S.dist / 1000;
     if (S.nextMark < MARKS.length && km >= MARKS[S.nextMark].km) {
-      toast((MARKS[S.nextMark].bridge ? '🌉 ' : '📍 ') + MARKS[S.nextMark].name);
+      const m = MARKS[S.nextMark];
+      toast((m.cross ? '🌉 騎上' : m.over ? '🌉 ' : '📍 ') + m.name + (m.cross ? '，過基隆河' : ''));
       S.nextMark++;
       if (S.nextMark >= MARKS.length) finish();
     }
@@ -650,11 +814,30 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
     $('mBrake').classList.toggle('on', S.brake > .1);
     $('mBrake').textContent = S.brake > .1 ? `煞車 ${Math.round(S.brake * 100)}%` : '煞車';
   }
+  const mini = $('mini'), mg = mini.getContext('2d');
+  function drawMini() {
+    const R = 104, d = Math.min(2, devicePixelRatio || 1);
+    if (mini.width !== R * d) { mini.width = mini.height = R * d; }
+    mg.setTransform(d, 0, 0, d, 0, 0); mg.clearRect(0, 0, R, R);
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    for (const [x, y] of route) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+    const sc = (R - 20) / Math.max(x1 - x0, y1 - y0), ox = (R - (x1 - x0) * sc) / 2 - x0 * sc, oy = (R - (y1 - y0) * sc) / 2 - y0 * sc;
+    const P = ([x, y]) => [ox + x * sc, oy + y * sc];
+    mg.lineCap = mg.lineJoin = 'round';
+    mg.strokeStyle = 'rgba(110,170,220,.55)'; mg.lineWidth = 7; mg.beginPath(); route.forEach((p, i) => { const [x, y] = P(p); i ? mg.lineTo(x, y) : mg.moveTo(x, y); }); mg.stroke();
+    mg.strokeStyle = '#fff8ec'; mg.lineWidth = 2; mg.stroke();
+    const done = Math.min(route.length - 1, Math.floor(S.z / SEG / 8));
+    mg.strokeStyle = '#ffc93c'; mg.lineWidth = 3; mg.beginPath(); for (let i = 0; i <= done; i++) { const [x, y] = P(route[i]); i ? mg.lineTo(x, y) : mg.moveTo(x, y); } mg.stroke();
+    for (const m of MARKS) { const [x, y] = P(route[Math.min(route.length - 1, Math.round(m.km * SEGKM / 8))]); mg.fillStyle = m.over || m.cross ? '#9fd0ff' : '#fff'; mg.beginPath(); mg.arc(x, y, 2.5, 0, 7); mg.fill(); }
+    const [px, py] = P(route[done]);
+    mg.fillStyle = '#ff5a4f'; mg.strokeStyle = '#fff'; mg.lineWidth = 2; mg.beginPath(); mg.arc(px, py, 4.5, 0, 7); mg.fill(); mg.stroke();
+    mg.fillStyle = '#d6dbe6'; mg.font = '700 9px "Noto Sans TC", system-ui'; mg.textAlign = 'left'; mg.fillText('北↑', 5, 12);
+  }
   function frame(t) {
     const dt = Math.min(.05, (t - last) / 1000 || 0); last = t;
     if (S.running && !S.paused) update(dt);
     render();
-    if (S.running) hud();
+    if (S.running) { hud(); drawMini(); }
     requestAnimationFrame(frame);
   }
 
@@ -662,9 +845,9 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
   function toast(text) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = text; document.body.appendChild(d); setTimeout(() => d.remove(), 2700); }
   function statsHTML() {
     const km = S.dist / 1000, mins = S.time / 60, avg = S.time > 1 ? km / (S.time / 3600) : 0;
-    const best = +(store.get('bike-best') || 0);
+    const best = +(store.get('bike2-best-' + bikeK) || 0);
     return `<div><b>${km.toFixed(2)}</b><small>公里</small></div><div><b>${Math.floor(mins)}:${String(Math.floor(S.time % 60)).padStart(2, '0')}</b><small>騎乘時間</small></div><div><b>${avg.toFixed(1)}</b><small>平均時速</small></div>
-      <div><b>${S.maxV.toFixed(0)}</b><small>最高時速</small></div><div><b>${S.crashes}</b><small>摔車</small></div><div><b>${best ? Math.floor(best / 60) + ':' + String(Math.floor(best % 60)).padStart(2, '0') : '—'}</b><small>最快全程</small></div>`;
+      <div><b>${S.maxV.toFixed(0)}</b><small>最高時速</small></div><div><b>${S.crashes}</b><small>摔車</small></div><div><b>${best ? Math.floor(best / 60) + ':' + String(Math.floor(best % 60)).padStart(2, '0') : '—'}</b><small>最快（${B().name}）</small></div>`;
   }
   function togglePause() {
     if (!S.running || S.finished) return;
@@ -674,8 +857,9 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
   }
   function finish() {
     S.finished = true; S.running = false;
-    const best = +(store.get('bike-best') || 0);
-    if (!best || S.time < best) store.set('bike-best', S.time);
+    const best = +(store.get('bike2-best-' + bikeK) || 0);
+    if (!best || S.time < best) store.set('bike2-best-' + bikeK, S.time);
+    $('finTxt').textContent = `騎${B().name}抵達關渡，夕陽剛好落在觀音山後面。辛苦了！`;
     $('finishStats').innerHTML = statsHTML();
     setTimeout(() => { $('finishScreen').hidden = false; }, 1200);
     SND.wind(0);
@@ -696,10 +880,16 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
     reset(); S.running = true;
     $('startScreen').hidden = true;
     keepAwake();
-    toast('📍 大稻埕碼頭出發！兩隻手指輪流點螢幕');
+    toast(`📍 騎${B().name}從大稻埕碼頭出發！`);
     if (!matchMedia('(pointer: coarse)').matches) showPads(false);
   });
   $('invBrake').checked = store.get('bike-inv') === '1';
+  function setBike(k) {
+    if (!BIKES[k]) return; bikeK = k; store.set('bike-type', k);
+    document.querySelectorAll('.bk').forEach(b => b.setAttribute('aria-checked', b.dataset.k === k ? 'true' : 'false'));
+  }
+  document.querySelectorAll('.bk').forEach(b => b.addEventListener('click', () => setBike(b.dataset.k)));
+  setBike(bikeK);
   $('pauseBtn').addEventListener('click', togglePause);
   $('resumeBtn').addEventListener('click', togglePause);
   $('calBtn').addEventListener('click', () => { calibrate(); toast('已重新校正'); togglePause(); });
@@ -748,6 +938,6 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
   resize(); buildTrack(); reset();
   requestAnimationFrame(frame);
   // 測試入口
-  window.__bike = { S, ctl, pedal, bell, get npcs() { return npcs; }, segs, MARKS };
+  window.__bike = { S, ctl, pedal, bell, get npcs() { return npcs; }, segs, MARKS, BIKES, setBike, route, SEGKM, FIN };
 })();
 </script>
