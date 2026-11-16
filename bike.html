@@ -57,6 +57,8 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
 
 /* 踩踏指示：左右下角 */
 .pedal { position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); width: 64px; height: 64px; border-radius: 50%; border: 3px solid rgba(255,255,255,.35); background: rgba(0,0,0,.25); display: grid; place-items: center; font-weight: 900; font-size: 13px; color: rgba(255,255,255,.75); pointer-events: none; transition: transform .08s, background .08s; }
+.bigbell { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); width: 76px; height: 76px; border-radius: 50%; border: 3px solid #fff; background: rgba(242, 194, 48, .92); font-size: 36px; display: grid; place-items: center; touch-action: none; box-shadow: 0 4px 0 #a07a10; z-index: 5; }
+.bigbell.on { transform: translateX(-50%) scale(.88); background: #fff3b0; }
 .pedal.l { left: max(14px, env(safe-area-inset-left, 0px)); }
 .pedal.r { right: max(14px, env(safe-area-inset-right, 0px)); }
 .pedal.on { background: var(--go); color: #08321f; transform: scale(.88); border-color: #fff; }
@@ -96,7 +98,10 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
 .warn { color: var(--sun); font-size: 13px; }
 .bikes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .bk { background: rgba(255,255,255,.06); border: 2px solid var(--line); border-radius: 14px; padding: 8px 6px 10px; cursor: pointer; display: grid; gap: 4px; justify-items: center; text-align: center; }
-.bk[aria-checked="true"] { border-color: var(--sun); background: rgba(255,201,60,.14); }
+.bk { position: relative; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.bk[aria-checked="true"] b { color: var(--sun); }
+.bk[aria-checked="true"] { border-color: var(--sun); background: rgba(255,201,60,.22); box-shadow: 0 0 0 2px var(--sun); }
+.bk[aria-checked="true"]::after { content: "✓"; position: absolute; top: 4px; right: 6px; width: 22px; height: 22px; border-radius: 50%; background: var(--sun); color: #3a2a00; font-weight: 900; font-size: 14px; display: grid; place-items: center; }
 .bk svg { width: 100%; max-width: 110px; height: auto; }
 .bk b { font-size: 15px; }
 .bk small { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
@@ -115,7 +120,6 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
   <div class="chip"><small>踏頻</small><b id="hCad">0<i>rpm</i></b></div>
   <div class="grow"></div>
   <div class="tools">
-    <button class="tbtn" id="bellBtn" type="button" aria-label="按鈴">🔔</button>
     <button class="tbtn" id="muteBtn" type="button" aria-label="關閉聲音">🔊</button>
     <button class="tbtn" id="pauseBtn" type="button" aria-label="暫停">⏸</button>
   </div>
@@ -127,6 +131,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
 <div class="pedal l" id="pedL">左踏</div>
 <div class="pedal r" id="pedR">右踏</div>
 <canvas id="mini" aria-hidden="true"></canvas>
+<button class="bigbell" id="bellBtn" type="button" aria-label="按鈴">🔔</button>
 <div class="meter"><span id="mSteer">方向 ｜</span><span class="brk" id="mBrake">煞車</span></div>
 <button class="pad left" id="padL" type="button" aria-label="向左" hidden>◀</button>
 <button class="pad right" id="padR" type="button" aria-label="向右" hidden>▶</button>
@@ -140,7 +145,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
       <div><span class="ic">✌️</span><span><b>兩隻手指輪流點</b>螢幕左半邊和右半邊，就是左右腳踩踏板。點越快騎越快，停下來會慢慢滑行減速。</span></div>
       <div><span class="ic">📱</span><span>手機<b>往左、往右傾斜</b>就會轉彎，騎出車道到草地會變慢。</span></div>
       <div><span class="ic">🛑</span><span>手機<b>上緣往自己的方向轉</b>就是煞車，轉越多煞越快。</span></div>
-      <div><span class="ic">🔔</span><span>前面有人時按右上角的鈴，他們會讓開。撞到人會摔車。</span></div>
+      <div><span class="ic">🔔</span><span>前面有人時按畫面下方中間的大鈴鐺，他們會讓開。撞到人會摔車。</span></div>
     </div>
     <div class="bikes" role="radiogroup" aria-label="選擇單車"><button class="bk" type="button" role="radio" data-k="city" aria-checked="false"><svg viewBox="0 0 120 70" aria-hidden="true"><g fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="25" cy="48" r="17" stroke="#cfd6e0"/><circle cx="95" cy="48" r="17" stroke="#cfd6e0"/><path d="M25 48 L50 48 L44 24 M50 48 Q62 30 84 22 L95 48 M84 22 L80 14 Q74 12 70 14" stroke="#7fd6c2"/><path d="M38 20 h14" stroke="#cfd6e0"/></g><rect x="84" y="20" width="18" height="11" rx="2" fill="#b8864e"/></svg><b>城市車</b><small>有菜籃，坐姿挺，慢慢騎最舒服</small><span class="bars"><span>極速<i style="--w:45%"></i></span><span>起步<i style="--w:60%"></i></span><span>靈活<i style="--w:65%"></i></span></span></button><button class="bk" type="button" role="radio" data-k="road" aria-checked="false"><svg viewBox="0 0 120 70" aria-hidden="true"><g fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="48" r="18" stroke="#cfd6e0"/><circle cx="96" cy="48" r="18" stroke="#cfd6e0"/><path d="M24 48 L52 48 L42 20 L86 18 L52 48 M86 18 L96 48 M42 20 L24 48" stroke="#ff6b5a"/><path d="M36 18 h12 M86 18 l4 -6 h6 q5 2 2 9 l-3 1" stroke="#cfd6e0"/></g></svg><b>公路車</b><small>彎把細胎，騎得最快，但草地很顛</small><span class="bars"><span>極速<i style="--w:100%"></i></span><span>起步<i style="--w:55%"></i></span><span>靈活<i style="--w:40%"></i></span></span></button><button class="bk" type="button" role="radio" data-k="birdy" aria-checked="false"><svg viewBox="0 0 120 70" aria-hidden="true"><g fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="52" r="11" stroke="#cfd6e0"/><circle cx="88" cy="52" r="11" stroke="#cfd6e0"/><path d="M32 52 L52 34 L78 34 L88 52 M52 34 L50 16 M78 34 L76 10" stroke="#f0a030"/><path d="M44 16 h12 M70 10 h12" stroke="#cfd6e0"/></g></svg><b>Birdy 小摺</b><small>小輪摺疊車，起步快、轉彎靈活</small><span class="bars"><span>極速<i style="--w:70%"></i></span><span>起步<i style="--w:100%"></i></span><span>靈活<i style="--w:100%"></i></span></span></button></div>
     <label class="opt"><input type="checkbox" id="invBrake"> 煞車方向反過來（手機上緣往前倒才煞車）</label>
@@ -887,16 +892,20 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
   function setBike(k) {
     if (!BIKES[k]) return; bikeK = k; store.set('bike-type', k);
     document.querySelectorAll('.bk').forEach(b => b.setAttribute('aria-checked', b.dataset.k === k ? 'true' : 'false'));
+    $('startBtn').textContent = `騎${BIKES[k].name}出發`;
   }
-  document.querySelectorAll('.bk').forEach(b => b.addEventListener('click', () => setBike(b.dataset.k)));
+  document.querySelectorAll('.bk').forEach(b => { b.addEventListener('click', () => setBike(b.dataset.k)); b.addEventListener('pointerup', () => setBike(b.dataset.k)); });
   setBike(bikeK);
   $('pauseBtn').addEventListener('click', togglePause);
   $('resumeBtn').addEventListener('click', togglePause);
   $('calBtn').addEventListener('click', () => { calibrate(); toast('已重新校正'); togglePause(); });
   $('restartBtn').addEventListener('click', () => { reset(); S.running = true; togglePause(); });
   $('againBtn').addEventListener('click', () => { $('finishScreen').hidden = true; reset(); S.running = true; });
-  $('bellBtn').addEventListener('click', e => { e.stopPropagation(); if (S.running && !S.paused) bell(); });
-  ['bellBtn', 'muteBtn', 'pauseBtn'].forEach(id => $(id).addEventListener('touchstart', e => e.stopPropagation(), { passive: true }));
+  // 鈴：手指一碰到就響（不等放開，兩隻手指在踩的時候也按得到）
+  const ringBell = e => { e.preventDefault(); e.stopPropagation(); if (S.running && !S.paused) { bell(); $('bellBtn').classList.add('on'); setTimeout(() => $('bellBtn').classList.remove('on'), 150); } };
+  $('bellBtn').addEventListener('touchstart', ringBell, { passive: false });
+  $('bellBtn').addEventListener('mousedown', ringBell);
+  ['muteBtn', 'pauseBtn'].forEach(id => $(id).addEventListener('touchstart', e => e.stopPropagation(), { passive: true }));
 
   // ---------- 音效（Web Audio 合成） ----------
   const SND = (() => {
