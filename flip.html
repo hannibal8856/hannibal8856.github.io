@@ -253,6 +253,13 @@ body {
     S.hands[0].sort((a, b) => order[F(a).c] - order[F(b).c] || vo(F(a).v) - vo(F(b).v));
   }
 
+  // when the draw pile runs out, shuffle the discard pile (except its top card) back in right away,
+  // so there is always a card to tap
+  function refillDeck() {
+    if (S.deck.length || S.discard.length < 2) return;
+    const t = S.discard.pop();
+    S.deck = shuffle(S.discard); S.discard = [t];
+  }
   function draw(p, n) {
     const got = [];
     for (let i = 0; i < n; i++) {
@@ -471,8 +478,9 @@ body {
     }).join('');
 
     const myTurn = S.phase === 'play' && S.turn === 0;
+    refillDeck();
     const deckTop = S.deck[S.deck.length - 1];
-    $('deck').innerHTML = deckTop ? cardHTML(deckTop[os], os, -1) : '';
+    $('deck').innerHTML = deckTop ? cardHTML(deckTop[os], os, -1) : '<div style="width:72px;height:104px;border-radius:10px;border:2px dashed #ffffff66;color:#ddd;display:grid;place-items:center;text-align:center;font-size:.75rem;line-height:1.5;cursor:pointer">牌堆空了<br>点这里跳过</div>';
     const dc = $('deck').firstChild; if (dc) dc.style.setProperty('--w', '72px');
     $('deck').classList.toggle('can', myTurn && S.drawn === null && !S.hands[0].some(playable));
     $('deckCount').textContent = `牌堆 ${S.deck.length}（背面）`;
@@ -539,6 +547,7 @@ body {
     else newGame();
   }
   window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+  window.__flip = { S: () => S, render: () => render() }; // for automated tests
 })();
 </script>
 
