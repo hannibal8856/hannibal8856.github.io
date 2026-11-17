@@ -1,0 +1,872 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="遊戲廳">
+<meta name="theme-color" content="#12202c">
+<script>
+addEventListener('DOMContentLoaded', function () {
+  if (!(navigator.standalone || matchMedia('(display-mode: standalone)').matches)) return;
+  var a = document.createElement('a');
+  a.id = 'hg-home'; a.href = './'; a.textContent = '⌂';
+  a.onclick = function (e) { if (!confirm('回遊戲大廳？這一局的進度會消失。')) e.preventDefault(); }; a.setAttribute('aria-label', '回遊戲大廳');
+  a.style.cssText = 'position:fixed;left:env(safe-area-inset-left);top:50%;transform:translateY(-50%);z-index:2147483647;padding:10px 6px 10px 4px;border-radius:0 10px 10px 0;background:rgba(0,0,0,.5);color:#fff;font:600 15px/1 system-ui,-apple-system,sans-serif;text-decoration:none;opacity:.55;-webkit-tap-highlight-color:transparent';
+  document.body.appendChild(a);
+});
+</script>
+<title>楚河漢界</title>
+<meta name="description" content="象棋：和電腦對下（入門、普通、高手）或兩人在同一支手機上對下，有悔棋、提示和棋譜。">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&family=Noto+Sans+TC:wght@500;700;900&display=swap">
+<style>
+/* 茶館風：深綠底、木紋棋盤、朱紅與墨黑棋子 */
+:root {
+  --bg: #1d2a27; --panel: #26352f; --line: rgba(255,255,255,.14); --ink: #f6efe2; --muted: #b9c4bc;
+  --wood: #e9c88f; --wood2: #d9ad6a; --grid: #6b4422; --red: #b5241b; --blk: #1f1f1f; --gold: #f3c55a; --hint: #2fae6b;
+  --f-ui: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --f-pc: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--f-ui); -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+body { display: flex; flex-direction: column; align-items: center; min-height: 100dvh;
+  padding: calc(env(safe-area-inset-top, 0px) + 8px) max(8px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 8px) max(8px, env(safe-area-inset-left, 0px)); }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+.wrap { width: 100%; max-width: 1000px; display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1; }
+.top { width: 100%; display: flex; align-items: center; gap: 8px; }
+.top h1 { margin: 0; font-family: var(--f-pc); font-weight: 900; font-size: 22px; letter-spacing: .12em; }
+.top h1 span { color: var(--gold); }
+.top .grow { flex: 1; }
+.tb { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; font-size: 14px; font-weight: 700; white-space: nowrap; }
+.status { width: 100%; display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 6px 10px; font-size: 15px; font-weight: 700; min-height: 40px; }
+.status .dot { width: 18px; height: 18px; border-radius: 50%; flex: none; border: 2px solid #fff6; }
+.status .dot.r { background: var(--red); } .status .dot.b { background: var(--blk); }
+.status .sub { margin-left: auto; color: var(--muted); font-size: 12.5px; font-weight: 500; }
+.thinking::after { content: ''; display: inline-block; width: 1.2em; text-align: left; animation: dots 1s steps(4) infinite; }
+@keyframes dots { 0% { content: ''; } 25% { content: '．'; } 50% { content: '．．'; } 75% { content: '．．．'; } }
+
+.main { width: 100%; display: flex; gap: 12px; justify-content: center; align-items: flex-start; }
+.boardBox { position: relative; width: min(100%, calc((100dvh - 250px) * .852)); min-width: 280px; }
+.caps { display: flex; flex-wrap: wrap; gap: 2px; min-height: 26px; align-items: center; padding: 2px 4px; }
+.caps i { font-style: normal; font-family: var(--f-pc); font-weight: 900; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 14px; background: var(--wood); box-shadow: inset 0 0 0 2px currentColor; }
+.caps i.r { color: var(--red); } .caps i.b { color: var(--blk); }
+svg#bd { width: 100%; height: auto; display: block; border-radius: 10px; box-shadow: 0 10px 30px #0008; touch-action: manipulation; }
+.pc { transition: transform .26s cubic-bezier(.3,.8,.3,1); cursor: pointer; }
+.pc.lift { filter: drop-shadow(0 10px 6px rgba(0,0,0,.45)); }
+.pc text { font-family: var(--f-pc); font-weight: 900; font-size: 50px; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+.gone { animation: gone .35s forwards; }
+@keyframes gone { to { opacity: 0; transform: scale(.4); } }
+
+.side { width: 260px; flex: none; display: grid; gap: 8px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+.card h2 { margin: 0 0 6px; font-size: 14px; color: var(--muted); font-weight: 700; letter-spacing: .1em; }
+#moves { max-height: 52vh; overflow-y: auto; font-size: 14.5px; line-height: 1.75; display: grid; grid-template-columns: 2.2em 1fr 1fr; column-gap: 6px; font-variant-numeric: tabular-nums; }
+#moves span.n { color: var(--muted); text-align: right; }
+#moves span.last { color: var(--gold); font-weight: 700; }
+.ctrl { width: 100%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.ctrl button { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 4px; font-weight: 900; font-size: 15px; display: grid; justify-items: center; gap: 2px; }
+.ctrl button small { font-size: 11px; color: var(--muted); font-weight: 500; }
+.ctrl button:disabled { opacity: .4; cursor: default; }
+.mobileMoves { width: 100%; font-size: 13px; color: var(--muted); white-space: nowrap; overflow-x: auto; padding: 2px 4px; }
+.mobileMoves b { color: var(--ink); font-weight: 700; }
+@media (min-width: 760px) { .mobileMoves { display: none; } .boardBox { width: min(100% - 272px, calc((100dvh - 230px) * .852)); } }
+@media (max-width: 759px) { .side { display: none; } }
+
+.stamp { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); font-family: var(--f-pc); font-weight: 900; font-size: 72px; color: #fff; background: var(--red); border: 6px double #fff; border-radius: 18px; padding: 6px 26px; pointer-events: none; z-index: 30; animation: stamp 1.3s ease-out forwards; letter-spacing: .1em; text-shadow: 0 2px 0 #0004; }
+@keyframes stamp { 0% { opacity: 0; transform: translate(-50%, -50%) scale(2.2) rotate(-8deg); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(-6deg); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1) rotate(-6deg); } }
+.toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 90px); transform: translateX(-50%); background: rgba(0,0,0,.82); border: 1px solid var(--line); padding: 8px 14px; border-radius: 10px; font-weight: 700; z-index: 30; pointer-events: none; animation: tst 2.4s forwards; white-space: nowrap; }
+@keyframes tst { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
+
+.screen { position: fixed; inset: 0; background: rgba(8, 14, 12, .8); display: grid; place-items: center; z-index: 20; overflow-y: auto;
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px); }
+.dlg { width: min(420px, 100%); background: #22312b; border: 2px solid var(--line); border-radius: 18px; padding: 18px; display: grid; gap: 12px; }
+.dlg h2 { margin: 0; font-family: var(--f-pc); font-size: 28px; font-weight: 900; letter-spacing: .1em; text-align: center; }
+.dlg h2 span { color: var(--gold); }
+.dlg p { margin: 0; line-height: 1.6; color: var(--muted); font-size: 14px; text-align: center; }
+.opt { display: grid; gap: 6px; }
+.opt > small { color: var(--muted); font-size: 12.5px; font-weight: 700; letter-spacing: .08em; }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+.seg button { background: rgba(255,255,255,.06); border: 2px solid var(--line); border-radius: 12px; padding: 10px 4px; font-weight: 900; display: grid; gap: 2px; justify-items: center; }
+.seg button small { font-weight: 500; font-size: 11.5px; color: var(--muted); }
+.seg button[aria-pressed="true"] { border-color: var(--gold); background: rgba(243,197,90,.18); color: #fff; }
+.chk { display: flex; gap: 8px; align-items: center; font-size: 13.5px; color: var(--muted); }
+.chk input { width: 18px; height: 18px; accent-color: var(--gold); }
+.go { background: var(--gold); color: #3a2800; border: 0; border-radius: 14px; padding: 13px; font-weight: 900; font-size: 18px; letter-spacing: .1em; box-shadow: 0 4px 0 #a17a20; }
+.go:active { transform: translateY(3px); box-shadow: 0 1px 0 #a17a20; }
+.ghost { background: rgba(255,255,255,.07); border: 1px solid var(--line); border-radius: 12px; padding: 11px; font-weight: 700; }
+.row { display: flex; gap: 8px; } .row > * { flex: 1; }
+details { font-size: 13.5px; color: var(--muted); line-height: 1.65; }
+details summary { cursor: pointer; font-weight: 700; color: var(--ink); }
+details ul { margin: 6px 0 0; padding-left: 1.2em; }
+.big { font-size: 46px; text-align: center; line-height: 1; }
+@media (prefers-reduced-motion: reduce) { .pc { transition: none; } .stamp, .toast { animation-duration: .01s; } }
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <h1>楚河<span>漢界</span></h1>
+    <div class="grow"></div>
+    <button class="tb" id="muteBtn" type="button" aria-label="聲音">🔊</button>
+    <button class="tb" id="newBtn" type="button">新局</button>
+  </div>
+  <div class="status" id="status"><span class="dot r" id="sDot"></span><span id="sText">輪到紅方</span><span class="sub" id="sSub"></span></div>
+  <div class="main">
+    <div class="boardBox">
+      <div class="caps" id="capTop" aria-label="上方吃到的子"></div>
+      <svg id="bd" viewBox="0 -30 920 1080" role="img" aria-label="象棋棋盤"></svg>
+      <div class="caps" id="capBot" aria-label="下方吃到的子"></div>
+    </div>
+    <div class="side">
+      <div class="card"><h2>棋譜</h2><div id="moves"></div></div>
+    </div>
+  </div>
+  <div class="mobileMoves" id="mMoves"></div>
+  <div class="ctrl">
+    <button id="undoBtn" type="button">悔棋<small id="undoSub">退回一步</small></button>
+    <button id="hintBtn" type="button">提示<small>電腦建議</small></button>
+    <button id="flipBtn" type="button">翻轉<small>棋盤上下</small></button>
+    <button id="drawBtn" type="button">認輸<small>結束這局</small></button>
+  </div>
+</div>
+
+<div class="screen" id="setup">
+  <div class="dlg">
+    <h2>楚河<span>漢界</span></h2>
+    <p>紅先黑後。點自己的棋子，再點亮起來的位置走棋。</p>
+    <div class="opt"><small>對手</small><div class="seg" id="optMode">
+      <button type="button" data-v="ai">🤖 電腦<small>一個人玩</small></button>
+      <button type="button" data-v="2p">👥 雙人<small>同一支手機輪流下</small></button>
+    </div></div>
+    <div class="opt" id="rowSide"><small>我執</small><div class="seg" id="optSide">
+      <button type="button" data-v="1">紅方<small>先走</small></button>
+      <button type="button" data-v="-1">黑方<small>後走</small></button>
+    </div></div>
+    <div class="opt" id="rowLevel"><small>電腦難度</small><div class="seg" id="optLevel">
+      <button type="button" data-v="easy">入門<small>常常失誤</small></button>
+      <button type="button" data-v="normal">普通<small>會抓漏洞</small></button>
+      <button type="button" data-v="hard">高手<small>想得比較深</small></button>
+    </div></div>
+    <label class="chk" id="rowFace"><input type="checkbox" id="optFace"> 面對面下（黑方的字倒過來，手機平放在兩人中間）</label>
+    <details><summary>規則說明</summary><ul>
+      <li>帥（將）只能在九宮裡直走一步；兩個王在同一直線中間沒有棋子隔開（王見王）是不行的。</li>
+      <li>仕（士）在九宮裡斜走一步；相（象）走田字、不能過河，田字中間有子就不能走（塞象眼）。</li>
+      <li>傌（馬）走日字，前面緊貼著有子就不能走（蹩馬腿）；俥（車）直走不限步數。</li>
+      <li>炮（包）平常像車一樣走，吃子時中間要剛好隔一顆子（炮架）。</li>
+      <li>兵（卒）過河前只能往前一步，過河後可以往前或左右走一步，不能後退。</li>
+      <li>把對方將死或讓對方無路可走（困斃）就贏。同一個局面出現第三次：一直將軍的一方（長將）判輸，否則和棋；連續 60 回合沒有吃子也是和棋。</li>
+    </ul></details>
+    <button class="go" id="startBtn" type="button">開始下棋</button>
+    <button class="ghost" id="resumeBtn" type="button" hidden>繼續上一局</button>
+  </div>
+</div>
+
+<div class="screen" id="endScr" hidden>
+  <div class="dlg">
+    <div class="big" id="endIcon">🏆</div>
+    <h2 id="endTitle">你贏了</h2>
+    <p id="endText"></p>
+    <div class="row"><button class="ghost" id="reviewBtn" type="button">看棋盤</button><button class="go" id="againBtn" type="button">再來一局</button></div>
+  </div>
+</div>
+
+<script>
+// 象棋引擎：走法產生、將軍判斷、alpha-beta 搜尋。主畫面和 Web Worker 共用同一份程式（ENGINE.toString() 丟進 Worker）
+function ENGINE(X) {
+  'use strict';
+  // 棋子：正數紅、負數黑。1 帥將 2 仕士 3 相象 4 傌馬 5 俥車 6 炮包 7 兵卒
+  // 棋盤 index = r*9+c，r=0 是黑方底線（上方），r=9 是紅方底線（下方）
+  const BASE = [0, 0, 120, 120, 270, 600, 285, 30];
+  const T = rows => rows.flat();
+  const PST = [null,
+    T([[0,0,0,-8,-8,-8,0,0,0],[0,0,0,-8,-8,-8,0,0,0],[0,0,0,-8,-8,-8,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,-9,-9,-9,0,0,0],[0,0,0,-6,-4,-6,0,0,0],[0,0,0,-2,2,-2,0,0,0]]),
+    T([[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,4,0,0,0,0],[0,0,0,0,0,0,0,0,0]]),
+    T([[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,-2,0,0,0,-2,0,0],[0,0,0,0,0,0,0,0,0],[-2,0,0,0,4,0,0,0,-2],[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0]]),
+    T([[4,8,16,12,4,12,16,8,4],[4,10,28,16,8,16,28,10,4],[12,14,16,20,18,20,16,14,12],[8,24,18,24,20,24,18,24,8],[6,16,14,18,16,18,14,16,6],[4,12,16,14,12,14,16,12,4],[2,6,8,6,10,6,8,6,2],[4,2,8,8,4,8,8,2,4],[0,2,4,4,-2,4,4,2,0],[0,-4,0,0,0,0,0,-4,0]]),
+    T([[14,14,12,18,16,18,12,14,14],[16,20,18,24,26,24,18,20,16],[12,12,12,18,18,18,12,12,12],[12,18,16,22,22,22,16,18,12],[12,14,12,18,18,18,12,14,12],[12,16,14,20,20,20,14,16,12],[6,10,8,14,14,14,8,10,6],[4,8,6,14,12,14,6,8,4],[8,4,8,16,8,16,8,4,8],[-2,10,6,14,12,14,6,10,-2]]),
+    T([[6,4,0,-10,-12,-10,0,4,6],[2,2,0,-4,-14,-4,0,2,2],[2,2,0,-10,-8,-10,0,2,2],[0,0,-2,4,10,4,-2,0,0],[0,0,0,2,8,2,0,0,0],[-2,0,4,2,6,2,4,0,-2],[0,0,0,2,4,2,0,0,0],[4,0,8,6,10,6,8,0,4],[0,2,4,6,6,6,4,2,0],[0,0,2,6,6,6,2,0,0]]),
+    T([[0,0,0,2,4,2,0,0,0],[20,30,50,65,70,65,50,30,20],[20,30,45,55,55,55,45,30,20],[20,27,30,40,42,40,30,27,20],[10,18,22,35,40,35,22,18,10],[3,0,4,0,7,0,4,0,3],[-2,0,-2,0,6,0,-2,0,-2],[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0]]),
+  ];
+  // PV[p+7][sq]：紅方角度的分數
+  const PV = [];
+  for (let p = -7; p <= 7; p++) {
+    const a = new Int32Array(90);
+    if (p) for (let sq = 0; sq < 90; sq++) {
+      const t = Math.abs(p), r = sq / 9 | 0, c = sq % 9, idx = p > 0 ? sq : (9 - r) * 9 + c;
+      a[sq] = (p > 0 ? 1 : -1) * (BASE[t] + PST[t][idx]);
+    }
+    PV.push(a);
+  }
+  // Zobrist
+  let rs = 0x9e3779b9 | 0;
+  const rnd32 = () => { rs ^= rs << 13; rs ^= rs >>> 17; rs ^= rs << 5; return rs | 0; };
+  const Z1 = [], Z2 = [];
+  for (let p = 0; p < 15; p++) { const a = new Int32Array(90), b2 = new Int32Array(90); for (let i = 0; i < 90; i++) { a[i] = rnd32(); b2[i] = rnd32(); } Z1.push(a); Z2.push(b2); }
+  const ZS1 = rnd32(), ZS2 = rnd32();
+
+  const b = new Int8Array(90);
+  let side = 1, score = 0, k1 = 0, k2 = 0, kr = 85, kb = 4;
+  const D4 = [[-1, 0], [1, 0], [0, -1], [0, 1]], DD = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+  const NM = [[-2, -1, -1, 0], [-2, 1, -1, 0], [2, -1, 1, 0], [2, 1, 1, 0], [-1, -2, 0, -1], [1, -2, 0, -1], [-1, 2, 0, 1], [1, 2, 0, 1]];
+
+  function setPos(arr, s) {
+    score = 0; k1 = 0; k2 = 0;
+    for (let i = 0; i < 90; i++) {
+      b[i] = arr[i];
+      if (arr[i]) { score += PV[arr[i] + 7][i]; k1 ^= Z1[arr[i] + 7][i]; k2 ^= Z2[arr[i] + 7][i]; if (arr[i] === 1) kr = i; if (arr[i] === -1) kb = i; }
+    }
+    side = s; if (s < 0) { k1 ^= ZS1; k2 ^= ZS2; }
+  }
+  function startPos() {
+    const a = new Array(90).fill(0), back = [5, 4, 3, 2, 1, 2, 3, 4, 5];
+    for (let c = 0; c < 9; c++) { a[c] = -back[c]; a[81 + c] = back[c]; }
+    a[19] = a[25] = -6; a[64] = a[70] = 6;
+    for (let c = 0; c < 9; c += 2) { a[27 + c] = -7; a[54 + c] = 7; }
+    return a;
+  }
+  const inPal = (r, c, s) => c >= 3 && c <= 5 && (s > 0 ? r >= 7 && r <= 9 : r >= 0 && r <= 2);
+
+  function gen(caps) {
+    const mv = [], s = side;
+    for (let sq = 0; sq < 90; sq++) {
+      const p = b[sq];
+      if (!p || (p > 0) !== (s > 0)) continue;
+      const t = p > 0 ? p : -p, r = sq / 9 | 0, c = sq % 9;
+      const add = to => { const q = b[to]; if (q && (q > 0) === (s > 0)) return; if (caps && !q) return; mv.push(sq << 7 | to); };
+      switch (t) {
+        case 1: for (const [dr, dc] of D4) { const nr = r + dr, nc = c + dc; if (inPal(nr, nc, s)) add(nr * 9 + nc); } break;
+        case 2: for (const [dr, dc] of DD) { const nr = r + dr, nc = c + dc; if (inPal(nr, nc, s)) add(nr * 9 + nc); } break;
+        case 3: for (const [dr, dc] of DD) {
+          const nr = r + 2 * dr, nc = c + 2 * dc;
+          if (nr < 0 || nr > 9 || nc < 0 || nc > 8) continue;
+          if (s > 0 ? nr < 5 : nr > 4) continue;
+          if (b[(r + dr) * 9 + c + dc]) continue;
+          add(nr * 9 + nc);
+        } break;
+        case 4: for (const [dr, dc, lr, lc] of NM) {
+          const nr = r + dr, nc = c + dc;
+          if (nr < 0 || nr > 9 || nc < 0 || nc > 8) continue;
+          if (b[(r + lr) * 9 + c + lc]) continue;
+          add(nr * 9 + nc);
+        } break;
+        case 5: for (const [dr, dc] of D4) {
+          let nr = r + dr, nc = c + dc;
+          while (nr >= 0 && nr <= 9 && nc >= 0 && nc <= 8) {
+            const to = nr * 9 + nc, q = b[to];
+            if (!q) { if (!caps) mv.push(sq << 7 | to); }
+            else { if ((q > 0) !== (s > 0)) mv.push(sq << 7 | to); break; }
+            nr += dr; nc += dc;
+          }
+        } break;
+        case 6: for (const [dr, dc] of D4) {
+          let nr = r + dr, nc = c + dc, jumped = false;
+          while (nr >= 0 && nr <= 9 && nc >= 0 && nc <= 8) {
+            const to = nr * 9 + nc, q = b[to];
+            if (!jumped) { if (!q) { if (!caps) mv.push(sq << 7 | to); } else jumped = true; }
+            else if (q) { if ((q > 0) !== (s > 0)) mv.push(sq << 7 | to); break; }
+            nr += dr; nc += dc;
+          }
+        } break;
+        case 7: {
+          const f = s > 0 ? -1 : 1, nr = r + f;
+          if (nr >= 0 && nr <= 9) add(nr * 9 + c);
+          if (s > 0 ? r <= 4 : r >= 5) { if (c > 0) add(sq - 1); if (c < 8) add(sq + 1); }
+        } break;
+      }
+    }
+    return mv;
+  }
+
+  // s 這一方的帥（將）有沒有被攻擊（含將帥對面）
+  function inCheck(s) {
+    const k = s > 0 ? kr : kb, r = k / 9 | 0, c = k % 9, e = -s;
+    for (const [dr, dc] of D4) {
+      let nr = r + dr, nc = c + dc, found = 0;
+      while (nr >= 0 && nr <= 9 && nc >= 0 && nc <= 8) {
+        const q = b[nr * 9 + nc];
+        if (q) {
+          if (!found) { if (q === e * 5 || (dc === 0 && q === e)) return true; found = 1; }
+          else { if (q === e * 6) return true; break; }
+        }
+        nr += dr; nc += dc;
+      }
+    }
+    for (const [dr, dc] of NM) {
+      const nr = r + dr, nc = c + dc;
+      if (nr < 0 || nr > 9 || nc < 0 || nc > 8 || b[nr * 9 + nc] !== e * 4) continue;
+      const lr = Math.abs(dr) === 2 ? nr - Math.sign(dr) : nr, lc = Math.abs(dc) === 2 ? nc - Math.sign(dc) : nc;
+      if (!b[lr * 9 + lc]) return true;
+    }
+    const ef = e > 0 ? -1 : 1, pr = r - ef;
+    if (pr >= 0 && pr <= 9 && b[pr * 9 + c] === e * 7) return true;
+    if (c > 0 && b[k - 1] === e * 7) return true;
+    if (c < 8 && b[k + 1] === e * 7) return true;
+    return false;
+  }
+
+  function make(m) {
+    const f = m >> 7, t = m & 127, p = b[f], q = b[t];
+    score += PV[p + 7][t] - PV[p + 7][f];
+    k1 ^= Z1[p + 7][f] ^ Z1[p + 7][t] ^ ZS1; k2 ^= Z2[p + 7][f] ^ Z2[p + 7][t] ^ ZS2;
+    if (q) { score -= PV[q + 7][t]; k1 ^= Z1[q + 7][t]; k2 ^= Z2[q + 7][t]; }
+    b[t] = p; b[f] = 0;
+    if (p === 1) kr = t; else if (p === -1) kb = t;
+    side = -side;
+    return q;
+  }
+  function unmake(m, q) {
+    const f = m >> 7, t = m & 127, p = b[t];
+    side = -side;
+    b[f] = p; b[t] = q;
+    if (p === 1) kr = f; else if (p === -1) kb = f;
+    score -= PV[p + 7][t] - PV[p + 7][f];
+    k1 ^= Z1[p + 7][f] ^ Z1[p + 7][t] ^ ZS1; k2 ^= Z2[p + 7][f] ^ Z2[p + 7][t] ^ ZS2;
+    if (q) { score += PV[q + 7][t]; k1 ^= Z1[q + 7][t]; k2 ^= Z2[q + 7][t]; }
+  }
+  function legal() {
+    const out = [];
+    for (const m of gen(false)) { const q = make(m); if (!inCheck(-side)) out.push(m); unmake(m, q); }
+    return out;
+  }
+
+  // ---------- 搜尋 ----------
+  const MATE = 30000, TTN = 1 << 20, TTM = TTN - 1;
+  const ttK = new Int32Array(TTN), ttD = new Int8Array(TTN), ttF = new Int8Array(TTN), ttS = new Int32Array(TTN), ttMv = new Int32Array(TTN);
+  const hist = new Int32Array(1 << 14);
+  let killers = [], nodes = 0, stopAt = 0, aborted = false, path = [], gameKeys = new Set();
+  const LVA = [0, 7, 2, 2, 4, 6, 5, 1], MVV = [0, 100, 20, 20, 40, 90, 45, 10];
+
+  function order(mv, ttm, ply) {
+    const sc = new Int32Array(mv.length), k = killers[ply] || [];
+    for (let i = 0; i < mv.length; i++) {
+      const m = mv[i], q = b[m & 127];
+      if (m === ttm) sc[i] = 1e9;
+      else if (q) sc[i] = 1e8 + MVV[Math.abs(q)] * 10 - LVA[Math.abs(b[m >> 7])];
+      else if (m === k[0]) sc[i] = 9e7; else if (m === k[1]) sc[i] = 8e7;
+      else sc[i] = hist[m];
+    }
+    const idx = mv.map((_, i) => i).sort((a, c) => sc[c] - sc[a]);
+    return idx.map(i => mv[i]);
+  }
+  function quiesce(alpha, beta, qd) {
+    nodes++;
+    const stand = side * score;
+    if (stand >= beta) return stand;
+    if (stand > alpha) alpha = stand;
+    if (qd > 6) return stand;
+    const mv = order(gen(true), 0, 60);
+    for (const m of mv) {
+      const q = make(m);
+      if (inCheck(-side)) { unmake(m, q); continue; }
+      const v = q === 1 || q === -1 ? MATE : -quiesce(-beta, -alpha, qd + 1);
+      unmake(m, q);
+      if (v >= beta) return v;
+      if (v > alpha) alpha = v;
+    }
+    return alpha;
+  }
+  function search(depth, alpha, beta, ply) {
+    if ((++nodes & 2047) === 0 && Date.now() > stopAt) aborted = true;
+    if (aborted) return 0;
+    if (ply > 0 && (gameKeys.has(k1) || path.includes(k1))) return 0;   // 重複局面當和
+    const chk = inCheck(side);
+    if (chk) depth++;
+    if (depth <= 0) return quiesce(alpha, beta, 0);
+    const ti = k1 & TTM; let ttm = 0;
+    if (ttK[ti] === k2) {
+      ttm = ttMv[ti];
+      if (ply > 0 && ttD[ti] >= depth) {
+        let s = ttS[ti];
+        if (s > MATE - 200) s -= ply; else if (s < -MATE + 200) s += ply;
+        if (ttF[ti] === 0) return s;
+        if (ttF[ti] === 1 && s >= beta) return s;
+        if (ttF[ti] === 2 && s <= alpha) return s;
+      }
+    }
+    const a0 = alpha;
+    let best = -MATE - 1, bestM = 0, n = 0;
+    path.push(k1);
+    for (const m of order(gen(false), ttm, ply)) {
+      const q = make(m);
+      if (inCheck(-side)) { unmake(m, q); continue; }
+      n++;
+      let v;
+      if (n === 1) v = -search(depth - 1, -beta, -alpha, ply + 1);
+      else {
+        v = -search(depth - 1, -alpha - 1, -alpha, ply + 1);
+        if (v > alpha && v < beta) v = -search(depth - 1, -beta, -alpha, ply + 1);
+      }
+      unmake(m, q);
+      if (aborted) { path.pop(); return 0; }
+      if (v > best) { best = v; bestM = m; }
+      if (v > alpha) alpha = v;
+      if (alpha >= beta) {
+        if (!q) { const k = killers[ply] || (killers[ply] = [0, 0]); if (k[0] !== m) { k[1] = k[0]; k[0] = m; } hist[m] += depth * depth; }
+        break;
+      }
+    }
+    path.pop();
+    if (!n) return -MATE + ply;   // 沒有合法步：將死或困斃都算輸
+    let s = best;
+    if (s > MATE - 200) s += ply; else if (s < -MATE + 200) s -= ply;
+    ttK[ti] = k2; ttD[ti] = depth; ttS[ti] = s; ttMv[ti] = bestM;
+    ttF[ti] = best <= a0 ? 2 : best >= beta ? 1 : 0;
+    return best;
+  }
+  // 依難度思考，回傳 { move, score, depth }
+  function think(opt) {
+    gameKeys = new Set(opt.keys || []);
+    nodes = 0; aborted = false; path = []; killers = []; hist.fill(0);
+    const root = legal();
+    if (!root.length) return { move: 0, score: -MATE, depth: 0 };
+    if (opt.level === 'easy') {
+      // 入門：每一步只看一層＋吃子延伸，再用隨機性挑一個還不錯的
+      stopAt = Date.now() + 5000;
+      const list = root.map(m => { const q = make(m); const v = q === 1 || q === -1 ? MATE : -search(1, -MATE, MATE, 1); unmake(m, q); return { m, v }; });
+      list.sort((a, c) => c.v - a.v);
+      const top = list[0].v;
+      if (top > MATE - 200) return { move: list[0].m, score: top, depth: 1 };
+      const w = list.map(x => Math.exp((x.v - top) / 70));
+      let r = Math.random() * w.reduce((a, c) => a + c, 0);
+      for (let i = 0; i < list.length; i++) { r -= w[i]; if (r <= 0) return { move: list[i].m, score: list[i].v, depth: 1 }; }
+      return { move: list[0].m, score: top, depth: 1 };
+    }
+    stopAt = Date.now() + opt.time;
+    let bestM = root[0], bestV = 0, done = 0;
+    for (let d = 1; d <= opt.maxDepth; d++) {
+      let alpha = -MATE - 1, curBest = 0, curV = -MATE - 1;
+      const ordered = [bestM, ...root.filter(m => m !== bestM)];
+      path = [k1];
+      for (const m of ordered) {
+        const q = make(m);
+        let v = q === 1 || q === -1 ? MATE : -search(d - 1, -MATE - 1, -alpha, 1);
+        unmake(m, q);
+        if (aborted) break;
+        if (v > curV) { curV = v; curBest = m; }
+        if (v > alpha) alpha = v;
+      }
+      if (aborted) { if (curBest && curV > bestV && d > 1) bestM = curBest; break; }
+      bestM = curBest; bestV = curV; done = d;
+      if (curV > MATE - 200 || curV < -MATE + 200) break;
+      if (Date.now() > stopAt - opt.time * .45) break;   // 下一層多半來不及
+    }
+    return { move: bestM, score: bestV, depth: done, nodes };
+  }
+
+  Object.assign(X, { setPos, startPos, gen, legal, inCheck, make, unmake, think });
+  // 用 defineProperty 才會一直讀到最新的值（Object.assign 只會複製當下的值）
+  Object.defineProperties(X, { board: { get: () => b, configurable: true }, side: { get: () => side, configurable: true }, key: { get: () => k1, configurable: true } });
+  if (typeof X.postMessage === 'function' && typeof window === 'undefined') {
+    X.onmessage = e => { const d = e.data; setPos(d.pos, d.side); const r = think(d); X.postMessage({ id: d.id, ...r }); };
+  }
+  return X;
+}
+
+(() => {
+  const $ = id => document.getElementById(id);
+  const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} }, del: k => { try { localStorage.removeItem(k); } catch (e) {} } };
+  const X = ENGINE({});
+  const RN = '帥仕相傌俥炮兵', BN = '將士象馬車包卒';   // 順序對應棋子代號 1～7
+  const CN = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九'], AN = ['', '１', '２', '３', '４', '５', '６', '７', '８', '９'];
+  const LEVEL = { easy: { level: 'easy' }, normal: { level: 'normal', time: 700, maxDepth: 4 }, hard: { level: 'hard', time: 2500, maxDepth: 30 }, hint: { level: 'hint', time: 1200, maxDepth: 30 } };
+
+  // ---------- 狀態 ----------
+  const G = { mode: 'ai', human: 1, level: 'normal', face: false, flip: false, moves: [], keys: [], over: null, sel: -1, targets: [], busy: false, hintMv: 0, ids: null, pcEls: {}, nextId: 1, review: false };
+  const cfg = { mode: store.get('xq-mode') || 'ai', human: +(store.get('xq-side') || 1), level: store.get('xq-level') || 'normal', face: store.get('xq-face') === '1' };
+
+  // ---------- 棋盤繪製 ----------
+  const svg = $('bd'), NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+  const flipped = () => G.flip;
+  const XY = sq => { let r = sq / 9 | 0, c = sq % 9; if (flipped()) { r = 9 - r; c = 8 - c; } return [60 + c * 100, 60 + r * 100]; };
+  let layerMark, layerPcs, layerTop;
+  function drawBoard() {
+    svg.innerHTML = '';
+    const defs = el('defs', {}, svg);
+    const wg = el('linearGradient', { id: 'wood', x1: 0, y1: 0, x2: 1, y2: 1 }, defs);
+    el('stop', { offset: 0, 'stop-color': '#efd29b' }, wg); el('stop', { offset: .55, 'stop-color': '#e3bd7c' }, wg); el('stop', { offset: 1, 'stop-color': '#d6a964' }, wg);
+    const pg = el('radialGradient', { id: 'pcg', cx: .4, cy: .35, r: .7 }, defs);
+    el('stop', { offset: 0, 'stop-color': '#fbecc8' }, pg); el('stop', { offset: .7, 'stop-color': '#eccf95' }, pg); el('stop', { offset: 1, 'stop-color': '#c99a55' }, pg);
+    el('rect', { x: 0, y: -30, width: 920, height: 1080, rx: 18, fill: 'url(#wood)' }, svg);
+    // 木紋
+    for (let i = 0; i < 14; i++) el('path', { d: `M0 ${40 + i * 72} C 300 ${20 + i * 72 + (i % 3) * 14}, 600 ${60 + i * 72 - (i % 2) * 18}, 920 ${36 + i * 72}`, stroke: 'rgba(120,70,20,.08)', 'stroke-width': 3, fill: 'none' }, svg);
+    const g = el('g', { stroke: '#6b4422', 'stroke-width': 3, fill: 'none', 'stroke-linecap': 'square' }, svg);
+    el('rect', { x: 52, y: 52, width: 816, height: 916, 'stroke-width': 6 }, g);
+    for (let r = 0; r < 10; r++) el('line', { x1: 60, y1: 60 + r * 100, x2: 860, y2: 60 + r * 100 }, g);
+    for (let c = 0; c < 9; c++) {
+      if (c === 0 || c === 8) el('line', { x1: 60 + c * 100, y1: 60, x2: 60 + c * 100, y2: 960 }, g);
+      else { el('line', { x1: 60 + c * 100, y1: 60, x2: 60 + c * 100, y2: 460 }, g); el('line', { x1: 60 + c * 100, y1: 560, x2: 60 + c * 100, y2: 960 }, g); }
+    }
+    for (const y of [60, 760]) { el('line', { x1: 360, y1: y, x2: 560, y2: y + 200 }, g); el('line', { x1: 560, y1: y, x2: 360, y2: y + 200 }, g); }
+    // 炮位、兵位的記號
+    const mk = (r, c) => {
+      const x = 60 + c * 100, y = 60 + r * 100, d = 8, L = 22;
+      for (const sx of [-1, 1]) { if ((c === 0 && sx < 0) || (c === 8 && sx > 0)) continue;
+        for (const sy of [-1, 1]) el('path', { d: `M${x + sx * d} ${y + sy * (d + L)} L${x + sx * d} ${y + sy * d} L${x + sx * (d + L)} ${y + sy * d}`, 'stroke-width': 3 }, g); }
+    };
+    for (const r of [2, 7]) { mk(r, 1); mk(r, 7); }
+    for (const r of [3, 6]) for (let c = 0; c < 9; c += 2) mk(r, c);
+    const t1 = el('text', { x: 260, y: 512, fill: '#6b4422', 'font-size': 56, 'font-family': 'Noto Serif TC, serif', 'font-weight': 900, 'text-anchor': 'middle', 'dominant-baseline': 'central', 'letter-spacing': 30 }, svg); t1.textContent = '楚 河';
+    const t2 = el('text', { x: 660, y: 512, fill: '#6b4422', 'font-size': 56, 'font-family': 'Noto Serif TC, serif', 'font-weight': 900, 'text-anchor': 'middle', 'dominant-baseline': 'central', 'letter-spacing': 30 }, svg); t2.textContent = '漢 界';
+    // 座標數字：紅方由右到左一～九、黑方１～９
+    for (let c = 0; c < 9; c++) {
+      const bottomRed = !flipped();
+      const xb = 60 + c * 100;
+      const nb = bottomRed ? CN[9 - c] : CN[c + 1], nt = bottomRed ? AN[c + 1] : AN[9 - c];
+      const a = el('text', { x: xb, y: 1034, fill: 'rgba(107,68,34,.8)', 'font-size': 26, 'text-anchor': 'middle', 'font-family': 'Noto Sans TC, sans-serif', 'font-weight': 700 }, svg); a.textContent = nb;
+      const b2 = el('text', { x: xb, y: -6, fill: 'rgba(107,68,34,.8)', 'font-size': 24, 'text-anchor': 'middle', 'font-family': 'Noto Sans TC, sans-serif', 'font-weight': 700 }, svg); b2.textContent = nt;
+    }
+    layerMark = el('g', {}, svg); layerPcs = el('g', {}, svg); layerTop = el('g', { 'pointer-events': 'none' }, svg);
+    G.pcEls = {};
+  }
+  function pieceEl(p, sq, id) {
+    const [x, y] = XY(sq);
+    const g = el('g', { class: 'pc', 'data-id': id }, layerPcs);
+    g.style.transform = `translate(${x}px, ${y}px)`;
+    el('circle', { r: 45, cy: 4, fill: 'rgba(60,30,5,.35)' }, g);
+    el('circle', { r: 45, fill: 'url(#pcg)', stroke: '#8a5a24', 'stroke-width': 2 }, g);
+    const col = p > 0 ? '#b5241b' : '#1f1f1f';
+    el('circle', { r: 37, fill: 'none', stroke: col, 'stroke-width': 3 }, g);
+    const t = el('text', { fill: col, y: 2 }, g);
+    t.textContent = (p > 0 ? RN : BN)[Math.abs(p) - 1];
+    const upside = G.mode === '2p' && G.face && (p < 0) !== flipped();
+    if (upside) t.setAttribute('transform', 'rotate(180)');
+    G.pcEls[id] = g;
+    return g;
+  }
+  // 全部重畫（開局、悔棋、翻轉時）
+  function renderAll() {
+    drawBoard();
+    G.ids = new Int32Array(90);
+    const b = X.board;
+    for (let sq = 0; sq < 90; sq++) if (b[sq]) { const id = G.nextId++; G.ids[sq] = id; pieceEl(b[sq], sq, id); }
+    renderMarks(); renderCaps(); renderMoves(); renderStatus();
+  }
+  function renderMarks() {
+    layerMark.innerHTML = ''; layerTop.innerHTML = '';
+    const last = G.moves[G.moves.length - 1];
+    if (last) {
+      for (const sq of [last.m >> 7, last.m & 127]) {
+        const [x, y] = XY(sq), d = 50, L = 16;
+        for (const sx of [-1, 1]) for (const sy of [-1, 1]) el('path', { d: `M${x + sx * d} ${y + sy * (d - L)} L${x + sx * d} ${y + sy * d} L${x + sx * (d - L)} ${y + sy * d}`, stroke: '#2c6fd6', 'stroke-width': 5, fill: 'none' }, layerMark);
+      }
+    }
+    // 被將軍的王發紅光
+    const s = X.side;
+    if (!G.over && X.inCheck(s)) {
+      const k = X.board.indexOf(s); const [x, y] = XY(k);
+      el('circle', { cx: x, cy: y, r: 52, fill: 'rgba(230,40,30,.35)', stroke: '#e3281e', 'stroke-width': 4 }, layerMark);
+    }
+    if (G.sel >= 0) { const [x, y] = XY(G.sel); el('circle', { cx: x, cy: y, r: 50, fill: 'rgba(243,197,90,.45)', stroke: '#f3c55a', 'stroke-width': 5 }, layerMark); }
+    for (const t of G.targets) {
+      const [x, y] = XY(t);
+      if (X.board[t]) el('circle', { cx: x, cy: y, r: 48, fill: 'none', stroke: '#2fae6b', 'stroke-width': 7, 'stroke-dasharray': '18 8' }, layerTop);
+      else el('circle', { cx: x, cy: y, r: 15, fill: '#2fae6b', stroke: '#fff', 'stroke-width': 3 }, layerMark);
+    }
+    if (G.hintMv) {
+      const [x1, y1] = XY(G.hintMv >> 7), [x2, y2] = XY(G.hintMv & 127);
+      el('circle', { cx: x1, cy: y1, r: 50, fill: 'none', stroke: '#2fae6b', 'stroke-width': 6 }, layerTop);
+      el('line', { x1, y1, x2, y2, stroke: 'rgba(47,174,107,.85)', 'stroke-width': 14, 'stroke-linecap': 'round' }, layerTop);
+      el('circle', { cx: x2, cy: y2, r: 18, fill: '#2fae6b', stroke: '#fff', 'stroke-width': 4 }, layerTop);
+    }
+  }
+  function renderCaps() {
+    const capByRed = [], capByBlack = [];
+    for (const mv of G.moves) if (mv.q) (mv.q < 0 ? capByRed : capByBlack).push(mv.q);
+    const html = arr => arr.sort((a, c) => Math.abs(c) - Math.abs(a)).map(q => `<i class="${q > 0 ? 'r' : 'b'}">${(q > 0 ? RN : BN)[Math.abs(q) - 1]}</i>`).join('');
+    // 下方是誰：沒翻轉時紅方在下
+    const botRed = !flipped();
+    $('capBot').innerHTML = html(botRed ? capByRed : capByBlack);
+    $('capTop').innerHTML = html(botRed ? capByBlack : capByRed);
+  }
+  function renderMoves() {
+    let h = '';
+    for (let i = 0; i < G.moves.length; i += 2) {
+      const last = G.moves.length - 1;
+      h += `<span class="n">${i / 2 + 1}.</span><span class="${i === last ? 'last' : ''}">${G.moves[i].name}</span><span class="${i + 1 === last ? 'last' : ''}">${G.moves[i + 1] ? G.moves[i + 1].name : ''}</span>`;
+    }
+    $('moves').innerHTML = h; $('moves').scrollTop = 1e6;
+    const lastTwo = G.moves.slice(-4);
+    $('mMoves').innerHTML = G.moves.length ? lastTwo.map((m, k) => { const n = G.moves.length - lastTwo.length + k; return `${n % 2 === 0 ? (n / 2 + 1) + '. ' : ''}${k === lastTwo.length - 1 ? '<b>' + m.name + '</b>' : m.name}`; }).join('　') : '棋譜會顯示在這裡';
+  }
+  function who(s) {
+    if (G.mode === 'ai') return s === G.human ? '你' : '電腦';
+    return s > 0 ? '紅方' : '黑方';
+  }
+  function renderStatus(thinking) {
+    const s = X.side;
+    $('sDot').className = 'dot ' + (s > 0 ? 'r' : 'b');
+    const st = $('sText');
+    st.classList.toggle('thinking', !!thinking);
+    if (G.over) st.textContent = G.over.title;
+    else if (thinking) st.textContent = thinking;
+    else {
+      const chk = X.inCheck(s);
+      st.textContent = (chk ? '被將軍！' : '') + (G.mode === 'ai' ? (s === G.human ? `輪到你（${s > 0 ? '紅' : '黑'}方）` : '電腦走棋') : `輪到${s > 0 ? '紅方' : '黑方'}`);
+    }
+    const lvName = { easy: '入門', normal: '普通', hard: '高手' }[G.level];
+    $('sSub').textContent = G.mode === 'ai' ? `電腦：${lvName}　第 ${Math.floor(G.moves.length / 2) + 1} 回合` : `雙人對下　第 ${Math.floor(G.moves.length / 2) + 1} 回合`;
+    $('undoBtn').disabled = !G.moves.length || G.busy;
+    $('hintBtn').disabled = !!G.over || G.busy || (G.mode === 'ai' && s !== G.human);
+    $('drawBtn').disabled = !!G.over;
+    $('undoSub').textContent = G.mode === 'ai' ? '退回你的上一步' : '退回一步';
+  }
+
+  // ---------- 記譜 ----------
+  function notation(m) {
+    const b = X.board, f = m >> 7, t = m & 127, p = b[f], red = p > 0, ty = Math.abs(p);
+    const fr = f / 9 | 0, fc = f % 9, tr = t / 9 | 0, tc = t % 9;
+    const num = n => (red ? CN : AN)[n];
+    const file = c => red ? 9 - c : c + 1;
+    const nm = (red ? RN : BN)[ty - 1];
+    // 同一直線上有同種棋子：用前、中、後
+    const same = [];
+    for (let r = 0; r < 10; r++) if (b[r * 9 + fc] === p) same.push(r);
+    let head;
+    if (same.length >= 2 && ty !== 1 && ty !== 2 && ty !== 3 || (ty === 7 && same.length >= 2)) {
+      same.sort((a, c) => red ? a - c : c - a);   // 前面的在先
+      const i = same.indexOf(fr);
+      const tags = same.length === 2 ? ['前', '後'] : same.length === 3 ? ['前', '中', '後'] : ['一', '二', '三', '四', '五'];
+      head = tags[i] + nm;
+    } else head = nm + num(file(fc));
+    let act;
+    if (tr === fr) act = '平' + num(file(tc));
+    else {
+      const fwd = red ? tr < fr : tr > fr;
+      act = (fwd ? '進' : '退') + (ty === 2 || ty === 3 || ty === 4 ? num(file(tc)) : num(Math.abs(tr - fr)));
+    }
+    return head + act;
+  }
+
+  // ---------- 聲音 ----------
+  let AC = null, muted = store.get('xq-mute') === '1';
+  function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (AC && AC.state === 'suspended') AC.resume(); return AC; }
+  function knock(vol, freq) {
+    const a = ac(); if (!a || muted) return;
+    const t = a.currentTime, len = .09;
+    const buf = a.createBuffer(1, Math.floor(a.sampleRate * len), a.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 6);
+    const src = a.createBufferSource(); src.buffer = buf;
+    const bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = 3;
+    const gn = a.createGain(); gn.gain.value = vol;
+    src.connect(bp); bp.connect(gn); gn.connect(a.destination); src.start(t);
+    const o = a.createOscillator(), og = a.createGain(); o.frequency.setValueAtTime(freq * .5, t); o.frequency.exponentialRampToValueAtTime(freq * .3, t + .08);
+    og.gain.setValueAtTime(vol * .5, t); og.gain.exponentialRampToValueAtTime(.001, t + .1); o.connect(og); og.connect(a.destination); o.start(t); o.stop(t + .12);
+  }
+  function tones(list) {
+    const a = ac(); if (!a || muted) return;
+    let t = a.currentTime;
+    for (const [f, d] of list) { const o = a.createOscillator(), g = a.createGain(); o.type = 'triangle'; o.frequency.value = f; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.18, t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + d + .02); t += d * .8; }
+  }
+  const SND = { move: () => knock(.9, 1300), cap: () => { knock(1.2, 900); setTimeout(() => knock(.8, 1100), 70); }, check: () => tones([[660, .14], [880, .22]]), win: () => tones([[523, .16], [659, .16], [784, .16], [1047, .4]]), lose: () => tones([[440, .25], [349, .25], [262, .5]]) };
+  $('muteBtn').textContent = muted ? '🔇' : '🔊';
+  $('muteBtn').addEventListener('click', () => { muted = !muted; store.set('xq-mute', muted ? '1' : '0'); $('muteBtn').textContent = muted ? '🔇' : '🔊'; });
+
+  function stamp(text) { const d = document.createElement('div'); d.className = 'stamp'; d.textContent = text; document.body.appendChild(d); setTimeout(() => d.remove(), 1400); }
+  function toast(text) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = text; document.body.appendChild(d); setTimeout(() => d.remove(), 2500); }
+
+  // ---------- 走棋 ----------
+  function play(m, animate = true) {
+    const f = m >> 7, t = m & 127;
+    const name = notation(m);
+    const mover = X.side;
+    const q = X.make(m);
+    const chk = X.inCheck(X.side);
+    G.moves.push({ m, q, name, chk, side: mover });
+    G.keys.push(X.key);
+    G.sel = -1; G.targets = []; G.hintMv = 0;
+    if (animate) {
+      const id = G.ids[f], tid = G.ids[t];
+      if (tid && G.pcEls[tid]) { const e = G.pcEls[tid]; delete G.pcEls[tid]; setTimeout(() => { e.classList.add('gone'); e.style.transformOrigin = 'center'; setTimeout(() => e.remove(), 360); }, 200); }
+      G.ids[t] = id; G.ids[f] = 0;
+      const e = G.pcEls[id];
+      if (e) { layerPcs.appendChild(e); const [x, y] = XY(t); e.classList.add('lift'); e.style.transform = `translate(${x}px, ${y}px)`; setTimeout(() => e.classList.remove('lift'), 280); }
+      setTimeout(() => (q ? SND.cap() : SND.move()), 200);
+    }
+    renderMarks(); renderCaps(); renderMoves();
+    save();
+    const res = judge();
+    if (res) { finish(res); return; }
+    if (chk) { setTimeout(() => { stamp('將軍'); SND.check(); }, 260); }
+    renderStatus();
+    nextTurn();
+  }
+  // 判定勝負：無路可走、重複局面（長將判負）、60 回合不吃子
+  function judge() {
+    const s = X.side;
+    if (!X.legal().length) {
+      const mate = X.inCheck(s);
+      return { winner: -s, reason: mate ? '將死' : '困斃（無路可走）' };
+    }
+    const key = X.key, n = G.keys.filter(k => k === key).length;
+    if (n >= 3) {
+      const first = G.keys.indexOf(key);
+      const cyc = G.moves.slice(first + 1);
+      const chkBy = sd => { const mv = cyc.filter(x => x.side === sd); return mv.length > 0 && mv.every(x => x.chk); };
+      const r = chkBy(1), bl = chkBy(-1);
+      if (r && !bl) return { winner: -1, reason: '紅方長將（一直將軍）判負' };
+      if (bl && !r) return { winner: 1, reason: '黑方長將（一直將軍）判負' };
+      return { winner: 0, reason: '同一局面出現三次' };
+    }
+    let quiet = 0; for (let i = G.moves.length - 1; i >= 0 && !G.moves[i].q; i--) quiet++;
+    if (quiet >= 120) return { winner: 0, reason: '連續 60 回合沒有吃子' };
+    return null;
+  }
+  function finish(res) {
+    let title, icon;
+    if (res.winner === 0) { title = '和棋'; icon = '🤝'; }
+    else if (G.mode === 'ai') { const win = res.winner === G.human; title = win ? '你贏了！' : '電腦贏了'; icon = win ? '🏆' : '🍵'; }
+    else { title = (res.winner > 0 ? '紅方' : '黑方') + '勝'; icon = '🏆'; }
+    G.over = { title, reason: res.reason };
+    renderStatus(); renderMarks();
+    if (res.reason === '將死') setTimeout(() => stamp('絕殺'), 260);
+    const mine = G.mode !== 'ai' || res.winner === G.human;
+    setTimeout(() => { (res.winner === 0 || mine ? SND.win : SND.lose)(); }, 500);
+    if (G.mode === 'ai' && res.winner) recordResult(res.winner === G.human);
+    store.del('xq-save');
+    setTimeout(() => {
+      $('endIcon').textContent = icon; $('endTitle').textContent = title;
+      $('endText').textContent = `${res.reason}，共 ${Math.ceil(G.moves.length / 2)} 回合。` + (G.mode === 'ai' ? '　' + recordText() : '');
+      $('endScr').hidden = false;
+    }, 1300);
+  }
+  function recordResult(win) {
+    const k = 'xq-rec-' + G.level, r = JSON.parse(store.get(k) || '[0,0]');
+    r[win ? 0 : 1]++; store.set(k, JSON.stringify(r));
+  }
+  function recordText() { const r = JSON.parse(store.get('xq-rec-' + G.level) || '[0,0]'); return `對${{ easy: '入門', normal: '普通', hard: '高手' }[G.level]}電腦：${r[0]} 勝 ${r[1]} 敗`; }
+
+  // ---------- 電腦思考（Web Worker，失敗就在主執行緒算） ----------
+  let worker = null, reqId = 0, pending = null;
+  function makeWorker() {
+    try {
+      const src = '(' + ENGINE.toString() + ')(self);';
+      worker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+      worker.onmessage = e => { if (pending && e.data.id === pending.id) { const p = pending; pending = null; p.cb(e.data); } };
+      worker.onerror = () => { worker = null; };
+    } catch (e) { worker = null; }
+  }
+  function ask(opt, cb) {
+    const id = ++reqId;
+    const msg = { id, pos: Array.from(X.board), side: X.side, keys: G.keys.slice(), ...opt };
+    if (worker) { pending = { id, cb }; worker.postMessage(msg); }
+    else setTimeout(() => { const Y = ENGINE({}); Y.setPos(msg.pos, msg.side); const r = Y.think(msg); if (id === reqId) cb(r); }, 30);
+  }
+  function cancelThink() { reqId++; if (pending && worker) { worker.terminate(); makeWorker(); } pending = null; G.busy = false; }
+  function nextTurn() {
+    if (G.over || G.review) return;
+    if (G.mode !== 'ai' || X.side === G.human) { renderStatus(); return; }
+    G.busy = true; renderStatus('電腦思考中');
+    const t0 = Date.now();
+    ask(LEVEL[G.level], r => {
+      const wait = Math.max(0, 450 - (Date.now() - t0));
+      setTimeout(() => { G.busy = false; if (r.move && !G.over) play(r.move); else renderStatus(); }, wait);
+    });
+  }
+
+  // ---------- 點棋盤 ----------
+  function svgPoint(e) {
+    const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+    const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+    let c = Math.round((p.x - 60) / 100), r = Math.round((p.y - 60) / 100);
+    if (c < 0 || c > 8 || r < 0 || r > 9) return -1;
+    if (Math.hypot(p.x - (60 + c * 100), p.y - (60 + r * 100)) > 52) return -1;
+    if (flipped()) { r = 9 - r; c = 8 - c; }
+    return r * 9 + c;
+  }
+  svg.addEventListener('click', e => {
+    ac();
+    if (G.over || G.busy || G.review) return;
+    if (G.mode === 'ai' && X.side !== G.human) return;
+    const sq = svgPoint(e); if (sq < 0) return;
+    const p = X.board[sq];
+    if (G.sel >= 0 && G.targets.includes(sq)) { play(G.sel << 7 | sq); return; }
+    if (p && (p > 0) === (X.side > 0)) {
+      if (G.sel === sq) { G.sel = -1; G.targets = []; }
+      else {
+        G.sel = sq; G.targets = X.legal().filter(m => m >> 7 === sq).map(m => m & 127);
+        if (!G.targets.length) toast(X.inCheck(X.side) ? '被將軍了，這顆子解不了將' : '這顆子現在不能走');
+        knock(.35, 2200);
+      }
+    } else { G.sel = -1; G.targets = []; }
+    renderMarks();
+  });
+
+  // ---------- 按鈕 ----------
+  $('undoBtn').addEventListener('click', () => {
+    if (!G.moves.length) return;
+    if (G.busy) cancelThink();
+    const n = G.mode === 'ai' ? (X.side === G.human ? 2 : 1) : 1;
+    for (let i = 0; i < n && G.moves.length; i++) { const mv = G.moves.pop(); G.keys.pop(); X.unmake(mv.m, mv.q); }
+    // 電腦先走（你執黑）時不要退到電腦的第一步之前
+    G.over = null; G.review = false; G.sel = -1; G.targets = []; G.hintMv = 0;
+    renderAll(); save();
+    nextTurn();
+  });
+  $('hintBtn').addEventListener('click', () => {
+    if (G.over || G.busy) return;
+    G.busy = true; renderStatus('電腦幫你想');
+    ask(LEVEL.hint, r => { G.busy = false; G.hintMv = r.move; renderStatus(); renderMarks(); if (r.move) toast('建議：' + notation(r.move)); });
+  });
+  $('flipBtn').addEventListener('click', () => { G.flip = !G.flip; renderAll(); });
+  $('drawBtn').addEventListener('click', () => {
+    if (G.over) return;
+    if (!confirm(G.mode === 'ai' ? '確定要認輸嗎？' : `${X.side > 0 ? '紅方' : '黑方'}確定要認輸嗎？`)) return;
+    if (G.busy) cancelThink();
+    finish({ winner: G.mode === 'ai' ? -G.human : -X.side, reason: (G.mode === 'ai' ? '你' : (X.side > 0 ? '紅方' : '黑方')) + '認輸' });
+  });
+  $('newBtn').addEventListener('click', () => {
+    if (G.moves.length && !G.over && !confirm('放棄這一局，開新局？')) return;
+    if (G.busy) cancelThink();
+    openSetup();
+  });
+  $('againBtn').addEventListener('click', () => { $('endScr').hidden = true; openSetup(); });
+  $('reviewBtn').addEventListener('click', () => { $('endScr').hidden = true; G.review = true; renderStatus(); });
+
+  // ---------- 開局設定 ----------
+  function seg(id, key, fn) {
+    const box = $(id);
+    const upd = () => box.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v) === String(cfg[key])));
+    box.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { cfg[key] = key === 'human' ? +b.dataset.v : b.dataset.v; upd(); fn && fn(); }));
+    upd();
+  }
+  function syncRows() { $('rowSide').hidden = $('rowLevel').hidden = cfg.mode !== 'ai'; $('rowFace').hidden = cfg.mode === 'ai'; }
+  seg('optMode', 'mode', syncRows); seg('optSide', 'human'); seg('optLevel', 'level'); syncRows();
+  $('optFace').checked = cfg.face;
+  function openSetup() {
+    $('resumeBtn').hidden = !loadSave();
+    $('setup').hidden = false;
+  }
+  function newGame(c, moves) {
+    Object.assign(G, { mode: c.mode, human: c.human, level: c.level, face: c.face, flip: c.mode === 'ai' ? c.human < 0 : false, moves: [], keys: [], over: null, sel: -1, targets: [], busy: false, hintMv: 0, review: false });
+    X.setPos(X.startPos(), 1);
+    G.keys.push(X.key);
+    for (const m of moves || []) { const name = notation(m), side = X.side, q = X.make(m); G.moves.push({ m, q, name, chk: X.inCheck(X.side), side }); G.keys.push(X.key); }
+    renderAll();
+    nextTurn();
+  }
+  $('startBtn').addEventListener('click', () => {
+    ac();
+    cfg.face = $('optFace').checked;
+    store.set('xq-mode', cfg.mode); store.set('xq-side', cfg.human); store.set('xq-level', cfg.level); store.set('xq-face', cfg.face ? '1' : '0');
+    $('setup').hidden = true;
+    newGame(cfg, []);
+    if (cfg.mode === 'ai') toast(cfg.human > 0 ? '你執紅先走' : '你執黑，電腦先走');
+  });
+  $('resumeBtn').addEventListener('click', () => { const s = loadSave(); if (!s) return; ac(); $('setup').hidden = true; newGame(s, s.moves); toast('繼續上一局'); });
+  function save() { if (G.over) return; store.set('xq-save', JSON.stringify({ mode: G.mode, human: G.human, level: G.level, face: G.face, moves: G.moves.map(x => x.m) })); }
+  function loadSave() { try { const s = JSON.parse(store.get('xq-save')); return s && s.moves && s.moves.length ? s : null; } catch (e) { return null; } }
+
+  makeWorker();
+  X.setPos(X.startPos(), 1); G.keys = [X.key]; G.ids = new Int32Array(90);
+  renderAll();
+  openSetup();
+  window.__xq = { X, G, play, notation, newGame, ask, judge };
+})();
+</script>
+</html>
