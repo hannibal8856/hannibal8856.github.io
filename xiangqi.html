@@ -526,7 +526,7 @@ function ENGINE(X) {
 
   // ---------- 狀態 ----------
   const G = { mode: 'ai', human: 1, level: 'normal', face: false, flip: false, moves: [], keys: [], over: null, sel: -1, targets: [], busy: false, hintMv: 0, ids: null, pcEls: {}, nextId: 1, review: false };
-  const cfg = { mode: store.get('xq-mode') || 'ai', human: +(store.get('xq-side') || 1), level: store.get('xq-level') || 'normal', face: store.get('xq-face') === '1' };
+  const cfg = { mode: store.get('xq-mode') || 'ai', human: +(store.get('xq-side') || 1), level: store.get('xq-level') || 'king', face: store.get('xq-face') === '1' };
 
   // ---------- 棋盤繪製 ----------
   const svg = $('bd'), NS = 'http://www.w3.org/2000/svg';
@@ -891,7 +891,7 @@ function ENGINE(X) {
     upd();
   }
   function syncRows() { $('rowSide').hidden = $('rowLevel').hidden = cfg.mode !== 'ai'; $('rowFace').hidden = cfg.mode === 'ai'; }
-  seg('optMode', 'mode', syncRows); seg('optSide', 'human'); if (!LV_NAME[cfg.level]) cfg.level = 'normal';
+  seg('optMode', 'mode', syncRows); seg('optSide', 'human'); if (!LV_NAME[cfg.level]) cfg.level = 'king';
   seg('optLevel', 'level'); syncRows();
   $('optFace').checked = cfg.face;
   function openSetup() {
