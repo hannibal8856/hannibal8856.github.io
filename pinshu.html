@@ -1,0 +1,680 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="遊戲廳">
+<meta name="theme-color" content="#12202c">
+<script>
+addEventListener('DOMContentLoaded', function () {
+  if (!(navigator.standalone || matchMedia('(display-mode: standalone)').matches)) return;
+  var a = document.createElement('a');
+  a.id = 'hg-home'; a.href = './'; a.textContent = '⌂';
+  a.onclick = function (e) { if (!confirm('回遊戲大廳？這一局的進度會消失。')) e.preventDefault(); }; a.setAttribute('aria-label', '回遊戲大廳');
+  a.style.cssText = 'position:fixed;left:env(safe-area-inset-left);top:50%;transform:translateY(-50%);z-index:2147483647;padding:10px 6px 10px 4px;border-radius:0 10px 10px 0;background:rgba(0,0,0,.5);color:#fff;font:600 15px/1 system-ui,-apple-system,sans-serif;text-decoration:none;opacity:.55;-webkit-tap-highlight-color:transparent';
+  document.body.appendChild(a);
+});
+</script>
+<title>拼數牌</title>
+<meta name="description" content="四色數字牌組遊戲：把手上的牌排成順子或同數放到桌上，還可以重組桌上的牌，最先出完的人贏。和 1～3 位電腦對手玩。">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&family=Rubik:wght@700;800&display=swap">
+<style>
+/* 綠色牌桌、象牙色牌面；四色：紅、藍、橘、黑，各配一個形狀方便分辨 */
+:root {
+  --felt: #1d5a43; --felt2: #174a37; --panel: rgba(8, 30, 22, .55); --line: rgba(255,255,255,.16); --ink: #f5f1e6; --muted: #b8cbbf;
+  --gold: #f3c55a; --ok: #46c784; --bad: #ff6b5e;
+  --c0: #d42a3a; --c1: #1f63c9; --c2: #e07c00; --c3: #1c1c1c;
+  --tw: clamp(26px, 7.6vw, 34px); --hw: clamp(34px, 10.4vw, 46px);
+  --f-ui: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --f-num: "Rubik", "Arial Black", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; color: var(--ink); font-family: var(--f-ui); -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+body { background: radial-gradient(ellipse at 50% 30%, #23704f, var(--felt2) 70%); display: flex; justify-content: center; min-height: 100dvh; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+.app { width: 100%; max-width: 980px; height: 100dvh; display: flex; flex-direction: column; gap: 6px;
+  padding: calc(env(safe-area-inset-top, 0px) + 6px) max(8px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 6px) max(8px, env(safe-area-inset-left, 0px)); }
+.top { display: flex; align-items: center; gap: 6px; }
+.top h1 { margin: 0; font-size: 20px; font-weight: 900; letter-spacing: .1em; }
+.top h1 span { color: var(--gold); }
+.top .grow { flex: 1; }
+.tb { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 5px 10px; font-size: 13.5px; font-weight: 700; }
+
+.opps { display: flex; gap: 6px; }
+.opp { flex: 1 1 0; min-width: 0; overflow: hidden; display: flex; align-items: center; gap: 5px; background: var(--panel); border: 2px solid transparent; border-radius: 12px; padding: 4px 6px; }
+.opp > div { min-width: 0; }
+.opp.turn { border-color: var(--gold); box-shadow: 0 0 12px rgba(243,197,90,.4); }
+.opp .av { font-size: 22px; }
+.opp .nm { font-weight: 900; font-size: 14px; white-space: nowrap; }
+.opp .meta { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.opp .cnt { margin-left: auto; flex: none; font-family: var(--f-num); font-size: 17px; background: #f6efdc; color: #333; border-radius: 6px; padding: 0 5px; min-width: 26px; text-align: center; }
+.opp.me { flex: none; }
+.log { font-size: 13px; color: var(--muted); min-height: 20px; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.log b { color: var(--ink); }
+
+.tableWrap { flex: 1; min-height: 120px; overflow-y: auto; background: rgba(0,0,0,.12); border: 1px solid var(--line); border-radius: 14px; padding: 8px; }
+.table { display: flex; flex-wrap: wrap; gap: 8px 10px; align-content: flex-start; }
+.table .empty { color: var(--muted); font-size: 14px; padding: 18px 6px; text-align: center; width: 100%; line-height: 1.7; }
+.set { display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 9px; background: rgba(0,0,0,.18); border: 2px solid transparent; }
+.set.bad { border-color: var(--bad); background: rgba(255,80,70,.16); }
+.set.mine { border-color: rgba(70,199,132,.7); }
+.plus { width: var(--tw); height: calc(var(--tw) * 1.36); border-radius: 6px; border: 2px dashed var(--gold); background: rgba(243,197,90,.15); color: var(--gold); font-weight: 900; font-size: 18px; display: grid; place-items: center; padding: 0; }
+.newset { border: 2px dashed var(--gold); background: rgba(243,197,90,.12); color: var(--gold); border-radius: 9px; padding: 0 12px; font-weight: 900; font-size: 14px; height: calc(var(--tw) * 1.36 + 10px); }
+
+.tile { position: relative; width: var(--tw); height: calc(var(--tw) * 1.36); border-radius: 6px; border: 0; padding: 0; background: linear-gradient(#fffaf0, #efe4cc); box-shadow: 0 2px 0 #b9a57e, 0 3px 4px rgba(0,0,0,.35); display: grid; place-items: center; align-content: center; gap: 0; line-height: 1; transition: transform .12s; }
+.tile b { font-family: var(--f-num); font-weight: 800; font-size: calc(var(--tw) * .58); }
+.tile i { font-style: normal; font-size: calc(var(--tw) * .26); margin-top: 1px; }
+.tile.c0 { color: var(--c0); } .tile.c1 { color: var(--c1); } .tile.c2 { color: var(--c2); } .tile.c3 { color: var(--c3); }
+.tile.j b { font-size: calc(var(--tw) * .62); background: linear-gradient(90deg, var(--c0), var(--c2), var(--c1)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.tile.j i { color: #666; }
+.tile.u69 b { text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 2px; }
+.tile.fresh { box-shadow: 0 2px 0 #b9a57e, 0 0 0 3px var(--gold), 0 0 12px var(--gold); }
+.tile.mine { box-shadow: 0 2px 0 #b9a57e, 0 0 0 3px var(--ok); }
+.tile.sel { transform: translateY(-8px); box-shadow: 0 2px 0 #b9a57e, 0 0 0 3px var(--gold), 0 8px 10px rgba(0,0,0,.4); }
+.big .tile { width: var(--hw); height: calc(var(--hw) * 1.36); }
+.big .tile b { font-size: calc(var(--hw) * .58); }
+.big .tile i { font-size: calc(var(--hw) * .26); }
+.tile.drawn::after { content: '新'; position: absolute; top: -6px; right: -6px; background: var(--gold); color: #3a2800; font-size: 10px; font-weight: 900; border-radius: 8px; padding: 1px 4px; }
+
+.limbo { background: rgba(243,197,90,.12); border: 2px dashed var(--gold); border-radius: 12px; padding: 6px; }
+.limbo small { display: block; font-size: 12px; color: var(--gold); margin-bottom: 4px; font-weight: 700; }
+.rowTiles { display: flex; flex-wrap: wrap; gap: 4px; }
+.info { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: center; font-size: 13px; color: var(--muted); padding: 0 4px; min-height: 20px; }
+.info b { color: var(--ink); }
+.info > span { white-space: nowrap; }
+.info .warn { color: var(--gold); font-weight: 700; }
+.info .grow { flex: 1; }
+.hand { background: linear-gradient(#6b4423, #553417); border-radius: 12px; padding: 10px 8px 8px; box-shadow: inset 0 2px 0 rgba(255,255,255,.15), 0 4px 10px rgba(0,0,0,.4); max-height: 34dvh; overflow-y: auto; }
+.hand .rowTiles { gap: 5px; }
+.bar { display: grid; grid-template-columns: 1fr 1fr 1.2fr 1.4fr; gap: 6px; }
+.bar button { border-radius: 12px; padding: 10px 4px; font-weight: 900; font-size: 15px; border: 1px solid var(--line); background: var(--panel); }
+.bar button:disabled, .bar button.dim { opacity: .45; }
+.bar .done { background: var(--ok); color: #06301b; border: 0; box-shadow: 0 3px 0 #23824f; }
+.bar .draw { background: #2b6fb3; border: 0; box-shadow: 0 3px 0 #1a4c80; }
+
+.toast { position: fixed; left: 50%; top: 40%; transform: translateX(-50%); background: rgba(0,0,0,.85); border: 1px solid var(--line); padding: 10px 16px; border-radius: 12px; font-weight: 700; z-index: 40; pointer-events: none; animation: tst 2.6s forwards; max-width: 90vw; text-align: center; line-height: 1.5; }
+@keyframes tst { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
+
+.screen { position: fixed; inset: 0; background: rgba(4, 16, 11, .82); display: grid; place-items: center; z-index: 30; overflow-y: auto; padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px); }
+.dlg { width: min(440px, 100%); background: #183f30; border: 2px solid var(--line); border-radius: 18px; padding: 18px; display: grid; gap: 12px; }
+.dlg h2 { margin: 0; text-align: center; font-size: 28px; font-weight: 900; letter-spacing: .1em; }
+.dlg h2 span { color: var(--gold); }
+.dlg p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.65; text-align: center; }
+.opt { display: grid; gap: 6px; }
+.opt > small { color: var(--muted); font-size: 12.5px; font-weight: 700; letter-spacing: .08em; }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+.seg button { background: rgba(255,255,255,.06); border: 2px solid var(--line); border-radius: 12px; padding: 9px 4px; font-weight: 900; display: grid; gap: 2px; justify-items: center; }
+.seg button small { font-weight: 500; font-size: 11.5px; color: var(--muted); }
+.seg button[aria-pressed="true"] { border-color: var(--gold); background: rgba(243,197,90,.18); }
+.chk { display: flex; gap: 8px; align-items: center; font-size: 13.5px; color: var(--muted); }
+.chk input { width: 18px; height: 18px; accent-color: var(--gold); }
+.go { background: var(--gold); color: #3a2800; border: 0; border-radius: 14px; padding: 13px; font-weight: 900; font-size: 18px; letter-spacing: .1em; box-shadow: 0 4px 0 #a17a20; }
+.ghost { background: rgba(255,255,255,.07); border: 1px solid var(--line); border-radius: 12px; padding: 11px; font-weight: 700; }
+details { font-size: 13.5px; color: var(--muted); line-height: 1.7; }
+details summary { cursor: pointer; font-weight: 700; color: var(--ink); }
+details ul { margin: 6px 0 0; padding-left: 1.2em; }
+.res { display: grid; gap: 6px; }
+.res .r { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px; align-items: center; background: rgba(255,255,255,.06); border-radius: 10px; padding: 6px 8px; }
+.res .r.win { background: rgba(243,197,90,.2); }
+.res .r .tiles { display: flex; flex-wrap: wrap; gap: 2px; --tw: 18px; }
+.res .r .tiles .tile { box-shadow: none; }
+.res .num { font-family: var(--f-num); font-size: 18px; text-align: right; }
+.res .num.pos { color: var(--ok); } .res .num.neg { color: var(--bad); }
+.res .tot { font-size: 12px; color: var(--muted); text-align: right; }
+.row { display: flex; gap: 8px; } .row > * { flex: 1; }
+@media (min-width: 760px) { :root { --tw: 36px; --hw: 46px; } .hand { max-height: 26dvh; } }
+@media (prefers-reduced-motion: reduce) { .toast { animation-duration: .01s; } .tile { transition: none; } }
+</style>
+
+<div class="app">
+  <div class="top">
+    <h1>拼<span>數</span>牌</h1>
+    <div class="grow"></div>
+    <button class="tb" id="muteBtn" type="button" aria-label="聲音">🔊</button>
+    <button class="tb" id="rulesBtn" type="button">規則</button>
+    <button class="tb" id="newBtn" type="button">新局</button>
+  </div>
+  <div class="opps" id="opps"></div>
+  <div class="log" id="log"></div>
+  <div class="tableWrap"><div class="table" id="table"></div></div>
+  <div class="limbo" id="limbo" hidden><small>從桌上拿起來的牌：要放回桌上的牌組，才能按「完成」</small><div class="rowTiles" id="limboTiles"></div></div>
+  <div class="info" id="info"></div>
+  <div class="hand big" id="handBox"><div class="rowTiles" id="hand"></div></div>
+  <div class="bar">
+    <button id="sortBtn" type="button">排序</button>
+    <button id="undoBtn" type="button">復原</button>
+    <button class="draw" id="drawBtn" type="button">抽一張</button>
+    <button class="done" id="doneBtn" type="button">完成</button>
+  </div>
+</div>
+
+<div class="screen" id="setup">
+  <div class="dlg">
+    <h2>拼<span>數</span>牌</h2>
+    <p>把手上的牌排成「順子」或「同數」放到桌上，也可以拆開重組桌上的牌。最先把手牌出完的人贏。</p>
+    <div class="opt"><small>電腦對手</small><div class="seg" id="optN">
+      <button type="button" data-v="1">1 位</button><button type="button" data-v="2">2 位</button><button type="button" data-v="3">3 位</button>
+    </div></div>
+    <div class="opt"><small>電腦程度</small><div class="seg" id="optLv">
+      <button type="button" data-v="1">簡單<small>只會出牌、接牌</small></button>
+      <button type="button" data-v="2">普通<small>會拆牌、換鬼牌</small></button>
+      <button type="button" data-v="3">厲害<small>會借桌上的牌</small></button>
+    </div></div>
+    <label class="chk"><input type="checkbox" id="optIce" checked> 第一次出牌要滿 30 點（破冰，標準規則）</label>
+    <details id="rulesBox"><summary>規則說明</summary><ul>
+      <li>共 106 張：紅、藍、橘、黑四色，1～13 各 2 張，加上 2 張鬼牌（☺）。每人先拿 14 張。</li>
+      <li><b>順子</b>：同色、數字連續、至少 3 張（例如紅 4-5-6）。13 後面不能接 1。<b>同數</b>：同一個數字、不同顏色，3 或 4 張。鬼牌可以當任何一張。</li>
+      <li><b>破冰</b>：第一次出牌，自己手上的牌組成的新牌組點數加起來要滿 30 點（鬼牌算它代表的數字）。破冰前不能動桌上的牌。</li>
+      <li>每一回合至少要從手上出一張牌；出不了就抽一張，換下一個人。</li>
+      <li>破冰後可以把桌上的牌拆開、移動、重組，再加上自己的牌，但回合結束時桌上每一組都要合法，而且桌上的牌不能拿回手上。</li>
+      <li>最先出完的人贏，拿走其他人手上剩下的點數（鬼牌算 30 點），其他人扣分。牌抽完而且大家都出不了牌時，手上點數最少的人贏。</li>
+    </ul></details>
+    <details><summary>怎麼操作</summary><ul>
+      <li>點手上的牌選起來（會往上跳），再點桌上牌組後面的「＋」放進去，或點「＋ 新牌組」開一組新的。</li>
+      <li>點桌上的牌（破冰後）會拿起來放到黃色框裡，再選起來放到別組。這回合自己剛放上桌的牌，點一下就收回手上。</li>
+      <li>牌組不合法會變紅框。弄亂了可以按「復原」回到這回合開始的樣子。</li>
+      <li>每張牌數字下面有形狀：紅 ●、藍 ■、橘 ▲、黑 ◆。6 和 9 下面有底線。</li>
+    </ul></details>
+    <button class="go" id="startBtn" type="button">開始</button>
+    <button class="ghost" id="resumeBtn" type="button" hidden>繼續上一局</button>
+    <button class="ghost" id="backBtn" type="button" hidden>回到這一局</button>
+  </div>
+</div>
+
+<div class="screen" id="endScr" hidden>
+  <div class="dlg">
+    <h2 id="endTitle">你贏了！</h2>
+    <p id="endText"></p>
+    <div class="res" id="endRes"></div>
+    <div class="row"><button class="ghost" id="seeBtn" type="button">看桌面</button><button class="go" id="nextBtn" type="button">下一局</button></div>
+  </div>
+</div>
+
+<script>
+// 拼數牌：牌組判斷、計分、電腦出牌。純函式，畫面和測試共用
+// 牌：{ id, c: 0 紅 1 藍 2 橘 3 黑 / -1 鬼牌, n: 1～13 / 0 }
+const RK = (() => {
+  'use strict';
+  function makeTiles() {
+    const t = [];
+    for (let k = 0; k < 2; k++) for (let c = 0; c < 4; c++) for (let n = 1; n <= 13; n++) t.push({ id: t.length, c, n });
+    t.push({ id: t.length, c: -1, n: 0 }, { id: t.length + 1, c: -1, n: 0 });
+    return t;
+  }
+  const T = makeTiles();
+  const isJ = id => T[id].c < 0;
+  const tileVal = id => isJ(id) ? 30 : T[id].n;   // 結算時手上的鬼牌罰 30
+
+  // 排出牌組的順序和鬼牌代表的值；不合法回傳 null
+  // 回傳 { kind: 'run'|'group', order: [id...], vals: [數字...], pts }
+  function arrange(ids) {
+    if (ids.length < 3) return null;
+    const js = ids.filter(isJ), ns = ids.filter(id => !isJ(id));
+    if (!ns.length) return null;
+    const opts = [];
+    // 同數：數字相同、顏色不重複、最多 4 張
+    const n0 = T[ns[0]].n;
+    if (ids.length <= 4 && ns.every(id => T[id].n === n0) && new Set(ns.map(id => T[id].c)).size === ns.length) {
+      const order = [...ns].sort((a, b) => T[a].c - T[b].c).concat(js);
+      opts.push({ kind: 'group', order, vals: order.map(() => n0), pts: n0 * ids.length });
+    }
+    // 順子：同一個顏色、數字不重複、可以排進 1～13 裡長度剛好的區間
+    const c0 = T[ns[0]].c;
+    if (ns.every(id => T[id].c === c0)) {
+      const sorted = [...ns].sort((a, b) => T[a].n - T[b].n);
+      const nums = sorted.map(id => T[id].n);
+      if (new Set(nums).size === nums.length) {
+        const L = ids.length, lo = nums[0], hi = nums[nums.length - 1];
+        if (hi - lo + 1 <= L && L <= 13) {
+          // 多出來的鬼牌先接在後面，接不下再放前面
+          let extra = L - (hi - lo + 1), start = lo, end = hi;
+          while (extra > 0 && end < 13) { end++; extra--; }
+          while (extra > 0 && start > 1) { start--; extra--; }
+          if (!extra) {
+            const order = [], vals = []; let ji = 0, si = 0;
+            for (let v = start; v <= end; v++) {
+              if (si < sorted.length && T[sorted[si]].n === v) order.push(sorted[si++]); else order.push(js[ji++]);
+              vals.push(v);
+            }
+            opts.push({ kind: 'run', order, vals, pts: vals.reduce((a, x) => a + x, 0) });
+          }
+        }
+      }
+    }
+    if (!opts.length) return null;
+    return opts.sort((a, b) => b.pts - a.pts)[0];
+  }
+  const valid = ids => !!arrange(ids);
+  const pts = ids => { const a = arrange(ids); return a ? a.pts : 0; };
+
+  // ---------- 電腦 ----------
+  // 從一堆牌裡列出所有可能的牌組（同數、順子，可用鬼牌補洞）
+  function candidates(ids, maxJ = 2) {
+    const js = ids.filter(isJ).slice(0, maxJ), ns = ids.filter(id => !isJ(id));
+    const out = [], seen = new Set();
+    const push = set => { const k = set.map(id => isJ(id) ? 'J' : T[id].c + '.' + T[id].n).sort().join(',') + '|' + set.filter(isJ).length; if (seen.has(k)) return; seen.add(k); out.push(set); };
+    // 每種牌（顏色＋數字）只挑一張代表，重複的另一張留著
+    const byCN = new Map();
+    for (const id of ns) { const k = T[id].c * 20 + T[id].n; if (!byCN.has(k)) byCN.set(k, []); byCN.get(k).push(id); }
+    // 同數
+    for (let n = 1; n <= 13; n++) {
+      const cols = [];
+      for (let c = 0; c < 4; c++) if (byCN.has(c * 20 + n)) cols.push(byCN.get(c * 20 + n)[0]);
+      const subsets = [];
+      const rec = (i, cur) => { if (i === cols.length) { if (cur.length) subsets.push(cur); return; } rec(i + 1, cur); rec(i + 1, [...cur, cols[i]]); };
+      rec(0, []);
+      for (const s of subsets) for (let j = 0; j <= js.length; j++) { const L = s.length + j; if (L >= 3 && L <= 4 && s.length >= 1) push([...s, ...js.slice(0, j)]); }
+    }
+    // 順子
+    for (let c = 0; c < 4; c++) {
+      for (let a = 1; a <= 13; a++) {
+        let used = [], jUsed = 0;
+        for (let b = a; b <= 13; b++) {
+          const k = c * 20 + b;
+          if (byCN.has(k)) used.push(byCN.get(k)[0]);
+          else { if (jUsed >= js.length) break; jUsed++; }
+          const L = b - a + 1;
+          if (L >= 3 && used.length >= 1 && byCN.has(c * 20 + a)) {
+            push([...used, ...js.slice(0, jUsed)]);
+          }
+          if (L >= 3 && used.length >= 2 && jUsed < js.length && b === 13) { /* 鬼牌接前面的情況由 arrange 處理 */ }
+        }
+      }
+    }
+    return out.filter(valid);
+  }
+  // 從手牌挑幾組互不重複的牌組；score(sets) 越大越好
+  function bestCombo(hand, score, ms = 120) {
+    const cands = candidates(hand).sort((a, b) => b.length - a.length);
+    const t0 = Date.now();
+    let best = [], bestS = score([]);
+    const used = new Set();
+    function dfs(i, cur) {
+      if (Date.now() - t0 > ms) return;
+      const s = score(cur);
+      if (s > bestS) { bestS = s; best = cur.slice(); }
+      for (let k = i; k < cands.length; k++) {
+        const c = cands[k];
+        if (c.some(id => used.has(id))) continue;
+        c.forEach(id => used.add(id)); cur.push(c);
+        dfs(k + 1, cur);
+        cur.pop(); c.forEach(id => used.delete(id));
+      }
+    }
+    dfs(0, []);
+    return best;
+  }
+  const sumPts = sets => sets.reduce((a, s) => a + pts(s), 0);
+  const cnt = sets => sets.reduce((a, s) => a + s.length, 0);
+
+  // 電腦這一回合：回傳 { table, hand, played: [id...] }；沒出牌回傳 null
+  // level：1 簡單（只出新牌組、接牌）、2 普通（再加拆順子插牌、換鬼牌）、3 厲害（再加借桌上的牌湊新牌組）
+  function aiTurn(table, hand, ice, level, iceNeed = 30) {
+    table = table.map(s => s.slice()); hand = hand.slice();
+    const start = new Set(hand);
+    if (!ice) {
+      const combo = bestCombo(hand, sets => { const p = sumPts(sets); return p >= iceNeed ? 1000 + cnt(sets) * 10 + p / 100 : p / 1000; }, 200);
+      if (sumPts(combo) < iceNeed) return null;
+      for (const s of combo) { table.push(arrange(s).order); s.forEach(id => hand.splice(hand.indexOf(id), 1)); }
+      return { table, hand, played: [...start].filter(id => !hand.includes(id)) };
+    }
+    const take = id => hand.splice(hand.indexOf(id), 1);
+    let changed = true, guard = 0;
+    while (changed && guard++ < 40) {
+      changed = false;
+      // 1. 手上的新牌組（簡單的電腦不太會留鬼牌）
+      const combo = bestCombo(hand, sets => cnt(sets) * 100 + sumPts(sets), level >= 3 ? 150 : 80);
+      if (combo.length) { for (const s of combo) { table.push(arrange(s).order); s.forEach(take); } changed = true; continue; }
+      // 2. 接到桌上的牌組
+      for (const id of hand.slice()) {
+        for (let i = 0; i < table.length; i++) {
+          const ns = [...table[i], id];
+          if (valid(ns)) { table[i] = arrange(ns).order; take(id); changed = true; break; }
+        }
+      }
+      if (changed) continue;
+      if (level < 2) break;
+      // 3. 拆順子插一張：紅 3-4-5-6-7 加紅 5 → 3-4-5、5-6-7
+      outer3:
+      for (const id of hand.slice()) {
+        if (isJ(id)) continue;
+        for (let i = 0; i < table.length; i++) {
+          const a = arrange(table[i]);
+          if (a.kind !== 'run' || a.order.length < 5) continue;
+          const k = a.vals.indexOf(T[id].n);
+          if (k < 0 || T[a.order.find(x => !isJ(x))].c !== T[id].c) continue;
+          const left = a.order.slice(0, k + 1), right = [id, ...a.order.slice(k + 1)];
+          // 兩邊都要合法（插的那張接右邊，原本那張留左邊）
+          if (valid(left) && valid(right)) { table.splice(i, 1, arrange(left).order, arrange(right).order); take(id); changed = true; break outer3; }
+          const left2 = [...a.order.slice(0, k), id], right2 = a.order.slice(k);
+          if (valid(left2) && valid(right2)) { table.splice(i, 1, arrange(left2).order, arrange(right2).order); take(id); changed = true; break outer3; }
+        }
+      }
+      if (changed) continue;
+      // 4. 用真牌換下桌上的鬼牌，換到的鬼牌這一回合要用掉
+      outer4:
+      for (const id of hand.slice()) {
+        if (isJ(id)) continue;
+        for (let i = 0; i < table.length; i++) {
+          const a = arrange(table[i]);
+          const jk = a.order.findIndex((x, k) => isJ(x) && a.vals[k] === T[id].n);
+          if (jk < 0) continue;
+          const joker = a.order[jk];
+          const ns = a.order.map(x => x === joker ? id : x);
+          if (!valid(ns)) continue;
+          // 試著把鬼牌用掉：和手牌組新牌組，或接到別組
+          const trial = table.map(s => s.slice()); trial[i] = arrange(ns).order;
+          const h2 = hand.filter(x => x !== id);
+          const withJ = [...h2, joker];
+          const cs = candidates(withJ).filter(s => s.includes(joker) && s.length - 1 >= 2);
+          if (cs.length) {
+            const s = cs.sort((x, y) => y.length - x.length)[0];
+            trial.push(arrange(s).order);
+            table.length = 0; trial.forEach(x => table.push(x));
+            take(id); s.forEach(x => { if (x !== joker) take(x); });
+            changed = true; break outer4;
+          }
+          for (let j = 0; j < trial.length; j++) {
+            if (j === i) continue;
+            const ns2 = [...trial[j], joker];
+            if (valid(ns2)) { trial[j] = arrange(ns2).order; table.length = 0; trial.forEach(x => table.push(x)); take(id); changed = true; break outer4; }
+          }
+        }
+      }
+      if (changed) continue;
+      if (level < 3) break;
+      // 5. 借桌上多出來的牌（長順子的頭尾、四張同數的任一張）和手牌湊新牌組
+      const spare = [];
+      table.forEach((s, i) => {
+        const a = arrange(s);
+        if (a.order.length >= 4) {
+          if (a.kind === 'run') { spare.push([a.order[0], i]); spare.push([a.order[a.order.length - 1], i]); }
+          else a.order.forEach(x => spare.push([x, i]));
+        }
+      });
+      if (!spare.length) break;
+      const pool = [...hand, ...spare.map(x => x[0])];
+      const cs = candidates(pool).filter(s => s.some(x => hand.includes(x)) && s.some(x => !hand.includes(x)))
+        .sort((x, y) => y.filter(z => hand.includes(z)).length - x.filter(z => hand.includes(z)).length);
+      for (const s of cs) {
+        const trial = table.map(x => x.slice());
+        let ok = true;
+        for (const x of s) if (!hand.includes(x)) { const src = spare.find(p => p[0] === x)[1]; trial[src] = trial[src].filter(y => y !== x); }
+        for (const t of trial) if (t.length && !valid(t)) { ok = false; break; }
+        if (!ok) continue;
+        const nt = trial.filter(t => t.length).map(t => arrange(t).order);
+        nt.push(arrange(s).order);
+        table.length = 0; nt.forEach(x => table.push(x));
+        s.forEach(x => { if (hand.includes(x)) take(x); });
+        changed = true; break;
+      }
+    }
+    if (hand.length === start.size) return null;
+    if (!table.every(valid)) return null;   // 保險：桌面一定要合法
+    return { table, hand, played: [...start].filter(id => !hand.includes(id)) };
+  }
+
+  return { T, isJ, tileVal, arrange, valid, pts, candidates, bestCombo, aiTurn };
+})();
+
+
+(() => {
+  const { T, isJ, tileVal, arrange, valid, pts, aiTurn } = RK;
+  const $ = id => document.getElementById(id);
+  const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} }, del: k => { try { localStorage.removeItem(k); } catch (e) {} } };
+  const SHAPE = ['●', '■', '▲', '◆'], CNAME = ['紅', '藍', '橘', '黑'];
+  const AIS = [{ name: '阿德', av: '🧔' }, { name: '美玲', av: '👩' }, { name: '志明', av: '👴' }];
+  const LVN = { 1: '簡單', 2: '普通', 3: '厲害' };
+
+  let G = null;        // 整局狀態（回合之間存檔）
+  let W = null;        // 你這一回合的工作區
+  let sortMode = store.get('rk-sort') || 'color';
+  let fresh = new Set(), drawnId = -1, aiTimer = 0, seeing = false;
+
+  // ---------- 聲音 ----------
+  let AC = null, muted = store.get('rk-mute') === '1';
+  function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (AC && AC.state === 'suspended') AC.resume(); return AC; }
+  function click(vol = .6, f = 1800) {
+    const a = ac(); if (!a || muted) return;
+    const t = a.currentTime, buf = a.createBuffer(1, Math.floor(a.sampleRate * .05), a.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 5);
+    const s = a.createBufferSource(); s.buffer = buf; const bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = 2;
+    const g = a.createGain(); g.gain.value = vol; s.connect(bp); bp.connect(g); g.connect(a.destination); s.start(t);
+  }
+  function tones(list) { const a = ac(); if (!a || muted) return; let t = a.currentTime; for (const [f, d] of list) { const o = a.createOscillator(), g = a.createGain(); o.type = 'triangle'; o.frequency.value = f; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.16, t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + d + .02); t += d * .8; } }
+  $('muteBtn').textContent = muted ? '🔇' : '🔊';
+  $('muteBtn').addEventListener('click', () => { muted = !muted; store.set('rk-mute', muted ? '1' : '0'); $('muteBtn').textContent = muted ? '🔇' : '🔊'; });
+  function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2700); }
+
+  // ---------- 繪製 ----------
+  function tileHTML(id, cls = '', val) {
+    const t = T[id];
+    if (t.c < 0) return `<button class="tile j ${cls}" data-id="${id}" type="button" aria-label="鬼牌${val ? '（當 ' + val + '）' : ''}"><b>☺</b><i>${val || ''}</i></button>`;
+    return `<button class="tile c${t.c} ${t.n === 6 || t.n === 9 ? 'u69' : ''} ${cls}" data-id="${id}" type="button" aria-label="${CNAME[t.c]}${t.n}"><b>${t.n}</b><i>${SHAPE[t.c]}</i></button>`;
+  }
+  const sortIds = ids => [...ids].sort((a, b) => {
+    const A = T[a], B = T[b];
+    if (A.c < 0 || B.c < 0) return (A.c < 0) - (B.c < 0) || a - b;
+    return sortMode === 'color' ? A.c - B.c || A.n - B.n || a - b : A.n - B.n || A.c - B.c || a - b;
+  });
+  const human = () => G.players[0];
+  const myTurn = () => G && !G.over && G.turn === 0 && W;
+  function render() {
+    if (!G) return;
+    // 對手
+    $('opps').innerHTML = G.players.map((p, i) => i === 0 ? '' : `<div class="opp ${G.turn === i && !G.over ? 'turn' : ''}"><span class="av">${p.av}</span><div><div class="nm">${p.name}</div><div class="meta">${p.ice ? '已破冰' : '未破冰'}</div></div><span class="cnt">${p.hand.length}</span></div>`).join('');
+    const table = W && myTurn() ? W.table : G.table;
+    const hand = W && myTurn() ? W.hand : human().hand;
+    const sel = W && myTurn() ? W.sel : new Set();
+    // 桌面
+    let h = '';
+    if (!table.length) h = `<div class="empty">桌上還沒有牌。<br>${human().ice || !G.iceNeed ? '' : '第一次出牌要滿 ' + G.iceNeed + ' 點（破冰）。'}</div>`;
+    table.forEach((s, i) => {
+      const a = arrange(s), order = a ? a.order : s, vals = a ? a.vals : [];
+      const mine = W && myTurn() && s.every(id => W.fromHand.has(id));
+      h += `<div class="set ${a ? '' : 'bad'} ${mine && a ? 'mine' : ''}" data-set="${i}">` + order.map((id, k) => tileHTML(id, (fresh.has(id) ? 'fresh ' : '') + (W && myTurn() && W.fromHand.has(id) ? 'mine' : ''), isJ(id) ? vals[k] : 0)).join('') +
+        (sel.size ? `<button class="plus" data-plus="${i}" type="button" aria-label="放進這一組">＋</button>` : '') + '</div>';
+    });
+    if (sel.size) h += `<button class="newset" id="newSetBtn" type="button">＋ 新牌組</button>`;
+    $('table').innerHTML = h;
+    // 暫放區
+    $('limbo').hidden = !(W && myTurn() && W.limbo.length);
+    if (W && myTurn()) $('limboTiles').innerHTML = W.limbo.map(id => tileHTML(id, sel.has(id) ? 'sel' : '')).join('');
+    // 手牌
+    $('hand').innerHTML = sortIds(hand).map(id => tileHTML(id, (sel.has(id) ? 'sel ' : '') + (id === drawnId ? 'drawn' : ''))).join('');
+    renderInfo();
+  }
+  function renderInfo() {
+    const me = human();
+    let t = `<span>牌堆 <b>${G.pool.length}</b></span><span>手牌 <b>${(myTurn() ? W.hand : me.hand).length}</b></span><span>總分 ${me.total >= 0 ? '+' : ''}${me.total}</span>`;
+    if (myTurn()) {
+      if (!me.ice && G.iceNeed) { const p = icePts(); t += `<span class="warn">破冰 ${p}／${G.iceNeed} 點</span>`; }
+      const bad = W.table.some(s => !valid(s));
+      if (bad) t += `<span class="warn">有牌組不合法（紅框）</span>`;
+    }
+    $('info').innerHTML = t;
+    const changed = myTurn() && (W.hand.length !== me.hand.length || W.limbo.length || JSON.stringify(W.table) !== JSON.stringify(G.table));
+    $('undoBtn').disabled = !changed;
+    $('doneBtn').disabled = !myTurn(); $('doneBtn').classList.toggle('dim', !canFinish().ok);
+    $('drawBtn').disabled = !myTurn();
+    $('drawBtn').textContent = G.pool.length ? (changed ? '復原並抽牌' : '抽一張') : (changed ? '復原並跳過' : '跳過');
+    $('sortBtn').textContent = sortMode === 'color' ? '依數字排' : '依顏色排';
+  }
+  function setLog(html) { $('log').innerHTML = html; }
+
+  // ---------- 你的回合 ----------
+  function startHuman() {
+    W = { table: G.table.map(s => s.slice()), hand: human().hand.slice(), limbo: [], sel: new Set(), fromHand: new Set() };
+    render();
+  }
+  const icePts = () => W.table.filter(s => s.every(id => W.fromHand.has(id))).reduce((a, s) => a + pts(s), 0);
+  function canFinish() {
+    if (!myTurn()) return { ok: false };
+    if (W.limbo.length) return { ok: false, why: '黃色框裡還有從桌上拿起來的牌，要放回桌上' };
+    if (W.hand.length >= human().hand.length) return { ok: false, why: '這回合至少要從手上出一張牌，出不了就按「抽一張」' };
+    if (W.table.some(s => !valid(s))) return { ok: false, why: '有牌組不合法（紅框）：順子要同色連續、同數要不同顏色，都至少 3 張' };
+    if (!human().ice && G.iceNeed && icePts() < G.iceNeed) return { ok: false, why: `破冰要滿 ${G.iceNeed} 點，現在只有 ${icePts()} 點` };
+    return { ok: true };
+  }
+  function moveSelTo(target) {
+    const ids = [...W.sel];
+    for (const id of ids) {
+      let k = W.hand.indexOf(id);
+      if (k >= 0) { W.hand.splice(k, 1); W.fromHand.add(id); }
+      else { k = W.limbo.indexOf(id); if (k >= 0) W.limbo.splice(k, 1); }
+    }
+    if (target === -1) W.table.push(ids); else W.table[target] = W.table[target].concat(ids);
+    const i = target === -1 ? W.table.length - 1 : target, a = arrange(W.table[i]);
+    if (a) W.table[i] = a.order;
+    W.sel.clear(); click();
+    render();
+  }
+  function onTap(e) {
+    if (!myTurn() || seeing) return;
+    ac();
+    const plus = e.target.closest('[data-plus]');
+    if (plus) {
+      const i = +plus.dataset.plus;
+      const original = !W.table[i].every(id => W.fromHand.has(id));
+      if (!human().ice && G.iceNeed && original) { toast('破冰之前只能用自己的牌開新牌組，不能接到桌上原本的牌組'); return; }
+      moveSelTo(i); return;
+    }
+    if (e.target.closest('#newSetBtn')) { moveSelTo(-1); return; }
+    const tile = e.target.closest('.tile'); if (!tile) return;
+    const id = +tile.dataset.id;
+    if (tile.closest('#hand') || tile.closest('#limboTiles')) {
+      if (W.sel.has(id)) W.sel.delete(id); else W.sel.add(id);
+      click(.3, 2600); render(); return;
+    }
+    const setEl = tile.closest('[data-set]'); if (!setEl) return;
+    const i = +setEl.dataset.set;
+    if (W.fromHand.has(id)) {
+      // 這回合自己放上去的：收回手上
+      W.table[i] = W.table[i].filter(x => x !== id); W.fromHand.delete(id); W.hand.push(id);
+    } else {
+      if (!human().ice && G.iceNeed) { toast('破冰之前不能動桌上的牌'); return; }
+      W.table[i] = W.table[i].filter(x => x !== id); W.limbo.push(id);
+    }
+    if (!W.table[i].length) W.table.splice(i, 1);
+    else { const a = arrange(W.table[i]); if (a) W.table[i] = a.order; }
+    click(.4, 1400); render();
+  }
+  $('table').addEventListener('click', onTap);
+  $('hand').addEventListener('click', onTap);
+  $('limboTiles').addEventListener('click', onTap);
+  $('undoBtn').addEventListener('click', () => { if (myTurn()) { startHuman(); toast('已恢復成這回合開始的樣子'); } });
+  $('sortBtn').addEventListener('click', () => { sortMode = sortMode === 'color' ? 'num' : 'color'; store.set('rk-sort', sortMode); render(); });
+  $('doneBtn').addEventListener('click', () => {
+    const c = canFinish(); if (!c.ok) { if (c.why) toast(c.why); return; }
+    const me = human(), n = me.hand.length - W.hand.length;
+    G.table = W.table.map(s => arrange(s).order); me.hand = W.hand; me.ice = true;
+    fresh = new Set(); drawnId = -1; W = null;
+    setLog(`<b>你</b>出了 ${n} 張牌`); tones([[660, .1], [880, .14]]);
+    endTurn();
+  });
+  $('drawBtn').addEventListener('click', () => {
+    if (!myTurn()) return;
+    const me = human(); W = null; fresh = new Set();
+    if (G.pool.length) { drawnId = G.pool.pop(); me.hand.push(drawnId); G.passes = 0; setLog('<b>你</b>抽了一張'); click(.5, 1000); }
+    else { G.passes++; setLog('<b>你</b>跳過'); }
+    endTurn();
+  });
+
+  // ---------- 回合流程 ----------
+  function endTurn() {
+    const p = G.players[G.turn];
+    if (!p.hand.length) { finishRound(G.turn); return; }
+    if (!G.pool.length && G.passes >= G.players.length) { finishRound(-1); return; }
+    G.turn = (G.turn + 1) % G.players.length;
+    save();
+    nextTurn();
+  }
+  function nextTurn() {
+    if (G.over) return;
+    if (G.turn === 0) { startHuman(); return; }
+    W = null; render();
+    const p = G.players[G.turn];
+    setLog(`<b>${p.name}</b>想一下…`);
+    clearTimeout(aiTimer);
+    aiTimer = setTimeout(() => {
+      const r = aiTurn(G.table, p.hand, p.ice || !G.iceNeed, p.lv, G.iceNeed);
+      if (r) {
+        G.table = r.table; p.hand = r.hand; p.ice = true; G.passes = 0;
+        fresh = new Set(r.played);
+        setLog(`<b>${p.name}</b>出了 ${r.played.length} 張牌（金框）` + (p.hand.length <= 2 && p.hand.length ? `　⚠️ 只剩 ${p.hand.length} 張！` : ''));
+        tones([[520, .08], [620, .1]]);
+      } else if (G.pool.length) { p.hand.push(G.pool.pop()); G.passes = 0; fresh = new Set(); setLog(`<b>${p.name}</b>抽了一張`); click(.4, 1000); }
+      else { G.passes++; fresh = new Set(); setLog(`<b>${p.name}</b>跳過`); }
+      render();
+      aiTimer = setTimeout(endTurn, r ? 1300 : 700);
+    }, 750);
+  }
+  function finishRound(w) {
+    G.over = true; W = null;
+    const hv = p => p.hand.reduce((a, id) => a + tileVal(id), 0);
+    let winner = w;
+    if (w < 0) { winner = 0; G.players.forEach((p, i) => { if (hv(p) < hv(G.players[winner])) winner = i; }); }
+    const base = w < 0 ? hv(G.players[winner]) : 0;
+    let gain = 0;
+    const rows = G.players.map((p, i) => { if (i === winner) return 0; const d = -(hv(p) - base); gain -= d; return d; });
+    rows[winner] = gain;
+    G.players.forEach((p, i) => { p.total += rows[i]; });
+    const me = winner === 0;
+    $('endTitle').textContent = me ? '你贏了！🎉' : `${G.players[winner].name}贏了`;
+    $('endText').textContent = w < 0 ? '牌堆抽完了，大家都出不了牌，手上點數最少的人贏。' : (me ? '手牌全部出完！' : `${G.players[winner].name}把手牌出完了。`) + '　手上剩下的鬼牌算 30 點。';
+    $('endRes').innerHTML = G.players.map((p, i) => `<div class="r ${i === winner ? 'win' : ''}"><span>${i === 0 ? '🙂 你' : p.av + ' ' + p.name}</span><div class="tiles">${sortIds(p.hand).map(id => tileHTML(id)).join('')}</div><span class="num ${rows[i] > 0 ? 'pos' : rows[i] < 0 ? 'neg' : ''}">${rows[i] > 0 ? '+' : ''}${rows[i]}</span><span class="tot">總分<br>${p.total}</span></div>`).join('');
+    (me ? tones([[523, .15], [659, .15], [784, .15], [1047, .35]]) : tones([[440, .2], [349, .3]]));
+    store.set('rk-totals', JSON.stringify(G.players.map(p => p.total)));
+    G.round++;
+    save();
+    render();
+    setTimeout(() => { $('endScr').hidden = false; }, 900);
+  }
+  $('seeBtn').addEventListener('click', () => { $('endScr').hidden = true; seeing = true; setLog('看完桌面按右上角「新局」或<b>點這裡</b>開下一局'); });
+  $('log').addEventListener('click', () => { if (seeing) { seeing = false; deal(G.players.length - 1, G.lv, G.iceNeed, G.players.map(p => p.total), G.round, G.dealer + 1); } });
+  $('nextBtn').addEventListener('click', () => { $('endScr').hidden = true; deal(G.players.length - 1, G.lv, G.iceNeed, G.players.map(p => p.total), G.round, G.dealer + 1); });
+
+  // ---------- 開局 ----------
+  function deal(nAi, lv, iceNeed, totals, round = 1, dealer = 0) {
+    const pool = T.map(t => t.id);
+    for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+    const players = [{ name: '你', av: '🙂', lv: 0 }, ...AIS.slice(0, nAi).map(a => ({ ...a, lv }))].map((p, i) => ({ ...p, hand: pool.splice(0, 14), ice: false, total: totals ? totals[i] || 0 : 0 }));
+    G = { players, pool, table: [], turn: dealer % players.length, dealer: dealer % players.length, passes: 0, over: false, iceNeed, lv, round };
+    fresh = new Set(); drawnId = -1; seeing = false; W = null;
+    setLog(`第 ${round} 局開始，${G.turn === 0 ? '你先出' : G.players[G.turn].name + '先出'}`);
+    save();
+    nextTurn();
+  }
+  function save() { if (G) store.set('rk-save', JSON.stringify(G)); }
+  function load() { try { const g = JSON.parse(store.get('rk-save')); return g && g.players && !g.over ? g : null; } catch (e) { return null; } }
+
+  const cfg = { n: +(store.get('rk-n') || 3), lv: +(store.get('rk-lv') || 2) };
+  function seg(id, key) {
+    const box = $(id), upd = () => box.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.v === cfg[key])));
+    box.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { cfg[key] = +b.dataset.v; upd(); })); upd();
+  }
+  seg('optN', 'n'); seg('optLv', 'lv');
+  $('optIce').checked = store.get('rk-ice') !== '0';
+  function openSetup() { $('resumeBtn').hidden = !load(); $('backBtn').hidden = true; $('setup').hidden = false; }
+  $('startBtn').addEventListener('click', () => {
+    ac(); clearTimeout(aiTimer);
+    store.set('rk-n', cfg.n); store.set('rk-lv', cfg.lv); store.set('rk-ice', $('optIce').checked ? '1' : '0');
+    $('setup').hidden = true;
+    deal(cfg.n, cfg.lv, $('optIce').checked ? 30 : 0, null, 1, 0);
+  });
+  $('resumeBtn').addEventListener('click', () => { const g = load(); if (!g) return; ac(); G = g; $('setup').hidden = true; setLog(`繼續第 ${G.round} 局`); nextTurn(); });
+  $('newBtn').addEventListener('click', () => { if (G && !G.over && !confirm('放棄這一局，回到開始畫面？')) return; clearTimeout(aiTimer); $('endScr').hidden = true; openSetup(); });
+  $('rulesBtn').addEventListener('click', () => { $('rulesBox').open = true; const inGame = G && !G.over; $('resumeBtn').hidden = inGame || !load(); $('backBtn').hidden = !inGame; $('setup').hidden = false; });
+  $('backBtn').addEventListener('click', () => { $('setup').hidden = true; });
+
+  openSetup();
+  window.__rk = { get G() { return G; }, get W() { return W; }, RK, deal, render, canFinish, endTurn };
+})();
+</script>
+</html>
