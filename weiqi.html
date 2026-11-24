@@ -1,0 +1,957 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="遊戲廳">
+<meta name="theme-color" content="#12202c">
+<script>
+addEventListener('DOMContentLoaded', function () {
+  if (!(navigator.standalone || matchMedia('(display-mode: standalone)').matches)) return;
+  var a = document.createElement('a');
+  a.id = 'hg-home'; a.href = './'; a.textContent = '⌂';
+  a.onclick = function (e) { if (!confirm('回遊戲大廳？這一局的進度會消失。')) e.preventDefault(); }; a.setAttribute('aria-label', '回遊戲大廳');
+  a.style.cssText = 'position:fixed;left:env(safe-area-inset-left);top:50%;transform:translateY(-50%);z-index:2147483647;padding:10px 6px 10px 4px;border-radius:0 10px 10px 0;background:rgba(0,0,0,.5);color:#fff;font:600 15px/1 system-ui,-apple-system,sans-serif;text-decoration:none;opacity:.55;-webkit-tap-highlight-color:transparent';
+  document.body.appendChild(a);
+});
+</script>
+<title>圍棋小學堂</title>
+<meta name="description" content="從零開始學圍棋：30 個教學關卡（基本、入門、上手），解任務學吃子、做活、殺棋，最後在 9 路棋盤和電腦下一盤。">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&family=Noto+Serif+TC:wght@900&display=swap">
+<style>
+/* 和室風: 深茶色底, 榧木色棋盤, 黑白蛤碁石 */
+:root {
+  --bg: #2a2420; --panel: #3a312b; --line: rgba(255,255,255,.14); --ink: #f7f0e3; --muted: #c9bba8;
+  --wood: #e2b76a; --grid: #4a3418; --gold: #f2c14e; --ok: #4fc283; --bad: #ff6b5e; --blue: #5aa9ff;
+  --f-ui: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif; --f-tt: "Noto Serif TC", serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); font-family: var(--f-ui); -webkit-tap-highlight-color: transparent; }
+body { padding: calc(env(safe-area-inset-top, 0px) + 8px) max(10px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 12px) max(10px, env(safe-area-inset-left, 0px)); }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+.wrap { max-width: 980px; margin: 0 auto; display: grid; gap: 10px; }
+.top { display: flex; align-items: center; gap: 8px; }
+.top h1 { margin: 0; font-family: var(--f-tt); font-size: 22px; letter-spacing: .12em; }
+.top h1 span { color: var(--gold); }
+.top .grow { flex: 1; }
+.tb { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; font-size: 14px; font-weight: 700; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+
+/* 首頁 */
+.hero { display: grid; gap: 10px; }
+.big { display: grid; grid-template-columns: 56px 1fr; gap: 12px; align-items: center; text-align: left; background: var(--panel); border: 2px solid var(--line); border-radius: 16px; padding: 14px; }
+.big .ic { font-size: 40px; text-align: center; }
+.big b { font-size: 19px; display: block; }
+.big small { color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+.stage { display: grid; gap: 8px; }
+.stage h2 { margin: 6px 2px 0; font-size: 16px; display: flex; gap: 8px; align-items: baseline; }
+.stage h2 small { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+.grid10 { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.lv { text-align: left; background: rgba(255,255,255,.05); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; display: grid; grid-template-columns: 30px 1fr; gap: 8px; align-items: center; }
+.lv .n { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 900; background: #1d1916; border: 2px solid #6b5a48; font-size: 14px; }
+.lv.done .n { background: var(--ok); border-color: var(--ok); color: #0b3; color: #08321c; }
+.lv.next { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+.lv span { font-size: 14px; font-weight: 700; line-height: 1.3; }
+
+/* 關卡畫面 */
+.lesson { display: grid; gap: 10px; }
+.lhead { display: flex; align-items: center; gap: 8px; }
+.lhead h2 { margin: 0; font-size: 18px; flex: 1; }
+.lhead h2 small { display: block; font-size: 12px; color: var(--muted); font-weight: 500; }
+.text { line-height: 1.75; font-size: 15.5px; }
+.text b { color: var(--gold); }
+.layout { display: grid; gap: 10px; }
+@media (min-width: 820px) { .layout { grid-template-columns: minmax(0, 1fr) 320px; align-items: start; } }
+.boardBox { width: min(100%, 560px, calc(100dvh - 300px)); min-width: 260px; margin: 0 auto; }
+svg.bd { width: 100%; height: auto; display: block; border-radius: 8px; box-shadow: 0 10px 24px rgba(0,0,0,.5); touch-action: manipulation; }
+.side { display: grid; gap: 10px; align-content: start; }
+.fb { min-height: 48px; border-radius: 12px; padding: 10px 12px; font-weight: 700; line-height: 1.6; background: rgba(255,255,255,.05); }
+.fb.ok { background: rgba(79,194,131,.2); color: #b8f0cf; }
+.fb.bad { background: rgba(255,107,94,.18); color: #ffd0cb; }
+.fb.info { background: rgba(90,169,255,.15); color: #cfe5ff; }
+.choices { display: grid; gap: 6px; }
+.choices button { background: rgba(255,255,255,.07); border: 2px solid var(--line); border-radius: 12px; padding: 11px; font-weight: 900; font-size: 16px; }
+.choices button.right { border-color: var(--ok); background: rgba(79,194,131,.25); }
+.choices button.wrong { border-color: var(--bad); background: rgba(255,107,94,.2); }
+.btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.btns button { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 11px 4px; font-weight: 900; }
+.btns button.go { background: var(--gold); color: #3a2800; border: 0; box-shadow: 0 3px 0 #a17a20; }
+.btns button:disabled { opacity: .4; cursor: default; }
+
+/* 對局 */
+.gameInfo { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.pl { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.05); border: 2px solid transparent; border-radius: 12px; padding: 6px 10px; }
+.pl.turn { border-color: var(--gold); }
+.pl .st { width: 22px; height: 22px; border-radius: 50%; flex: none; }
+.pl .st.b { background: radial-gradient(circle at 35% 30%, #666, #111 60%); } .pl .st.w { background: radial-gradient(circle at 35% 30%, #fff, #cfcfcf 70%); }
+.pl b { font-size: 14px; } .pl small { display: block; color: var(--muted); font-size: 12px; }
+.opt { display: grid; gap: 6px; }
+.opt > small { color: var(--muted); font-size: 12.5px; font-weight: 700; letter-spacing: .08em; }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+.seg button { background: rgba(255,255,255,.06); border: 2px solid var(--line); border-radius: 12px; padding: 9px 4px; font-weight: 900; display: grid; gap: 2px; justify-items: center; }
+.seg button small { font-weight: 500; font-size: 11.5px; color: var(--muted); }
+.seg button[aria-pressed="true"] { border-color: var(--gold); background: rgba(242,193,78,.18); }
+.goBtn { background: var(--gold); color: #3a2800; border: 0; border-radius: 14px; padding: 13px; font-weight: 900; font-size: 18px; letter-spacing: .1em; box-shadow: 0 4px 0 #a17a20; width: 100%; }
+.thinking::after { content: ''; display: inline-block; width: 1.2em; animation: dots 1s steps(4) infinite; }
+@keyframes dots { 0% { content: ''; } 25% { content: '．'; } 50% { content: '．．'; } 75% { content: '．．．'; } }
+.toast { position: fixed; left: 50%; top: 38%; transform: translateX(-50%); background: rgba(0,0,0,.85); border: 1px solid var(--line); padding: 10px 16px; border-radius: 12px; font-weight: 700; z-index: 40; pointer-events: none; animation: tst 2.4s forwards; max-width: 90vw; text-align: center; }
+@keyframes tst { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
+.stamp { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%) rotate(-6deg); font-family: var(--f-tt); font-size: 60px; color: #fff; background: #c0392b; border: 6px double #fff; border-radius: 16px; padding: 4px 24px; z-index: 40; pointer-events: none; animation: stamp 1.4s ease-out forwards; }
+@keyframes stamp { 0% { opacity: 0; transform: translate(-50%, -50%) scale(2) rotate(-10deg); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(-6deg); } 80% { opacity: 1; } 100% { opacity: 0; } }
+.stone { transition: opacity .2s; }
+@media (prefers-reduced-motion: reduce) { .toast, .stamp { animation-duration: .01s; } }
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <h1>圍棋<span>小學堂</span></h1>
+    <div class="grow"></div>
+    <button class="tb" id="muteBtn" type="button" aria-label="聲音">🔊</button>
+    <button class="tb" id="homeBtn" type="button" hidden>回首頁</button>
+  </div>
+
+  <!-- 首頁 -->
+  <div id="home" class="hero">
+    <button class="big" id="goLessons" type="button"><span class="ic">📖</span><span><b>教學關卡</b><small id="progTxt">從零開始：基本 → 入門 → 上手，共 30 關</small></span></button>
+    <button class="big" id="goGame" type="button"><span class="ic">⚫</span><span><b>和電腦下一盤</b><small>9 路棋盤（直橫各 9 條線），下完自動數地</small></span></button>
+    <div id="stages"></div>
+  </div>
+
+  <!-- 關卡 -->
+  <div id="lesson" class="lesson" hidden>
+    <div class="lhead"><h2 id="lTitle"></h2></div>
+    <div class="layout">
+      <div class="boardBox"><svg class="bd" id="lBoard"></svg></div>
+      <div class="side">
+        <div class="card text" id="lText"></div>
+        <div class="choices" id="lChoices" hidden></div>
+        <div class="fb" id="lFb"></div>
+        <div class="btns"><button id="hintBtn" type="button">💡 提示</button><button id="retryBtn" type="button">↺ 重來</button><button class="go" id="nextBtn" type="button">下一關 ▶</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 對局設定 -->
+  <div id="setup" class="card" hidden style="display:grid;gap:12px;">
+    <div class="opt"><small>我執</small><div class="seg" id="optColor"><button type="button" data-v="1">⚫ 黑棋<small>先下</small></button><button type="button" data-v="2">⚪ 白棋<small>後下</small></button></div></div>
+    <div class="opt"><small>電腦程度</small><div class="seg" id="optLv"><button type="button" data-v="1">簡單<small>想 1 秒</small></button><button type="button" data-v="2">普通<small>想 3 秒</small></button><button type="button" data-v="3">困難<small>想 6 秒</small></button></div></div>
+    <div class="opt"><small>讓子（你執黑時，先在星位擺幾顆黑子）</small><div class="seg" id="optHc"><button type="button" data-v="0">不讓</button><button type="button" data-v="2">2 子</button><button type="button" data-v="3">3 子</button><button type="button" data-v="4">4 子</button></div></div>
+    <p style="margin:0;color:var(--muted);font-size:13.5px;line-height:1.6">算法：數子法，自己的子 + 圍住的空點。白棋後下，額外加 7.5 點（貼目）；有讓子時只加 0.5 點。</p>
+    <button class="goBtn" id="startGame" type="button">開始下棋</button>
+  </div>
+
+  <!-- 對局 -->
+  <div id="game" hidden style="display:grid;gap:10px;">
+    <div class="gameInfo"><div class="pl" id="plB"><span class="st b"></span><div><b id="nmB">你</b><small id="capB">提 0 子</small></div></div><div class="pl" id="plW"><span class="st w"></span><div><b id="nmW">電腦</b><small id="capW">提 0 子</small></div></div></div>
+    <div class="fb info" id="gFb">輪到你</div>
+    <div class="boardBox"><svg class="bd" id="gBoard"></svg></div>
+    <div class="btns" style="grid-template-columns:repeat(4,1fr)"><button id="passBtn" type="button">虛手</button><button id="undoBtn" type="button">悔棋</button><button id="gHintBtn" type="button">提示</button><button id="resignBtn" type="button">認輸</button></div>
+  </div>
+</div>
+
+<script>
+// 圍棋核心: 規則 (提子, 禁著, 打劫), 解題搜尋 (吃子, 做活, 殺棋), Benson 無條件活棋, 9 路電腦 (UCT + RAVE), 數地
+// 主畫面和 Web Worker 共用 (GOCORE.toString() 丟進 Worker)
+function GOCORE(X) {
+  'use strict';
+  const EMPTY = 0, BLACK = 1, WHITE = 2, EDGE = 3;
+  const opp = c => 3 - c;
+
+  // ---------- 棋盤 ----------
+  // 外圍多一圈 EDGE, index = (y+1)*W + (x+1), W = N+2
+  class Board {
+    constructor(N) {
+      this.N = N; this.W = N + 2; const L = this.W * this.W;
+      this.a = new Uint8Array(L).fill(EDGE);
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) this.a[this.p(x, y)] = EMPTY;
+      this.ko = -1; this.caps = [0, 0, 0]; this.dirs = [1, -1, this.W, -this.W];
+      // 找棋塊用的暫存 (共用, 避免一直配置記憶體)
+      this.mk = new Int32Array(L); this.lm = new Int32Array(L); this.gen = 1; this.stk = new Int32Array(L); this.ns = 0;
+      this.lastCaptured = [];
+    }
+    p(x, y) { return (y + 1) * this.W + x + 1; }
+    xy(p) { return [p % this.W - 1, (p / this.W | 0) - 1]; }
+    clone() { const b = new Board(this.N); b.a.set(this.a); b.ko = this.ko; b.caps = this.caps.slice(); return b; }
+    points() { if (!this._pts) { const r = []; for (let y = 0; y < this.N; y++) for (let x = 0; x < this.N; x++) r.push(this.p(x, y)); this._pts = r; } return this._pts; }
+    // 快速: 數棋塊的氣 (最多數到 max 就停), 棋塊的子放在 stk[0..ns)
+    libCount(p, max = 99) {
+      const a = this.a, c = a[p], g = ++this.gen, stk = this.stk, mk = this.mk, lm = this.lm, d0 = 1, d1 = -1, d2 = this.W, d3 = -this.W;
+      let n = 0, libs = 0; stk[n++] = p; mk[p] = g;
+      for (let i = 0; i < n; i++) {
+        const s = stk[i];
+        for (const q of [s + d0, s + d1, s + d2, s + d3]) {
+          const v = a[q];
+          if (v === c) { if (mk[q] !== g) { mk[q] = g; stk[n++] = q; } }
+          else if (v === EMPTY && lm[q] !== g) { lm[q] = g; if (++libs >= max) { this.ns = n; return libs; } }
+        }
+      }
+      this.ns = n; return libs;
+    }
+    // 找一整塊棋和它的氣 (解題用, 回傳物件)
+    chain(p) {
+      const c = this.a[p], stones = [p], seen = new Set([p]), libs = new Set();
+      for (let i = 0; i < stones.length; i++) for (const d of this.dirs) {
+        const q = stones[i] + d, v = this.a[q];
+        if (v === c && !seen.has(q)) { seen.add(q); stones.push(q); }
+        else if (v === EMPTY) libs.add(q);
+      }
+      return { stones, libs, color: c };
+    }
+    libsOf(p) { return this.libCount(p); }
+    // 落子: 不合法回傳 false (有子, 打劫, 自殺)
+    play(p, c) {
+      if (p < 0) { this.ko = -1; this.lastCaptured = []; return true; }
+      const a = this.a;
+      if (a[p] !== EMPTY || p === this.ko) return false;
+      a[p] = c;
+      const o = 3 - c, captured = [];
+      for (const d of this.dirs) {
+        const q = p + d;
+        if (a[q] === o && this.libCount(q, 1) === 0) { for (let i = 0; i < this.ns; i++) { a[this.stk[i]] = EMPTY; captured.push(this.stk[i]); } }
+      }
+      const myLibs = this.libCount(p, 2), mySize = this.ns;
+      if (!myLibs) { a[p] = EMPTY; return false; }
+      this.caps[c] += captured.length;
+      // 打劫: 提一子, 自己這顆也只剩一口氣
+      this.ko = captured.length === 1 && mySize === 1 && myLibs === 1 ? captured[0] : -1;
+      this.lastCaptured = captured;
+      return true;
+    }
+    legal(p, c) {
+      const a = this.a;
+      if (a[p] !== EMPTY || p === this.ko) return false;
+      for (const d of this.dirs) if (a[p + d] === EMPTY) return true;
+      a[p] = c; let ok = this.libCount(p, 1) > 0;
+      if (!ok) for (const d of this.dirs) { const q = p + d; if (a[q] === 3 - c && this.libCount(q, 1) === 0) { ok = true; break; } }
+      a[p] = EMPTY; return ok;
+    }
+    key() { return this.a.join('') + this.ko; }
+    // 真眼: 四周都是自己的子, 斜角夠多也是自己的
+    isEye(p, c) {
+      const a = this.a;
+      if (a[p] !== EMPTY) return false;
+      for (const d of this.dirs) { const v = a[p + d]; if (v !== c && v !== EDGE) return false; }
+      let bad = 0, edge = 0; const W = this.W;
+      for (const d of [W + 1, W - 1, -W + 1, -W - 1]) { const v = a[p + d]; if (v === EDGE) edge = 1; else if (v === 3 - c) bad++; }
+      return bad + edge < 2;
+    }
+  }
+
+  // ---------- Benson: 無條件活棋 ----------
+  // 回傳 Set: 這個顏色無論對方怎麼下都不會被吃的棋子位置
+  function benson(b, c) {
+    const pts = b.points();
+    // 棋塊
+    const chainId = new Map(), chains = [];
+    for (const p of pts) if (b.a[p] === c && !chainId.has(p)) { const ch = b.chain(p); const id = chains.length; chains.push(ch); ch.stones.forEach(s => chainId.set(s, id)); }
+    // 區域: 不是 c 的點連成一片
+    const regId = new Map(), regs = [];
+    for (const p of pts) if (b.a[p] !== c && !regId.has(p)) {
+      const id = regs.length, r = { pts: [p], empties: [], adj: new Set() }; regId.set(p, id); regs.push(r);
+      for (let i = 0; i < r.pts.length; i++) {
+        const q = r.pts[i]; if (b.a[q] === EMPTY) r.empties.push(q);
+        for (const d of b.dirs) { const s = q + d, v = b.a[s]; if (v === EDGE) continue; if (v === c) r.adj.add(chainId.get(s)); else if (!regId.has(s)) { regId.set(s, id); r.pts.push(s); } }
+      }
+    }
+    // 區域對某塊棋是不是 "vital": 區域裡每個空點都是那塊棋的氣
+    let aliveC = new Set(chains.map((_, i) => i)), aliveR = new Set(regs.map((_, i) => i));
+    const vital = (ri, ci) => regs[ri].empties.every(e => b.dirs.some(d => chainId.get(e + d) === ci));
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const ci of [...aliveC]) {
+        let n = 0; for (const ri of aliveR) if (regs[ri].adj.has(ci) && vital(ri, ci)) n++;
+        if (n < 2) { aliveC.delete(ci); changed = true; }
+      }
+      for (const ri of [...aliveR]) { for (const ci of regs[ri].adj) if (!aliveC.has(ci)) { aliveR.delete(ri); changed = true; break; } }
+    }
+    const out = new Set(); for (const ci of aliveC) chains[ci].stones.forEach(s => out.add(s));
+    return out;
+  }
+
+  // ---------- 解題搜尋 ----------
+  // goal: { type: 'capture'|'save'|'live'|'kill', target: p, me: 顏色, area?: [p...], depth }
+  // 回傳 true = 輪到 toMove 時, me 這方能達成目標
+  function solve(b, toMove, goal, depth, cache) {
+    const key = b.key() + toMove + depth;
+    if (cache.has(key)) return cache.get(key);
+    const r = solveInner(b, toMove, goal, depth, cache);
+    cache.set(key, r);
+    return r;
+  }
+  function status(b, goal) {
+    // 回傳 1 = me 贏, -1 = me 輸, 0 = 還沒定
+    const tgtColor = goal.tColor, t = goal.target, ts = goal.targets || [t];
+    const gone = ts.some(q => b.a[q] !== tgtColor);
+    if (goal.type === 'capture' || goal.type === 'kill') {
+      if (gone) return 1;
+      if (goal.type === 'capture' && ts.every(q => b.libsOf(q) >= (goal.escape || 3))) return -1;
+      if (goal.type === 'kill' && benson(b, tgtColor).has(t)) return -1;
+      return 0;
+    } else {   // save, live
+      if (gone) return -1;
+      if (goal.type === 'save' && b.libsOf(t) >= (goal.escape || 3)) return 1;
+      if (goal.type === 'live' && benson(b, tgtColor).has(t)) return 1;
+      return 0;
+    }
+  }
+  function candidates(b, c, goal) {
+    let pts;
+    if (goal.area) pts = goal.area.filter(p => b.a[p] === EMPTY);
+    else {
+      // 沒指定範圍 (吃子/逃跑題): 攻方下目標的氣, 守方下目標的氣或吃掉包圍它而只剩一氣的棋
+      const s = new Set();
+      for (const tp of goal.targets || [goal.target]) if (b.a[tp] === goal.tColor) {
+        const t = b.chain(tp);
+        t.libs.forEach(l => s.add(l));
+        if (c === goal.tColor) for (const st of t.stones) for (const d of b.dirs) { const q = st + d; if (b.a[q] === opp(goal.tColor)) { const ch = b.chain(q); if (ch.libs.size === 1) ch.libs.forEach(l => s.add(l)); } }
+      }
+      pts = [...s];
+    }
+    const out = pts.filter(p => b.legal(p, c));
+    const tl = b.a[goal.target] === goal.tColor ? b.chain(goal.target).libs : new Set();
+    out.sort((x, y) => (tl.has(y) ? 1 : 0) - (tl.has(x) ? 1 : 0));
+    return out;
+  }
+  function solveInner(b, toMove, goal, depth, cache) {
+    const st = status(b, goal);
+    if (st) return st > 0;
+    // 步數用完: 逃跑題活著就算成功; 殺棋題對方還沒活就算成功 (小空間裡他有足夠步數做眼)
+    if (depth <= 0) return goal.type === 'save' ? b.a[goal.target] === goal.tColor : goal.type === 'kill';
+    const meTurn = toMove === goal.me;
+    const moves = candidates(b, toMove, goal);
+    // 對方也可以不理 (虛手或下別處); 吃子題只在剩下步數不多時才考慮, 不然征子這種長手順會算太久
+    if (!meTurn && (goal.type === 'live' || goal.type === 'kill' || depth <= 8)) moves.push(-1);
+    if (meTurn) {
+      for (const m of moves) { const nb = b.clone(); nb.play(m, toMove); if (solve(nb, opp(toMove), goal, depth - 1, cache)) return true; }
+      return false;
+    } else {
+      if (!moves.length) { const nb = b.clone(); nb.play(-1, toMove); return solve(nb, opp(toMove), goal, depth - 1, cache); }
+      for (const m of moves) { const nb = b.clone(); nb.play(m, toMove); if (!solve(nb, opp(toMove), goal, depth - 1, cache)) return false; }
+      return true;
+    }
+  }
+  // 對方最頑強的應手 (讓 me 最難成功的那一步); 都擋不住時挑最能拖的
+  function bestDefense(b, toMove, goal, depth) {
+    const moves = candidates(b, toMove, goal);
+    if (!moves.length) return -1;
+    let fallback = moves[0], best = null;
+    for (const m of moves) {
+      const nb = b.clone(); nb.play(m, toMove);
+      if (!solve(nb, opp(toMove), goal, depth - 1, new Map())) { best = m; break; }
+      if (goal.type === 'capture' || goal.type === 'kill') { if (nb.a[goal.target] === goal.tColor && nb.libsOf(goal.target) > (b.a[goal.target] === goal.tColor ? 0 : 0)) fallback = fallback; }
+    }
+    if (best !== null) return best;
+    // 擋不住: 挑讓目標氣最多的一步, 看起來比較自然
+    if (goal.type === 'capture' || goal.type === 'save') {
+      let mx = -1;
+      for (const m of moves) { const nb = b.clone(); nb.play(m, toMove); if (nb.a[goal.target] !== goal.tColor) continue; const l = nb.libsOf(goal.target); if (l > mx) { mx = l; fallback = m; } }
+    }
+    return fallback;
+  }
+
+  // ---------- 數地 (數子法: 活子 + 圍住的空點) ----------
+  function score(b, dead) {
+    const a = b.a.slice(); dead = dead || new Set();
+    for (const p of dead) a[p] = EMPTY;
+    const own = new Int8Array(a.length);   // 1 黑 2 白 0 單官
+    const seen = new Set();
+    let sb = 0, sw = 0;
+    for (const p of b.points()) {
+      if (a[p] === BLACK) { sb++; own[p] = 1; } else if (a[p] === WHITE) { sw++; own[p] = 2; }
+      else if (!seen.has(p)) {
+        const reg = [p], touch = new Set(); seen.add(p);
+        for (let i = 0; i < reg.length; i++) for (const d of b.dirs) { const q = reg[i] + d; if (a[q] === EMPTY && !seen.has(q)) { seen.add(q); reg.push(q); } else if (a[q] === BLACK || a[q] === WHITE) touch.add(a[q]); }
+        if (touch.size === 1) { const c = [...touch][0]; reg.forEach(q => own[q] = c); if (c === BLACK) sb += reg.length; else sw += reg.length; }
+      }
+    }
+    return { black: sb, white: sw, own };
+  }
+
+  // ---------- 電腦 (UCT + RAVE, 隨機下完數地) ----------
+  function playout(b, c, amaf, maxMoves) {
+    const pts = b.points(), L = pts.length, a = b.a;
+    let passes = 0, moves = 0;
+    while (passes < 2 && moves < maxMoves) {
+      let mv = -1;
+      // 對方剛下的子旁邊有只剩一口氣的棋: 吃掉或逃跑 (簡單的打吃反應)
+      if (b.last >= 0 && Math.random() < .7) {
+        for (const d of b.dirs) {
+          const q = b.last + d;
+          if ((a[q] === BLACK || a[q] === WHITE) && b.libCount(q, 2) === 1) {
+            // 找那口氣
+            const g = b.gen; let lib = -1;
+            for (let i = 0; i < b.ns && lib < 0; i++) for (const d2 of b.dirs) { const r = b.stk[i] + d2; if (a[r] === EMPTY) { lib = r; break; } }
+            if (lib >= 0 && !b.isEye(lib, c) && b.play(lib, c)) { mv = lib; break; }
+          }
+        }
+      }
+      if (mv < 0) {
+        const start = Math.random() * L | 0;
+        for (let i = 0; i < L; i++) {
+          const p = pts[(start + i) % L];
+          if (a[p] !== EMPTY || b.isEye(p, c)) continue;
+          if (b.play(p, c)) { mv = p; break; }
+        }
+      }
+      if (mv < 0) { b.play(-1, c); passes++; b.last = -1; } else { passes = 0; b.last = mv; if (amaf && !amaf.has(mv)) amaf.set(mv, c); }
+      c = 3 - c; moves++;
+    }
+    return b;
+  }
+  // 快速數子 (模擬結束時用: 空點只看鄰居)
+  function quickScore(b) {
+    const a = b.a; let sb = 0, sw = 0;
+    for (const p of b.points()) {
+      const v = a[p];
+      if (v === BLACK) sb++; else if (v === WHITE) sw++;
+      else { let nb = 0, nw = 0; for (const d of b.dirs) { const q = a[p + d]; if (q === BLACK) nb++; else if (q === WHITE) nw++; } if (nb && !nw) sb++; else if (nw && !nb) sw++; }
+    }
+    return { black: sb, white: sw };
+  }
+  function think(pos, opt) {
+    const N = pos.N, root = new Board(N); root.a.set(pos.a); root.ko = pos.ko;
+    const me = pos.toMove, komi = pos.komi, t0 = Date.now();
+    const node = () => ({ n: 0, w: 0, kids: null, rn: new Map(), rw: new Map() });
+    const R = node();
+    const legalMoves = (b, c) => { const m = []; for (const p of b.points()) if (b.a[p] === EMPTY && !b.isEye(p, c) && b.legal(p, c)) m.push(p); return m; };
+    let iters = 0;
+    const maxIt = opt.playouts || 3000, maxMs = opt.ms || 3000;
+    const own = new Float32Array(root.a.length);
+    while (iters < maxIt && Date.now() - t0 < maxMs) {
+      iters++;
+      const b = root.clone(); b.last = pos.last ?? -1; let c = me; const path = [R]; let nd = R;
+      const amaf = new Map();
+      // 選擇
+      while (nd.kids && nd.n > 0) {
+        let best = null, bv = -1;
+        for (const [m, k] of nd.kids) {
+          const rn = nd.rn.get(m) || 0, rw = nd.rw.get(m) || 0;
+          const beta = rn / (rn + k.n + rn * k.n / 3000 + 1e-9);
+          const q = k.n ? k.w / k.n : .5, rq = rn ? rw / rn : .5;
+          const v = (1 - beta) * q + beta * rq + .35 * Math.sqrt(Math.log(nd.n + 1) / (k.n + 1));
+          if (v > bv) { bv = v; best = [m, k]; }
+        }
+        if (!best) break;
+        b.play(best[0], c); b.last = best[0]; amaf.set(best[0], c); c = opp(c); nd = best[1]; path.push(nd);
+      }
+      // 展開
+      if (!nd.kids) { nd.kids = new Map(); for (const m of legalMoves(b, c)) nd.kids.set(m, node()); }
+      // 模擬
+      playout(b, c, amaf, N * N * 3);
+      const sc = quickScore(b);
+      const blackWin = sc.black - sc.white - komi > 0 ? 1 : 0;
+      if (opt.own) for (const p of b.points()) { const v = b.a[p]; own[p] += v === BLACK ? 1 : v === WHITE ? -1 : (b.isEye(p, BLACK) ? 1 : b.isEye(p, WHITE) ? -1 : 0); }
+      // 回傳: 每個節點記 "走到這個節點的那一方" 贏了沒
+      let mover = me;
+      for (let i = 1; i < path.length; i++) { const k = path[i]; k.n++; k.w += (mover === BLACK ? blackWin : 1 - blackWin); mover = opp(mover); }
+      R.n++;
+      // RAVE
+      mover = me;
+      for (let i = 0; i < path.length; i++) {
+        const k = path[i];
+        if (k.kids) for (const [m, col] of amaf) if (col === mover && k.kids.has(m)) { k.rn.set(m, (k.rn.get(m) || 0) + 1); k.rw.set(m, (k.rw.get(m) || 0) + (mover === BLACK ? blackWin : 1 - blackWin)); }
+        mover = opp(mover);
+      }
+    }
+    let best = -1, bn = -1, bw = 0;
+    if (R.kids) for (const [m, k] of R.kids) if (k.n > bn) { bn = k.n; best = m; bw = k.n ? k.w / k.n : 0; }
+    const ownership = Array.from(own, v => v / Math.max(1, iters));
+    // 下一步也沒用 (贏面很大而且對方剛虛手, 或已經沒地方下) 就虛手
+    let winrate = best < 0 ? (R.n ? 0 : .5) : bw;
+    return { move: best, winrate, iters, ownership };
+  }
+  // 終局判斷死子: 用模擬的地盤歸屬, 在對方地盤裡的子算死
+  function deadStones(b, toMove, komi, ms = 1500) {
+    const r = think({ N: b.N, a: b.a, ko: b.ko, toMove, komi }, { playouts: 1500, ms, own: true });
+    const dead = new Set();
+    for (const p of b.points()) {
+      const v = r.ownership[p];
+      if (b.a[p] === BLACK && v < -.5) dead.add(p);
+      if (b.a[p] === WHITE && v > .5) dead.add(p);
+    }
+    return dead;
+  }
+
+  Object.assign(X, { EMPTY, BLACK, WHITE, Board, benson, solve, bestDefense, score, think, deadStones, status });
+  if (typeof X.postMessage === 'function' && typeof window === 'undefined') {
+    X.onmessage = e => {
+      const d = e.data;
+      if (d.kind === 'think') X.postMessage({ id: d.id, ...think(d.pos, d.opt) });
+      else if (d.kind === 'dead') { const b = new Board(d.pos.N); b.a.set(d.pos.a); X.postMessage({ id: d.id, dead: [...deadStones(b, d.pos.toMove, d.pos.komi)] }); }
+    };
+  }
+  return X;
+}
+
+
+// 30 關教學。棋盤用字串畫: X 黑 (你), O 白, . 空點, 小寫字母 = 有標記的空點 (選擇題用)
+// kind: place (照順序點亮點), quiz (選擇題), capture / save / live / kill (程式解題判斷對錯), atari (叫吃), connect (連起來), game (和電腦下)
+// ans: 正解第一步 [x, y] (提示用, 也拿來測試); wrong: 要被判錯的下法 (測試用)
+const LESSONS = [
+  // ---------- 基本 ----------
+  { stage: 0, title: '棋盤和落子', board: [
+    '.........', '.........', '.........', '.........', '.........', '.........', '.........', '.........', '.........'],
+    text: '圍棋的子下在<b>線的交叉點</b>上，不是格子裡。這是「9 路」棋盤：直的 9 條、橫的 9 條線。正式比賽用 19 路，初學先從 9 路開始。黑棋先下，黑白輪流。<br>請在亮起來的點下子：先下正中間的「天元」，再下左上的「星位」。',
+    goal: { kind: 'place', pts: [[4, 4], [2, 2]] } },
+  { stage: 0, title: '什麼是「氣」', board: ['.....', '.....', '..O..', '.....', '.....'],
+    text: '一顆子上下左右連著的空點，叫做它的<b>氣</b>（斜的不算）。氣被對方全部堵住，這顆子就會被吃掉。',
+    goal: { kind: 'quiz', q: '中間這顆白子有幾口氣？', choices: ['2 口', '3 口', '4 口'], answer: 2, explain: '上下左右四個點都空著，所以有 4 口氣。' } },
+  { stage: 0, title: '邊和角的氣比較少', board: ['O...O', '.....', '.....', '.....', '.....'],
+    text: '在邊上或角上，棋盤外面沒有點，所以氣比較少。',
+    goal: { kind: 'quiz', q: '左上角這顆白子有幾口氣？', choices: ['2 口', '3 口', '4 口'], answer: 0, explain: '角上只有右邊和下面兩個點，所以只有 2 口氣，很容易被吃。' } },
+  { stage: 0, title: '提子：吃掉一顆子', board: ['.....', '..X..', '.XO X.'.replace(' ', ''), '.....', '.....'],
+    text: '白子只剩最後一口氣了。把它最後一口氣堵住，就能把它<b>提</b>（拿）起來，這就是吃子。',
+    goal: { kind: 'capture', target: [2, 2], depth: 1 }, ans: [2, 3], wrong: [[0, 0]] },
+  { stage: 0, title: '在邊上吃子', board: ['.XOX.', '.....', '.....', '.....', '.....'],
+    text: '邊上的白子只有 3 口氣，現在只剩 1 口。請把它吃掉。',
+    goal: { kind: 'capture', target: [2, 0], depth: 1 }, ans: [2, 1], wrong: [[2, 2]] },
+  { stage: 0, title: '在角上吃子', board: ['OX...', '.....', '.....', '.....', '.....'],
+    text: '角上的白子只有 2 口氣，已經被堵住 1 口。',
+    goal: { kind: 'capture', target: [0, 0], depth: 1 }, ans: [0, 1], wrong: [[1, 1]] },
+  { stage: 0, title: '一次吃兩顆', board: ['.XX..', 'XOOX.', '.X...', '.....', '.....'],
+    text: '連在一起的子是一整塊，要一起算氣。這兩顆白子合起來只剩 1 口氣。',
+    goal: { kind: 'capture', target: [1, 1], depth: 1 }, ans: [2, 2], wrong: [[3, 2]] },
+  { stage: 0, title: '禁著點', board: ['aX...', 'X....', '..b..', '.....', '....c'],
+    text: '如果下下去自己一口氣都沒有、又吃不到對方的子，這個點就不能下，叫做<b>禁著點</b>。',
+    goal: { kind: 'quiz', q: '白棋<b>不能</b>下在哪一點？', choices: ['A', 'B', 'C'], answer: 0, explain: 'A 點被黑子圍住，白子下去沒有氣，又吃不到黑子，所以不能下。' } },
+  { stage: 0, title: '能吃子就可以下', board: ['.OX..', 'OX...', 'X....', '.....', '.....'],
+    text: '左上角這一點，黑子下去好像沒有氣。可是下下去會把兩顆白子的最後一口氣堵住，<b>先把白子吃掉</b>，黑子就有氣了，所以可以下。',
+    goal: { kind: 'capture', target: [1, 0], depth: 1 }, ans: [0, 0], wrong: [[3, 3]] },
+  { stage: 0, title: '打劫', board: ['.XO..', 'XO.O.', '.XO..', '.....', '.....'],
+    text: '先吃掉中間那顆白子。吃完以後，白棋不能馬上吃回來，要先在別的地方下一手，這叫<b>打劫</b>，避免兩邊一直互吃。',
+    goal: { kind: 'capture', target: [1, 1], depth: 1, koNote: true }, ans: [2, 1], wrong: [[4, 4]] },
+
+  // ---------- 入門 ----------
+  { stage: 1, title: '叫吃', board: ['.......', '.......', '...X...', '..XO...', '.......', '.......', '.......'],
+    text: '讓對方只剩 1 口氣，叫做<b>叫吃</b>（打吃）。對方不逃的話，下一手就能吃掉。',
+    goal: { kind: 'atari', target: [3, 3] }, ans: [4, 3], wrong: [[0, 0]] },
+  { stage: 1, title: '往邊上趕', board: ['.XO..', '.....', '.....', '.....', '.....'],
+    text: '叫吃也要選方向。把白子往<b>棋盤邊上</b>趕，它就逃不掉；往中間趕，它就會跑出來。白棋會想辦法逃。',
+    goal: { kind: 'capture', target: [2, 0], depth: 9 }, ans: [2, 1], wrong: [[3, 0]] },
+  { stage: 1, title: '逃跑', board: ['.......', '.......', '...O...', '..OXO..', '.......', '.......', '.......'],
+    text: '換你的黑子被叫吃了！往外<b>長一手</b>，讓這塊棋的氣變多就能逃掉。',
+    goal: { kind: 'save', target: [3, 3], depth: 6 }, ans: [3, 4], wrong: [[0, 0]] },
+  { stage: 1, title: '連接', board: ['.......', '.......', '...O...', '..X.X..', '...O...', '.......', '.......'],
+    text: '兩顆黑子中間有個斷點，白棋下在那裡就能把它們切開。把兩顆黑子<b>連起來</b>，連在一起的棋比較強。',
+    goal: { kind: 'connect', a: [2, 3], b: [4, 3] }, ans: [3, 3], wrong: [[3, 1]] },
+  { stage: 1, title: '切斷', board: ['.......', '.......', '...X...', '..O.O..', '...X...', '.......', '.......'],
+    text: '這次換白棋有斷點。下在斷點把白棋<b>切斷</b>，分開的棋比較弱，比較好吃。',
+    goal: { kind: 'place', pts: [[3, 3]] } },
+  { stage: 1, title: '征子（扭羊頭）', board: [
+    '.........', '.........', '.........', '..XO.....', '..XOX....', '...X.....', '.........', '.........', '.........'],
+    text: '白棋只剩 2 口氣。一直從同一個方向叫吃，白棋往外逃也只能維持 2 口氣，最後撞到邊上被吃掉，像爬樓梯一樣，叫做<b>征子</b>。',
+    goal: { kind: 'capture', target: [3, 3], depth: 30 }, ans: [3, 2], wrong: [[4, 3]] },
+  { stage: 1, title: '吃子解圍', board: ['.......', '...X...', '..XO...', '..OXO..', '.......', '.......', '.......'],
+    text: '中間的黑子被叫吃了。除了往外逃，還有另一招：看看包圍你的白子，有沒有<b>自己也只剩一口氣</b>的？先把它吃掉，你的棋就多出氣來了。',
+    goal: { kind: 'capture', target: [3, 2], depth: 1 }, ans: [4, 2], wrong: [[3, 4]] },
+  { stage: 1, title: '雙叫吃', board: ['.......', '...X...', '..XO...', '.XO.X..', '...X...', '.......', '.......'],
+    text: '一手同時叫吃兩塊棋，叫做<b>雙叫吃</b>。對方只能救一塊，另一塊就被你吃掉。',
+    goal: { kind: 'capture', targets: [[3, 2], [2, 3]], depth: 3 }, ans: [3, 3], wrong: [[0, 0]] },
+  { stage: 1, title: '一手兩用', board: ['.......', '.......', '.......', '.......', 'XXXX...', 'OOOX...', '.O.OX..'],
+    text: '右下那顆白子只剩一口氣。下在那口氣上，會先把它吃掉，<b>同時</b>讓左邊整塊白棋也只剩一口氣。白棋救不回來，下一手就能整塊吃掉。',
+    goal: { kind: 'capture', target: [1, 5], depth: 3 }, ans: [2, 6], wrong: [[5, 6]] },
+  { stage: 1, title: '征子要看路線', board: ['.........', '......O..', '.........', '..XO.....', '..XOX....', '...X.....', '.........', '.........', '.........'],
+    text: '和「征子」那一關同樣的形狀，可是右上方多了一顆白子。征子的時候白棋一路往右上逃，碰到這顆白子就會接上、氣變多，征子就失敗了。所以征子前要先看<b>逃跑路線上有沒有對方的子</b>。',
+    goal: { kind: 'quiz', q: '黑棋現在從上面叫吃，用征子吃得到白棋嗎？', choices: ['吃得到', '吃不到'], answer: 1, explain: '白棋逃到右上會和那顆白子連起來，氣變成 3 口以上，征子失敗。這種幫忙接應的子叫「引征」。' } },
+
+  // ---------- 上手 ----------
+  { stage: 2, title: '眼', board: ['.......', '.......', '.......', '.......', 'XXXXX..', 'XaXbX..', 'XXXXX..'],
+    text: '被自己的棋圍住的空點叫做<b>眼</b>。對方不能下進去（是禁著點）。一塊棋有<b>兩個眼</b>，對方就永遠吃不到，叫做<b>活棋</b>。',
+    goal: { kind: 'quiz', q: '這塊黑棋有幾個眼？', choices: ['1 個', '2 個', '4 個'], answer: 1, explain: 'A 和 B 是兩個被黑子圍住的空點，就是兩個眼。白棋兩個點都不能下，所以這塊黑棋是活棋。' } },
+  { stage: 2, title: '做活：直三', board: ['.......', '.......', '.......', '.......', 'OOOOOO.', 'XXXXXO.', 'X...XO.'],
+    text: '黑棋被白棋包圍了，底下有 3 個空點連成一排（直三）。下在<b>正中間</b>，把它分成兩個眼就活了；下錯了白棋會下在中間破眼。',
+    goal: { kind: 'live', target: [0, 5], depth: 5, area: [1, 6, 3, 6] }, ans: [2, 6], wrong: [[1, 6]] },
+  { stage: 2, title: '殺棋：點眼', board: ['.......', '.......', '.......', '.......', 'XXXXXX.', 'OOOOOX.', 'O...OX.'],
+    text: '換成白棋被包圍，底下也是直三。先下在<b>正中間</b>（點眼），白棋就只能做出一個眼，活不了。',
+    goal: { kind: 'kill', target: [0, 5], depth: 6, area: [1, 6, 3, 6] }, ans: [2, 6], wrong: [[1, 6]] },
+  { stage: 2, title: '做活：彎三', board: ['.......', '.......', '.......', 'OOOOO..', 'XXXXO..', 'X..XO..', 'X.XXO..'],
+    text: '這次的 3 個空點是彎的（彎三）。要點在<b>轉角的那一點</b>，才能分成兩個眼。',
+    goal: { kind: 'live', target: [0, 4], depth: 5, area: [1, 5, 2, 6] }, ans: [1, 5], wrong: [[2, 5]] },
+  { stage: 2, title: '殺棋：彎三', board: ['.......', '.......', '.......', 'XXXXX..', 'OOOOX..', 'O..OX..', 'O.OOX..'],
+    text: '白棋是彎三。點在轉角的要點，白棋就做不出兩個眼。',
+    goal: { kind: 'kill', target: [0, 4], depth: 6, area: [1, 5, 2, 6] }, ans: [1, 5], wrong: [[2, 5]] },
+  { stage: 2, title: '直四是活棋', board: ['.......', '.......', '.......', '.......', 'OOOOOOO', 'XXXXXXO', 'X....XO'],
+    text: '直的 4 個空點（直四）不用急著補，白棋點一邊你就下另一邊，一定有兩個眼。',
+    goal: { kind: 'quiz', q: '白棋下在底下 4 個空點的任何一點，黑棋還能活嗎？', choices: ['能活', '會被殺'], answer: 0, explain: '白下中間兩點之一，黑就下另一個中間點；白下邊上，黑也下中間，都能分成兩個眼。所以直四不用補。' } },
+  { stage: 2, title: '對殺', board: ['.......', '.......', '.......', '.......', 'OOXX...', '.XO.X..', '.XO.X..'],
+    text: '左下的黑棋和旁邊的白棋都被包住了，各剩 2 口氣。兩塊棋互相包圍、看誰先把對方的氣堵完，叫做<b>對殺</b>。輪到你，要先堵<b>白棋</b>的氣，不要堵到自己的氣。',
+    goal: { kind: 'capture', target: [2, 5], depth: 7, area: [0, 5, 3, 6] }, ans: [3, 5], wrong: [[0, 5]] },
+  { stage: 2, title: '做活：丁四', board: ['.......', '.......', '.......', 'OOOOOO.', 'XXXXXO.', 'XX.XXO.', 'X...XO.'],
+    text: '4 個空點排成「丁」字形（丁四），要下在<b>正中間</b>那一點，周圍三個點就變成三個眼。下錯了，白棋點在中間就活不了。',
+    goal: { kind: 'live', target: [0, 4], depth: 5, area: [1, 5, 3, 6] }, ans: [2, 6], wrong: [[1, 6]] },
+  { stage: 2, title: '數地：誰贏？', board: ['.X.O.', 'XX.OO', '..XO.', 'XXXO.', '.X.O.'],
+    text: '下完以後（雙方都虛手），算每一方「自己的子 + 自己圍住的空點」，多的贏（這叫數子法）。白棋後下，會額外加點數（貼目）補償，這一題先不算貼目。中間的空點兩邊都碰到，誰都不算。',
+    goal: { kind: 'quiz', q: '不算貼目，誰的點數比較多？', choices: ['黑棋', '白棋', '一樣多'], answer: 0, explain: '黑棋 8 顆子＋圍住 4 個空點 = 12 點；白棋 6 顆子＋圍住 4 個空點 = 10 點。中間 3 個空點兩邊都碰到，誰都不算。黑棋多 2 點。' } },
+  { stage: 2, title: '畢業考：和電腦下一盤', board: null,
+    text: '學會了！最後和「簡單」程度的電腦在 9 路棋盤下一整盤。下完雙方都按「虛手」就會自動數地。贏了就畢業！',
+    goal: { kind: 'game' } },
+];
+
+
+(() => {
+  const C = GOCORE({});
+  const { Board, BLACK, WHITE } = C;
+  const $ = id => document.getElementById(id);
+  const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
+  let done = new Set(JSON.parse(store.get('go-done') || '[]'));
+  const STAGES = ['基本', '入門', '上手'], STAGE_SUB = ['落子、氣、提子、禁著點、打劫', '叫吃、逃跑、連接切斷、征子、雙叫吃', '眼、做活、殺棋、對殺、數地'];
+
+  // ---------- 聲音 ----------
+  let AC = null, muted = store.get('go-mute') === '1';
+  function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (AC && AC.state === 'suspended') AC.resume(); return AC; }
+  function clack(v = .8) {
+    const a = ac(); if (!a || muted) return;
+    const t = a.currentTime, buf = a.createBuffer(1, Math.floor(a.sampleRate * .06), a.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 7);
+    const s = a.createBufferSource(); s.buffer = buf; const bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2400; bp.Q.value = 1.5;
+    const g = a.createGain(); g.gain.value = v; s.connect(bp); bp.connect(g); g.connect(a.destination); s.start(t);
+  }
+  function tones(list) { const a = ac(); if (!a || muted) return; let t = a.currentTime; for (const [f, d] of list) { const o = a.createOscillator(), g = a.createGain(); o.type = 'triangle'; o.frequency.value = f; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.16, t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + d + .02); t += d * .8; } }
+  const SND = { ok: () => tones([[660, .1], [880, .1], [1320, .25]]), bad: () => tones([[300, .15], [240, .25]]), win: () => tones([[523, .15], [659, .15], [784, .15], [1047, .4]]) };
+  $('muteBtn').textContent = muted ? '🔇' : '🔊';
+  $('muteBtn').addEventListener('click', () => { muted = !muted; store.set('go-mute', muted ? '1' : '0'); $('muteBtn').textContent = muted ? '🔇' : '🔊'; });
+  const toast = t => { const d = document.createElement('div'); d.className = 'toast'; d.innerHTML = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2500); };
+  const stamp = t => { const d = document.createElement('div'); d.className = 'stamp'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 1500); };
+
+  // ---------- 棋盤繪製 ----------
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, at, par) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); if (par) par.appendChild(e); return e; };
+  const STARS = { 5: [[2, 2]], 7: [[3, 3]], 9: [[2, 2], [6, 2], [4, 4], [2, 6], [6, 6]] };
+  // opts: { last, labels: {p: 'A'}, marks: [{p, kind}], own (地盤), dead (Set), hint }
+  function draw(svg, b, opts = {}) {
+    const N = b.N, S = 100, M = 60, size = M * 2 + S * (N - 1);
+    svg.setAttribute('viewBox', `0 0 ${size} ${size}`); svg.innerHTML = '';
+    const defs = el('defs', {}, svg), u = svg.id;
+    const gb = el('radialGradient', { id: u + 'gb', cx: .35, cy: .3, r: .75 }, defs); el('stop', { offset: 0, 'stop-color': '#6a6a6a' }, gb); el('stop', { offset: .5, 'stop-color': '#1d1d1d' }, gb); el('stop', { offset: 1, 'stop-color': '#050505' }, gb);
+    const gw = el('radialGradient', { id: u + 'gw', cx: .35, cy: .3, r: .8 }, defs); el('stop', { offset: 0, 'stop-color': '#ffffff' }, gw); el('stop', { offset: .7, 'stop-color': '#e6e2da' }, gw); el('stop', { offset: 1, 'stop-color': '#b9b3a8' }, gw);
+    const wood = el('linearGradient', { id: u + 'wd', x1: 0, y1: 0, x2: 1, y2: 1 }, defs); el('stop', { offset: 0, 'stop-color': '#ecc47c' }, wood); el('stop', { offset: 1, 'stop-color': '#d9a95a' }, wood);
+    el('rect', { x: 0, y: 0, width: size, height: size, rx: 10, fill: `url(#${u}wd)` }, svg);
+    for (let i = 0; i < 9; i++) el('path', { d: `M0 ${size * (i + .5) / 9} C ${size * .3} ${size * (i + .3) / 9}, ${size * .7} ${size * (i + .7) / 9}, ${size} ${size * (i + .45) / 9}`, stroke: 'rgba(120,70,20,.08)', 'stroke-width': 4, fill: 'none' }, svg);
+    const g = el('g', { stroke: '#4a3418', 'stroke-width': 3 }, svg);
+    for (let i = 0; i < N; i++) { el('line', { x1: M, y1: M + i * S, x2: M + (N - 1) * S, y2: M + i * S }, g); el('line', { x1: M + i * S, y1: M, x2: M + i * S, y2: M + (N - 1) * S }, g); }
+    el('rect', { x: M, y: M, width: (N - 1) * S, height: (N - 1) * S, fill: 'none', stroke: '#4a3418', 'stroke-width': 5 }, svg);
+    for (const [x, y] of STARS[N] || []) el('circle', { cx: M + x * S, cy: M + y * S, r: 9, fill: '#4a3418' }, svg);
+    const X = x => M + x * S;
+    // 地盤 (對局結束)
+    if (opts.own) for (const p of b.points()) { const o = opts.own[p]; if (!o) continue; if (b.a[p] && !(opts.dead && opts.dead.has(p))) continue; const [x, y] = b.xy(p); el('rect', { x: X(x) - 16, y: X(y) - 16, width: 32, height: 32, fill: o === 1 ? '#111' : '#fff', stroke: o === 1 ? '#fff' : '#111', 'stroke-width': 2, opacity: .9 }, svg); }
+    // 棋子
+    for (const p of b.points()) {
+      const v = b.a[p]; if (!v) continue; const [x, y] = b.xy(p);
+      const gr = el('g', { class: 'stone', opacity: opts.dead && opts.dead.has(p) ? .45 : 1 }, svg);
+      el('circle', { cx: X(x) + 3, cy: X(y) + 5, r: 46, fill: 'rgba(0,0,0,.3)' }, gr);
+      el('circle', { cx: X(x), cy: X(y), r: 46, fill: v === BLACK ? `url(#${u}gb)` : `url(#${u}gw)` }, gr);
+    }
+    if (opts.last >= 0 && b.a[opts.last]) { const [x, y] = b.xy(opts.last); el('circle', { cx: X(x), cy: X(y), r: 15, fill: 'none', stroke: b.a[opts.last] === BLACK ? '#fff' : '#111', 'stroke-width': 6 }, svg); }
+    for (const m of opts.marks || []) {
+      const [x, y] = b.xy(m.p);
+      if (m.kind === 'target') { const c = el('circle', { cx: X(x), cy: X(y), r: 30, fill: 'rgba(242,193,78,.55)', stroke: '#c48a00', 'stroke-width': 5 }, svg); el('animate', { attributeName: 'r', values: '22;34;22', dur: '1.4s', repeatCount: 'indefinite' }, c); }
+      if (m.kind === 'hint') el('circle', { cx: X(x), cy: X(y), r: 36, fill: 'rgba(79,194,131,.45)', stroke: '#1e8c52', 'stroke-width': 6 }, svg);
+      if (m.kind === 'lib') el('circle', { cx: X(x), cy: X(y), r: 20, fill: 'rgba(90,169,255,.85)', stroke: '#fff', 'stroke-width': 4 }, svg);
+      if (m.kind === 'bad') { el('line', { x1: X(x) - 25, y1: X(y) - 25, x2: X(x) + 25, y2: X(y) + 25, stroke: '#e0352b', 'stroke-width': 10 }, svg); el('line', { x1: X(x) + 25, y1: X(y) - 25, x2: X(x) - 25, y2: X(y) + 25, stroke: '#e0352b', 'stroke-width': 10 }, svg); }
+    }
+    for (const p in opts.labels || {}) {
+      const [x, y] = b.xy(+p);
+      el('circle', { cx: X(x), cy: X(y), r: 32, fill: '#fff8e8', stroke: '#4a3418', 'stroke-width': 4 }, svg);
+      const t = el('text', { x: X(x), y: X(y) + 2, 'text-anchor': 'middle', 'dominant-baseline': 'central', 'font-size': 44, 'font-weight': 900, fill: '#4a3418', 'font-family': 'Noto Sans TC, sans-serif' }, svg); t.textContent = opts.labels[p];
+    }
+  }
+  function pointFrom(svg, b, e) {
+    const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+    const q = pt.matrixTransform(svg.getScreenCTM().inverse());
+    const x = Math.round((q.x - 60) / 100), y = Math.round((q.y - 60) / 100);
+    if (x < 0 || y < 0 || x >= b.N || y >= b.N) return -1;
+    return b.p(x, y);
+  }
+
+  // ---------- 畫面切換 ----------
+  function show(id) {
+    for (const s of ['home', 'lesson', 'setup', 'game']) $(s).hidden = s !== id;
+    $('homeBtn').hidden = id === 'home';
+    if (id === 'home') renderHome();
+    scrollTo(0, 0);
+  }
+  $('homeBtn').addEventListener('click', () => { if (G && !G.over && !$('game').hidden && G.moves > 0 && !confirm('離開這盤棋？')) return; stopAi(); show('home'); });
+  function renderHome() {
+    const nextI = LESSONS.findIndex((_, i) => !done.has(i));
+    $('progTxt').textContent = `從零開始：基本 → 入門 → 上手，共 30 關。已完成 ${done.size} 關` + (nextI >= 0 ? `，下一關：第 ${nextI + 1} 關` : '，全部畢業！🎓');
+    let h = '';
+    STAGES.forEach((st, si) => {
+      const ls = LESSONS.map((l, i) => [l, i]).filter(([l]) => l.stage === si);
+      const n = ls.filter(([, i]) => done.has(i)).length;
+      h += `<div class="stage"><h2>${['🌱', '🌿', '🌳'][si]} ${st}<small>${STAGE_SUB[si]}　${n}／${ls.length}</small></h2><div class="grid10">` +
+        ls.map(([l, i]) => `<button class="lv ${done.has(i) ? 'done' : ''} ${i === nextI ? 'next' : ''}" data-i="${i}" type="button"><span class="n">${done.has(i) ? '✓' : i + 1}</span><span>${l.title}</span></button>`).join('') + '</div></div>';
+    });
+    $('stages').innerHTML = h;
+  }
+  $('stages').addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b) { ac(); openLesson(+b.dataset.i); } });
+  $('goLessons').addEventListener('click', () => { ac(); const i = LESSONS.findIndex((_, i) => !done.has(i)); openLesson(i < 0 ? 0 : i); });
+
+  // ---------- 關卡 ----------
+  let LS = null;   // 目前關卡狀態
+  function loadBoard(rows) {
+    const N = rows.length, b = new Board(N), labels = {};
+    rows.forEach((r, y) => [...r].forEach((ch, x) => { const p = b.p(x, y); if (ch === 'X') b.a[p] = BLACK; else if (ch === 'O') b.a[p] = WHITE; else if (/[a-z]/.test(ch)) labels[p] = ch.toUpperCase(); }));
+    return { b, labels };
+  }
+  function mkGoal(b, g) {
+    const t = b.p(...(g.target || g.targets[0]));
+    const goal = { type: g.kind, target: t, tColor: b.a[t], me: BLACK, escape: g.escape };
+    if (g.targets) goal.targets = g.targets.map(q => b.p(...q));
+    if (g.area) { const [x0, y0, x1, y1] = g.area; goal.area = []; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) goal.area.push(b.p(x, y)); }
+    return goal;
+  }
+  function openLesson(i) {
+    const l = LESSONS[i];
+    if (l.goal.kind === 'game') { G_LESSON = true; openSetup(true); return; }
+    const { b, labels } = loadBoard(l.board);
+    LS = { i, l, b, labels, step: 0, depth: l.goal.depth || 0, busy: false, solved: false, last: -1, marks: [], hint: false };
+    $('lTitle').innerHTML = `第 ${i + 1} 關　${l.title}<small>${STAGES[l.stage]}${done.has(i) ? '　✓ 已完成' : ''}</small>`;
+    $('lText').innerHTML = l.text;
+    fb(l.goal.kind === 'quiz' ? '' : '輪到你（黑棋）', 'info');
+    if (l.goal.kind === 'quiz') {
+      $('lChoices').hidden = false;
+      $('lChoices').innerHTML = `<div style="font-weight:900;font-size:16px;line-height:1.6">${l.goal.q}</div>` + l.goal.choices.map((c, k) => `<button type="button" data-k="${k}">${c}</button>`).join('');
+    } else $('lChoices').hidden = true;
+    $('nextBtn').disabled = !done.has(i);
+    $('nextBtn').textContent = i === LESSONS.length - 1 ? '回首頁' : '下一關 ▶';
+    $('hintBtn').disabled = false;
+    renderLesson();
+    show('lesson');
+  }
+  function renderLesson() {
+    const l = LS.l, marks = [...LS.marks];
+    if (l.goal.kind === 'place' && !LS.solved) { const [x, y] = l.goal.pts[LS.step]; marks.push({ p: LS.b.p(x, y), kind: 'target' }); }
+    draw($('lBoard'), LS.b, { last: LS.last, labels: LS.labels, marks });
+  }
+  function fb(html, cls) { const f = $('lFb'); f.innerHTML = html; f.className = 'fb ' + (cls || ''); }
+  function success(extra) {
+    LS.solved = true; LS.busy = false; LS.marks = [];
+    done.add(LS.i); store.set('go-done', JSON.stringify([...done]));
+    fb('🎉 答對了！' + (extra || ''), 'ok'); SND.ok(); stamp('過關');
+    $('nextBtn').disabled = false;
+    renderLesson();
+  }
+  function wrong(msg, p) {
+    SND.bad(); fb(msg, 'bad');
+    LS.marks = p >= 0 ? [{ p, kind: 'bad' }] : [];
+    renderLesson();
+  }
+  $('lBoard').addEventListener('click', e => {
+    if (!LS || LS.busy || LS.solved) return;
+    const l = LS.l, g = l.goal, b = LS.b;
+    if (g.kind === 'quiz') return;
+    ac();
+    const p = pointFrom($('lBoard'), b, e); if (p < 0) return;
+    LS.marks = [];
+    if (g.kind === 'place') {
+      const [x, y] = g.pts[LS.step];
+      if (p !== b.p(x, y)) { wrong('不是這一點喔，請下在<b>亮起來</b>的點。', -1); return; }
+      b.play(p, BLACK); clack(); LS.last = p; LS.step++;
+      if (LS.step >= g.pts.length) success(g.pts.length > 1 ? '黑棋下在交叉點上，所以 9 路棋盤一共有 81 個點可以下。' : '');
+      else { fb('很好！再下下一個亮點。', 'info'); renderLesson(); }
+      return;
+    }
+    if (!b.legal(p, BLACK)) { wrong(b.a[p] ? '這裡已經有子了。' : p === b.ko ? '打劫：剛被提的地方不能馬上提回來。' : '這一點是<b>禁著點</b>：下下去沒有氣，也吃不到子。', b.a[p] ? -1 : p); return; }
+    const before = b.clone();
+    b.play(p, BLACK); clack(); LS.last = p;
+    // 判斷
+    if (g.kind === 'atari') {
+      const t = b.p(...g.target);
+      if (b.a[t] === WHITE && b.libsOf(t) === 1) { LS.marks = [...b.chain(t).libs].map(q => ({ p: q, kind: 'lib' })); success('白棋只剩藍點那一口氣了。'); }
+      else { LS.b = before; LS.last = -1; wrong('白棋還有 2 口以上的氣，再想想看：要下在白子旁邊的空點。', p); }
+      return;
+    }
+    if (g.kind === 'connect') {
+      const ch = b.chain(b.p(...g.a));
+      if (ch.stones.includes(b.p(...g.b))) success('兩顆黑子連成一塊了，白棋切不開。');
+      else { LS.b = before; LS.last = -1; wrong('兩顆黑子還沒有連在一起，白棋下在斷點就切開了。', p); }
+      return;
+    }
+    const goal = LS.goal || (LS.goal = mkGoal(loadBoard(l.board).b, g));
+    const st = C.status(b, goal);
+    if (st > 0) { success(g.koNote ? '<br>這就是打劫的形狀：白棋<b>不能馬上</b>在剛被提的地方提回來，要先在別處下一手。' : ''); return; }
+    LS.busy = true; fb('白棋在想…', 'info');
+    const ls = LS;
+    setTimeout(() => {
+      if (LS !== ls) return;   // 已經換關了
+      const ok = st === 0 && C.solve(b, WHITE, goal, LS.depth - 1, new Map());
+      if (!ok) { LS.b = before; LS.last = -1; LS.busy = false; wrong('這一步不對，白棋可以應付。再想想看！（可以按「提示」）', p); return; }
+      // 殺棋: 這一步之後白棋怎麼下都做不出兩個眼, 就算過關 (不用真的下到提子)
+      if (g.kind === 'kill') { success('白棋已經做不出兩個眼了，這塊白棋是<b>死棋</b>，不用急著吃，最後數地時會算你的。'); return; }
+      // 白棋應手
+      const m = C.bestDefense(b, WHITE, goal, LS.depth - 1);
+      b.play(m, WHITE); LS.depth -= 2;
+      if (m >= 0) { LS.last = m; setTimeout(clack, 100); }
+      const st2 = C.status(b, goal);
+      LS.busy = false;
+      if (st2 > 0) { success(); return; }
+      fb(m < 0 ? '白棋沒有應（虛手），繼續下。' : '白棋應了一手，繼續下。', 'info');
+      renderLesson();
+    }, 350);
+  });
+  $('lChoices').addEventListener('click', e => {
+    const btn = e.target.closest('[data-k]'); if (!btn || LS.solved) return;
+    ac();
+    const k = +btn.dataset.k, g = LS.l.goal;
+    if (k === g.answer) {
+      btn.classList.add('right');
+      // 氣的題目: 把氣標出來
+      if (LS.i === 1 || LS.i === 2) { const t = LS.b.points().find(p => LS.b.a[p] === WHITE); LS.marks = [...LS.b.chain(t).libs].map(q => ({ p: q, kind: 'lib' })); }
+      success(g.explain);
+    } else { btn.classList.add('wrong'); wrong('不對喔，再想一想。', -1); }
+  });
+  $('retryBtn').addEventListener('click', () => { if (LS) openLesson(LS.i); });
+  $('nextBtn').addEventListener('click', () => { if (!LS) return; if (LS.i === LESSONS.length - 1) show('home'); else openLesson(LS.i + 1); });
+  $('hintBtn').addEventListener('click', () => {
+    if (!LS || LS.solved) return;
+    const g = LS.l.goal;
+    if (g.kind === 'quiz') { fb('提示：' + (LS.i <= 2 ? '數一數白子上下左右的空點（斜的不算）。' : '仔細看題目上面的說明。'), 'info'); return; }
+    if (g.kind === 'place') { fb('請下在亮起來（金色閃動）的那一點。', 'info'); return; }
+    // 找一步能成功的
+    const b = LS.b, goal = LS.goal || (LS.goal = g.kind === 'atari' || g.kind === 'connect' ? null : mkGoal(loadBoard(LS.l.board).b, g));
+    let hp = -1;
+    if (LS.step === 0 && LS.l.ans && LS.depth === (g.depth || 0)) hp = b.p(...LS.l.ans);
+    else if (goal) {
+      // 找最快成功的一步 (步數由少到多試)
+      outer: for (let d = 1; d <= LS.depth; d += 2) for (const p of b.points()) {
+        if (!b.legal(p, BLACK)) continue; const nb = b.clone(); nb.play(p, BLACK);
+        if (C.status(nb, goal) > 0 || C.solve(nb, WHITE, goal, d - 1, new Map())) { hp = p; break outer; }
+      }
+    }
+    if (hp >= 0) { LS.marks = [{ p: hp, kind: 'hint' }]; renderLesson(); fb('提示：試試看綠色圈圈那一點。', 'info'); }
+  });
+
+  // ---------- 對局 ----------
+  let G = null, G_LESSON = false, worker = null, reqId = 0, pending = null;
+  const LV = { 1: { playouts: 2500, ms: 1000 }, 2: { playouts: 12000, ms: 3000 }, 3: { playouts: 40000, ms: 6000 } };
+  const cfg = { color: +(store.get('go-color') || 1), lv: +(store.get('go-lv') || 1), hc: +(store.get('go-hc') || 0) };
+  function makeWorker() {
+    try {
+      worker = new Worker(URL.createObjectURL(new Blob(['(' + GOCORE.toString() + ')(self);'], { type: 'text/javascript' })));
+      worker.onmessage = e => { if (pending && e.data.id === pending.id) { const p = pending; pending = null; p.cb(e.data); } };
+      worker.onerror = () => { worker = null; if (pending) { const p = pending; pending = null; syncAsk(p.msg, p.cb); } };
+    } catch (e) { worker = null; }
+  }
+  function syncAsk(msg, cb) { setTimeout(() => { if (msg.id !== reqId) return; let r; if (msg.kind === 'think') r = C.think(msg.pos, msg.opt); else { const b = new Board(msg.pos.N); b.a.set(msg.pos.a); r = { dead: [...C.deadStones(b, msg.pos.toMove, msg.pos.komi)] }; } cb(r); }, 30); }
+  function ask(kind, pos, opt, cb) { const id = ++reqId, msg = { id, kind, pos, opt }; if (worker) { pending = { id, cb, msg }; worker.postMessage(msg); } else syncAsk(msg, cb); }
+  function stopAi() { reqId++; if (pending && worker) { worker.terminate(); makeWorker(); } pending = null; if (G) G.busy = false; }
+  makeWorker();
+
+  function seg(id, key, store_k) {
+    const box = $(id), upd = () => box.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.v === cfg[key])));
+    box.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { cfg[key] = +b.dataset.v; store.set(store_k, cfg[key]); upd(); })); upd();
+  }
+  seg('optColor', 'color', 'go-color'); seg('optLv', 'lv', 'go-lv'); seg('optHc', 'hc', 'go-hc');
+  function openSetup(fromLesson) { G_LESSON = !!fromLesson; if (fromLesson) { cfg.lv = 1; cfg.color = 1; cfg.hc = 0; seg('optColor', 'color', 'go-color'); seg('optLv', 'lv', 'go-lv'); seg('optHc', 'hc', 'go-hc'); } show('setup'); }
+  $('goGame').addEventListener('click', () => { ac(); openSetup(false); });
+  $('startGame').addEventListener('click', () => { ac(); startGame(); });
+  function startGame() {
+    const b = new Board(9), human = cfg.color;
+    const hc = human === BLACK ? cfg.hc : 0;
+    const HC = [[6, 2], [2, 6], [6, 6], [2, 2]];
+    for (let i = 0; i < hc; i++) b.a[b.p(...HC[i])] = BLACK;
+    G = { b, human, lv: cfg.lv, komi: hc ? .5 : 7.5, toMove: hc ? WHITE : BLACK, last: -1, passes: 0, moves: 0, hist: [], over: false, busy: false, hint: -1, keys: new Set([b.a.join('')]) };
+    $('nmB').textContent = human === BLACK ? '你（黑）' : '電腦（黑）';
+    $('nmW').textContent = human === WHITE ? '你（白）' : '電腦（白）';
+    show('game'); renderGame(); nextGame();
+  }
+  function renderGame(dead, own) {
+    const b = G.b;
+    draw($('gBoard'), b, { last: G.last, marks: G.hint >= 0 ? [{ p: G.hint, kind: 'hint' }] : [], dead, own });
+    $('capB').textContent = `提 ${b.caps[BLACK]} 子`; $('capW').textContent = `提 ${b.caps[WHITE]} 子` + `　貼 ${G.komi}`;
+    $('plB').classList.toggle('turn', !G.over && G.toMove === BLACK); $('plW').classList.toggle('turn', !G.over && G.toMove === WHITE);
+    const mine = !G.over && !G.busy && G.toMove === G.human;
+    $('passBtn').disabled = !mine; $('gHintBtn').disabled = !mine; $('resignBtn').disabled = G.over; $('undoBtn').disabled = G.busy || !G.hist.length || G.over;
+  }
+  const gfb = (html, cls = 'info', thinking) => { $('gFb').innerHTML = html; $('gFb').className = 'fb ' + cls + (thinking ? ' thinking' : ''); };
+  function playMove(p) {
+    const b = G.b, c = G.toMove;
+    G.hist.push({ a: b.a.slice(), ko: b.ko, caps: b.caps.slice(), last: G.last, passes: G.passes, toMove: c, moves: G.moves });
+    if (p >= 0) {
+      const nb = b.clone(); if (!nb.play(p, c)) { G.hist.pop(); return false; }
+      // 不能讓棋盤回到以前出現過的樣子 (超級打劫規則, 避免無限循環)
+      if (G.keys.has(nb.a.join(''))) { G.hist.pop(); return false; }
+      b.play(p, c); G.keys.add(b.a.join('')); G.passes = 0; clack();
+    } else { b.play(-1, c); G.passes++; }
+    G.last = p; G.moves++; G.toMove = 3 - c; G.hint = -1;
+    return true;
+  }
+  function nextGame() {
+    if (G.over) return;
+    if (G.passes >= 2) { endGame(); return; }
+    renderGame();
+    if (G.toMove === G.human) { gfb(G.passes ? '電腦虛手了。你也覺得下完了就按「虛手」，雙方都虛手就數地。' : '輪到你'); return; }
+    G.busy = true; renderGame(); gfb('電腦思考中', 'info', true);
+    const t0 = Date.now();
+    ask('think', { N: 9, a: G.b.a, ko: G.b.ko, toMove: G.toMove, komi: G.komi, last: G.last }, LV[G.lv], r => {
+      setTimeout(() => {
+        G.busy = false;
+        // 對方剛虛手而且電腦已經贏, 或沒地方下: 虛手; 贏面太低: 認輸
+        if (r.winrate < .04 && G.moves > 30) { endGame(G.human, '電腦認輸了'); return; }
+        let m = r.move;
+        if (m < 0 || (G.passes > 0 && r.winrate > .7) || (r.winrate > .985 && G.moves > 50)) m = -1;
+        if (m >= 0 && !playMove(m)) m = -1;
+        if (m < 0) playMove(-1);
+        nextGame();
+      }, Math.max(0, 400 - (Date.now() - t0)));
+    });
+  }
+  $('gBoard').addEventListener('click', e => {
+    if (!G || G.over || G.busy || G.toMove !== G.human) return;
+    ac();
+    const p = pointFrom($('gBoard'), G.b, e); if (p < 0) return;
+    if (G.b.a[p]) return;
+    if (!G.b.legal(p, G.human)) { toast(p === G.b.ko ? '打劫：不能馬上提回來，先下別的地方' : '這是禁著點，不能下'); return; }
+    if (!playMove(p)) { toast('打劫：不能讓棋盤回到剛才的樣子，先下別處'); return; }
+    nextGame();
+  });
+  $('passBtn').addEventListener('click', () => { if (G && !G.busy && G.toMove === G.human && !G.over) { playMove(-1); nextGame(); } });
+  $('undoBtn').addEventListener('click', () => {
+    if (!G || G.busy || !G.hist.length) return;
+    // 退到上一次輪到你的時候
+    let h;
+    do { h = G.hist.pop(); } while (G.hist.length && h.toMove !== G.human);
+    if (h.toMove !== G.human) { G.hist.push(h); return; }
+    G.b.a.set(h.a); G.b.ko = h.ko; G.b.caps = h.caps; G.last = h.last; G.passes = h.passes; G.toMove = h.toMove; G.moves = h.moves;
+    G.keys = new Set(G.hist.map(x => x.a.join('')).concat(G.b.a.join(''))); renderGame(); gfb('已悔棋，輪到你');
+  });
+  $('gHintBtn').addEventListener('click', () => {
+    if (!G || G.busy || G.toMove !== G.human) return;
+    G.busy = true; renderGame(); gfb('幫你想一下', 'info', true);
+    ask('think', { N: 9, a: G.b.a, ko: G.b.ko, toMove: G.toMove, komi: G.komi, last: G.last }, { playouts: 6000, ms: 2000 }, r => { G.busy = false; G.hint = r.move; renderGame(); gfb(r.move >= 0 ? '試試看綠色圈圈那一點。' : '電腦覺得可以虛手了。'); });
+  });
+  $('resignBtn').addEventListener('click', () => { if (!G || G.over) return; if (!confirm('確定要認輸嗎？')) return; stopAi(); endGame(3 - G.human, '你認輸了'); });
+  function endGame(winner, why) {
+    G.over = true; G.busy = true; renderGame();
+    const finish = (dead, sc) => {
+      G.busy = false;
+      let w = winner, msg;
+      if (!why) {
+        const bs = sc.black, ws = sc.white + G.komi;
+        w = bs > ws ? BLACK : WHITE;
+        msg = `黑 ${bs} 點，白 ${sc.white} + 貼 ${G.komi} = ${ws} 點。<br>${w === BLACK ? '黑' : '白'}棋贏 ${Math.abs(bs - ws)} 點。` + (dead.size ? `（半透明的是死子，算對方的。）` : '');
+        renderGame(dead, sc.own);
+      } else { msg = why + '。'; renderGame(); }
+      const iWin = w === G.human;
+      gfb((iWin ? '🎉 你贏了！' : '電腦贏了，再接再厲！') + '<br>' + msg + `<br><button class="tb" id="againBtn" type="button" style="margin-top:6px">再下一盤</button>`, iWin ? 'ok' : 'bad');
+      $('againBtn').onclick = () => openSetup(G_LESSON);
+      if (iWin) { SND.win(); stamp('勝'); if (G_LESSON) { done.add(LESSONS.length - 1); store.set('go-done', JSON.stringify([...done])); setTimeout(() => toast('🎓 畢業考過關！30 關全部完成'), 1200); } }
+      else SND.bad();
+    };
+    if (why) { finish(new Set(), null); return; }
+    gfb('數地中：判斷死子', 'info', true);
+    ask('dead', { N: 9, a: G.b.a, toMove: G.toMove, komi: G.komi }, null, r => { const dead = new Set(r.dead); finish(dead, C.score(G.b, dead)); });
+  }
+
+  show('home');
+  window.__go = { C, LESSONS, get LS() { return LS; }, get G() { return G; }, openLesson, startGame, done };
+})();
+</script>
+</html>
