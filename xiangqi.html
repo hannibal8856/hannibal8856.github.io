@@ -105,6 +105,31 @@ details { font-size: 13.5px; color: var(--muted); line-height: 1.65; }
 details summary { cursor: pointer; font-weight: 700; color: var(--ink); }
 details ul { margin: 6px 0 0; padding-left: 1.2em; }
 .big { font-size: 46px; text-align: center; line-height: 1; }
+.lessonCard { width: 100%; background: var(--panel); border: 2px solid var(--gold); border-radius: 14px; padding: 10px 12px; display: grid; gap: 8px; }
+.lessonCard h3 { margin: 0; font-size: 17px; display: flex; gap: 8px; align-items: baseline; }
+.lessonCard h3 small { color: var(--muted); font-size: 12px; font-weight: 500; }
+.lessonCard .lt { font-size: 14.5px; line-height: 1.7; }
+.lessonCard .lt b { color: var(--gold); }
+.lfb { border-radius: 10px; padding: 8px 10px; font-weight: 700; font-size: 14.5px; line-height: 1.6; background: rgba(255,255,255,.06); }
+.lfb.ok { background: rgba(47,174,107,.25); color: #c8f5da; } .lfb.bad { background: rgba(230,60,50,.22); color: #ffd3ce; }
+.lbtns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.lbtns button { background: rgba(255,255,255,.07); border: 1px solid var(--line); border-radius: 10px; padding: 9px 2px; font-weight: 900; font-size: 14px; }
+.lbtns button.go2 { background: var(--gold); color: #3a2800; border: 0; }
+.lbtns button:disabled { opacity: .4; cursor: default; }
+.lvList { display: grid; gap: 10px; max-height: 70dvh; overflow-y: auto; }
+.lvList h4 { margin: 4px 0 0; font-size: 15px; }
+.lvList h4 small { color: var(--muted); font-weight: 500; font-size: 12px; margin-left: 6px; }
+.lvGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.lvGrid button { text-align: left; background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 10px; padding: 7px 8px; display: grid; grid-template-columns: 28px 1fr; gap: 6px; align-items: center; font-weight: 700; font-size: 14px; }
+.lvGrid button .n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: #15201d; border: 2px solid #55655e; font-size: 13px; }
+.lvGrid button.done .n { background: var(--hint); border-color: var(--hint); color: #fff; }
+.lvGrid button.next { border-color: var(--gold); }
+body.lesson .ctrl, body.lesson .mobileMoves, body.lesson .side, body.lesson .status, body.lesson .caps { display: none; }
+.lessonBar { width: 100%; display: grid; gap: 6px; }
+/* 關卡模式: 說明在上、回饋和按鈕在下, 棋盤縮小到整個畫面放得下, 不用捲動 */
+body.lesson .boardBox { width: min(100%, calc((100dvh - 300px) * .852)); }
+body.lesson .lessonCard { padding: 8px 10px; gap: 4px; }
+body.lesson .lessonCard .lt { font-size: 14px; line-height: 1.6; }
 @media (prefers-reduced-motion: reduce) { .pc { transition: none; } .stamp, .toast { animation-duration: .01s; } }
 </style>
 
@@ -114,6 +139,10 @@ details ul { margin: 6px 0 0; padding-left: 1.2em; }
     <div class="grow"></div>
     <button class="tb" id="muteBtn" type="button" aria-label="聲音">🔊</button>
     <button class="tb" id="newBtn" type="button">新局</button>
+  </div>
+  <div class="lessonCard" id="lessonCard" hidden>
+    <h3 id="lcTitle"></h3>
+    <div class="lt" id="lcText"></div>
   </div>
   <div class="status" id="status"><span class="dot r" id="sDot"></span><span id="sText">輪到紅方</span><span class="sub" id="sSub"></span></div>
   <div class="main">
@@ -125,6 +154,10 @@ details ul { margin: 6px 0 0; padding-left: 1.2em; }
     <div class="side">
       <div class="card"><h2>棋譜</h2><div id="moves"></div></div>
     </div>
+  </div>
+  <div class="lessonBar" id="lessonBar" hidden>
+    <div class="lfb" id="lcFb"></div>
+    <div class="lbtns"><button id="lcHint" type="button">提示</button><button id="lcRetry" type="button">重來</button><button id="lcList" type="button">關卡</button><button class="go2" id="lcNext" type="button">下一關</button></div>
   </div>
   <div class="mobileMoves" id="mMoves"></div>
   <div class="ctrl">
@@ -163,7 +196,17 @@ details ul { margin: 6px 0 0; padding-left: 1.2em; }
       <li>把對方將死或讓對方無路可走（困斃）就贏。同一個局面出現第三次：一直將軍的一方（長將）判輸，否則和棋；連續 60 回合沒有吃子也是和棋。</li>
     </ul></details>
     <button class="go" id="startBtn" type="button">開始下棋</button>
+    <button class="ghost" id="lessonBtn" type="button">📖 新手村：從零學象棋（20 關）</button>
     <button class="ghost" id="resumeBtn" type="button" hidden>繼續上一局</button>
+  </div>
+</div>
+
+<div class="screen" id="lessonList" hidden>
+  <div class="dlg">
+    <h2>新手<span>村</span></h2>
+    <p id="llProg">認識棋子 → 吃子 → 將軍與解將 → 基本殺法</p>
+    <div class="lvList" id="llList"></div>
+    <button class="ghost" id="llBack" type="button">回到開始畫面</button>
   </div>
 </div>
 
@@ -511,6 +554,80 @@ function ENGINE(X) {
   const $ = id => document.getElementById(id);
   const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} }, del: k => { try { localStorage.removeItem(k); } catch (e) {} } };
   const X = ENGINE({});
+// 象棋新手村 20 關。棋盤 10 列 x 9 行, 第 0 列是黑方底線 (上面), 第 9 列是紅方底線 (下面)
+  // 大寫紅: K 帥 A 仕 B 相 N 傌 R 俥 C 炮 P 兵; 小寫黑: k 將 a 士 b 象 n 馬 r 車 c 包 p 卒
+  // kind: moves (點出這顆子能走到的所有位置), capture (吃掉指定的子), check (將軍), escape (解將), mate (n 步內將死)
+  // sel / target: [列, 行]; ans: 正解 [[起列, 起行], [到列, 到行]] (提示與測試用); wrong: 要被判錯的走法 (測試用)
+  const XQ_LESSONS = [
+    // ---------- 認識棋子 ----------
+    { stage: 0, title: '帥（將）', board: ['.....k...', '.........', '.....a...', '.........', '.........', '.........', '.........', '.........', '....K....', '.........'],
+      text: '帥是紅方的王，被吃掉（將死）就輸了。它只能在<b>九宮</b>（畫了斜線的 3×3 格子）裡面，每次<b>直走或橫走一格</b>。<br>點出這個帥能走到的所有位置。',
+      goal: { kind: 'moves', sel: [8, 4] } },
+    { stage: 0, title: '仕（士）', board: ['...k.....', '.........', '.........', '.........', '.........', '.........', '.........', '.........', '....A....', '....K....'],
+      text: '仕是帥的保鑣，也只能待在九宮裡，每次<b>斜走一格</b>（沿著九宮的斜線）。<br>點出這個仕能走到的所有位置。',
+      goal: { kind: 'moves', sel: [8, 4] } },
+    { stage: 0, title: '相（象）', board: ['...k.....', '.........', '.........', '.........', '.........', '.........', '...N.....', '....B....', '.........', '....K....'],
+      text: '相走「田」字：斜走兩格。它<b>不能過河</b>，只能守在自己這邊。如果田字中間有子擋住，就不能走那個方向，叫做<b>塞象眼</b>（左上方被自己的傌擋住了）。<br>點出這個相能走到的所有位置。',
+      goal: { kind: 'moves', sel: [7, 4] } },
+    { stage: 0, title: '傌（馬）', board: ['...k.....', '.........', '.........', '.........', '....p....', '....N....', '.........', '.........', '.........', '....K....'],
+      text: '傌走「日」字：先直走一格，再斜走一格。如果直走的那一格有子擋住（不管是誰的），那個方向就不能走，叫做<b>蹩馬腿</b>。這隻傌上面被卒擋住了。<br>點出這隻傌能走到的所有位置。',
+      goal: { kind: 'moves', sel: [5, 4] } },
+    { stage: 0, title: '俥（車）', board: ['.....k...', '.........', '.........', '.........', '.........', '.R...n...', '.........', '.........', '.P.......', '...K.....'],
+      text: '俥最厲害：直走、橫走，<b>格數不限</b>，但不能跳過別的子。碰到對方的子可以吃掉，碰到自己的子就停在前面。<br>點出這台俥能走到的所有位置（能吃的子也要點）。',
+      goal: { kind: 'moves', sel: [5, 1] } },
+    { stage: 0, title: '炮（包）', board: ['.....k...', '.........', '.........', '.p.......', '.........', '.P.......', '.........', '.C.......', '.........', '...K.....'],
+      text: '炮<b>走路</b>和俥一樣，直走橫走不限格數；但<b>吃子</b>的時候，中間要剛好隔一顆子（叫做炮架，誰的子都可以）。這裡炮可以隔著兵吃掉上面的卒。<br>點出這門炮能走到的所有位置。',
+      goal: { kind: 'moves', sel: [7, 1] } },
+    { stage: 0, title: '兵（卒）', board: ['.....k...', '.........', '.........', '.........', '....P....', '.........', '.........', '.........', '.........', '...K.....'],
+      text: '兵每次走一格，<b>永遠不能後退</b>。還沒過河時只能往前；<b>過了河</b>（楚河漢界）以後，可以往前，也可以往左右走。這個兵已經過河了。<br>點出這個兵能走到的所有位置。',
+      goal: { kind: 'moves', sel: [4, 4] } },
+  
+    // ---------- 吃子 ----------
+    { stage: 1, title: '俥吃子', board: ['...k.....', '.........', '.........', '.........', '.........', '.........', '.........', 'R.....r..', '.........', '....K....'],
+      text: '走到對方棋子的位置，就是把它<b>吃掉</b>。先點你的俥，再點黑方的車吃掉它。',
+      goal: { kind: 'capture', target: [7, 6] }, ans: [[7, 0], [7, 6]] },
+    { stage: 1, title: '傌吃子', board: ['...k.....', '.........', '.........', '.........', '.........', '...c.....', '.........', '..N......', '.........', '....K....'],
+      text: '用傌走日字吃掉黑方的包。',
+      goal: { kind: 'capture', target: [5, 3] }, ans: [[7, 2], [5, 3]] },
+    { stage: 1, title: '炮隔山吃子', board: ['...k.....', '.........', '.......n.', '.........', '.......p.', '.........', '.........', '.......C.', '.........', '....K....'],
+      text: '炮吃子要隔一顆子。用炮<b>隔著卒</b>（炮架）吃掉後面的馬。',
+      goal: { kind: 'capture', target: [2, 7] }, ans: [[7, 7], [2, 7]], wrong: [[[7, 7], [6, 7]]] },
+    { stage: 1, title: '吃沒有保護的子', board: ['....kr...', 'c........', '.........', '.........', '.........', 'R....n...', '.........', '.........', '.........', '...K.....'],
+      text: '吃子前要先看：吃了以後，對方能不能把你吃回來？右邊的馬有黑車在後面保護，吃了它，你的俥就會被車吃掉。找一個<b>沒有保護</b>的子吃。',
+      goal: { kind: 'capture', target: [1, 0] }, ans: [[5, 0], [1, 0]], wrong: [[[5, 0], [5, 5]]] },
+  
+    // ---------- 將軍與解將 ----------
+    { stage: 2, title: '將軍', board: ['....k....', '.........', '.........', '.........', '.........', '.........', '.........', 'R........', '.........', '...K.....'],
+      text: '走一步，下一步就能吃掉對方的將，叫做<b>將軍</b>。對方一定要馬上解圍。用俥將軍！',
+      goal: { kind: 'check' }, ans: [[7, 0], [7, 4]], wrong: [[[7, 0], [8, 0]]] },
+    { stage: 2, title: '炮將軍', board: ['....k....', '....a....', '.........', '.........', '.........', '.........', '.........', '.C.......', '.........', '...K.....'],
+      text: '炮將軍也需要炮架。黑將前面剛好有一個士，可以當炮架。',
+      goal: { kind: 'check' }, ans: [[7, 1], [7, 4]], wrong: [[[7, 1], [0, 1]]] },
+    { stage: 2, title: '解將', board: ['...k.....', '.........', '.........', '....r....', '.........', '.........', '.........', '.........', '.........', '..B.K....'],
+      text: '換你被將軍了！解將有三種方法：<b>把帥走開</b>、<b>用別的子擋在中間</b>（墊子）、<b>把將軍的子吃掉</b>。這裡前兩種都可以，選一種解將。',
+      goal: { kind: 'escape' }, ans: [[9, 4], [9, 5]] },
+    { stage: 2, title: '解將：吃掉它', board: ['...k.....', '.........', '.........', '.........', '.........', '.........', '.........', 'R..n.....', '.........', '....K....'],
+      text: '黑馬正在將軍。最好的解法是把它<b>吃掉</b>。',
+      goal: { kind: 'escape', mustCapture: true }, ans: [[7, 0], [7, 3]], wrong: [[[9, 4], [9, 5]]] },
+  
+    // ---------- 基本殺法 ----------
+    { stage: 3, title: '雙車錯', board: ['....k....', 'R........', '.........', '.........', '.........', '........R', '.........', '.........', '.........', '...K.....'],
+      text: '<b>將死</b>：將軍以後，對方怎麼走都解不了，就贏了。<br>一台俥已經守住黑將前面那一排，另一台俥再到底線將軍，兩台俥一上一下，叫做<b>雙車錯</b>。一步將死它！',
+      goal: { kind: 'mate', n: 1 }, ans: [[5, 8], [0, 8]], wrong: [[[1, 0], [0, 0]]] },
+    { stage: 3, title: '馬後炮', board: ['....k....', '.........', '.........', '.........', '...N.....', '.........', '.........', '....C....', '.........', '...K.....'],
+      text: '傌跳到將的正前方兩格，可以控制將左右兩邊；後面的炮再隔著傌將軍，將就逃不掉了，叫做<b>馬後炮</b>。一步將死！',
+      goal: { kind: 'mate', n: 1 }, ans: [[4, 3], [2, 4]], wrong: [[[4, 3], [2, 2]]] },
+    { stage: 3, title: '重炮', board: ['...aka...', '.........', '.........', '.C.......', '.........', '....C....', '.........', '.........', '.........', '...K.....'],
+      text: '兩門炮排在同一直線，前面的炮當後面的炮的炮架，叫做<b>重炮</b>。黑將被自己的士擋住，走不開。一步將死！',
+      goal: { kind: 'mate', n: 1 }, ans: [[3, 1], [3, 4]], wrong: [[[5, 4], [1, 4]]] },
+    { stage: 3, title: '帥也能幫忙', board: ['...k.....', '.........', '...P.....', '........p', '.........', 'R........', '.........', '.........', '.........', '....K....'],
+      text: '兩個王不能在同一直線上面對面（中間沒有子）。所以帥守住中間這一直線，黑將就不能走過去，這叫<b>白臉將</b>。兵守住將的前面，再用俥將軍。一步將死！',
+      goal: { kind: 'mate', n: 1 }, ans: [[5, 0], [0, 0]], wrong: [[[2, 3], [1, 3]]] },
+    { stage: 3, title: '兩步殺：雙車錯', board: ['....k....', '.........', '.........', '.........', '.........', 'R........', '.........', '........R', '.........', '...K.....'],
+      text: '最後一關要想兩步：先用一台俥將軍、把將趕到邊上或守住一排，再用另一台俥將死。黑方會想辦法逃。',
+      goal: { kind: 'mate', n: 2 }, ans: [[5, 0], [1, 0]], wrong: [[[9, 3], [8, 3]]] },
+  ];
+
   const RN = '帥仕相傌俥炮兵', BN = '將士象馬車包卒';   // 順序對應棋子代號 1～7
   const CN = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九'], AN = ['', '１', '２', '３', '４', '５', '６', '７', '８', '９'];
   // 難度：容易＝只看一層再隨機挑；正常＝5 層／1 秒＋開局庫；困難＝3 秒＋空著裁剪等強化＋開局庫；霸王＝8 秒＋開局庫只挑名局裡最常下、勝率高的走法
@@ -617,6 +734,13 @@ function ENGINE(X) {
       if (X.board[t]) el('circle', { cx: x, cy: y, r: 48, fill: 'none', stroke: '#2fae6b', 'stroke-width': 7, 'stroke-dasharray': '18 8' }, layerTop);
       else el('circle', { cx: x, cy: y, r: 15, fill: '#2fae6b', stroke: '#fff', 'stroke-width': 3 }, layerMark);
     }
+    if (G.mode === 'lesson' && LS) {
+      if (LS.l.goal.kind === 'moves' && !LS.solved) { const [x, y] = XY(LS.sel); el('circle', { cx: x, cy: y, r: 50, fill: 'rgba(243,197,90,.45)', stroke: '#f3c55a', 'stroke-width': 5 }, layerMark); }
+      for (const t of LS.found) { const [x, y] = XY(t); el('circle', { cx: x, cy: y, r: X.board[t] ? 48 : 18, fill: X.board[t] ? 'none' : '#2fae6b', stroke: X.board[t] ? '#2fae6b' : '#fff', 'stroke-width': X.board[t] ? 8 : 4 }, layerTop); }
+      if (LS.target >= 0 && !LS.solved) { const [x, y] = XY(LS.target); el('circle', { cx: x, cy: y, r: 52, fill: 'none', stroke: '#f3c55a', 'stroke-width': 6, 'stroke-dasharray': '14 8' }, layerTop); }
+      if (LS.bad >= 0) { const [x, y] = XY(LS.bad); el('path', { d: `M${x - 26} ${y - 26} L${x + 26} ${y + 26} M${x + 26} ${y - 26} L${x - 26} ${y + 26}`, stroke: '#e3281e', 'stroke-width': 10, 'stroke-linecap': 'round' }, layerTop); }
+      if (LS.hintSq >= 0) { const [x, y] = XY(LS.hintSq); el('circle', { cx: x, cy: y, r: 40, fill: 'rgba(47,174,107,.35)', stroke: '#2fae6b', 'stroke-width': 6 }, layerTop); }
+    }
     if (G.hintMv) {
       const [x1, y1] = XY(G.hintMv >> 7), [x2, y2] = XY(G.hintMv & 127);
       el('circle', { cx: x1, cy: y1, r: 50, fill: 'none', stroke: '#2fae6b', 'stroke-width': 6 }, layerTop);
@@ -659,6 +783,7 @@ function ENGINE(X) {
       st.textContent = (chk ? '被將軍！' : '') + (G.mode === 'ai' ? (s === G.human ? `輪到你（${s > 0 ? '紅' : '黑'}方）` : '電腦走棋') : `輪到${s > 0 ? '紅方' : '黑方'}`);
     }
     const lvName = LV_NAME[G.level];
+    if (G.mode === 'lesson') { $('sSub').textContent = LS ? `新手村 第 ${LS.i + 1} 關` : ''; if (!G.over && !thinking) st.textContent = X.side > 0 ? (X.inCheck(1) ? '被將軍！輪到你（紅方）' : '輪到你（紅方）') : '黑方走棋'; return; }
     $('sSub').textContent = G.mode === 'ai' ? `電腦：${lvName}　第 ${Math.floor(G.moves.length / 2) + 1} 回合` : `雙人對下　第 ${Math.floor(G.moves.length / 2) + 1} 回合`;
     $('undoBtn').disabled = !G.moves.length || G.busy;
     $('hintBtn').disabled = !!G.over || G.busy || (G.mode === 'ai' && s !== G.human);
@@ -738,6 +863,7 @@ function ENGINE(X) {
       setTimeout(() => (q ? SND.cap() : SND.move()), 200);
     }
     renderMarks(); renderCaps(); renderMoves();
+    if (G.mode === 'lesson') { lessonAfter(mover, q, chk); return; }
     save();
     const res = judge();
     if (res) { finish(res); return; }
@@ -838,7 +964,9 @@ function ENGINE(X) {
     ac();
     if (G.over || G.busy || G.review) return;
     if (G.mode === 'ai' && X.side !== G.human) return;
+    if (G.mode === 'lesson' && (!LS || LS.solved || X.side < 0)) return;
     const sq = svgPoint(e); if (sq < 0) return;
+    if (G.mode === 'lesson') { lessonTap(sq); return; }
     const p = X.board[sq];
     if (G.sel >= 0 && G.targets.includes(sq)) { play(G.sel << 7 | sq); return; }
     if (p && (p > 0) === (X.side > 0)) {
@@ -876,7 +1004,7 @@ function ENGINE(X) {
     finish({ winner: G.mode === 'ai' ? -G.human : -X.side, reason: (G.mode === 'ai' ? '你' : (X.side > 0 ? '紅方' : '黑方')) + '認輸' });
   });
   $('newBtn').addEventListener('click', () => {
-    if (G.moves.length && !G.over && !confirm('放棄這一局，開新局？')) return;
+    if (G.mode !== 'lesson' && G.moves.length && !G.over && !confirm('放棄這一局，開新局？')) return;
     if (G.busy) cancelThink();
     openSetup();
   });
@@ -899,6 +1027,7 @@ function ENGINE(X) {
     $('setup').hidden = false;
   }
   function newGame(c, moves) {
+    LS = null; document.body.classList.remove('lesson'); $('lessonCard').hidden = true; $('lessonBar').hidden = true;
     Object.assign(G, { mode: c.mode, human: c.human, level: c.level, face: c.face, flip: c.mode === 'ai' ? c.human < 0 : false, moves: [], keys: [], over: null, sel: -1, targets: [], busy: false, hintMv: 0, review: false });
     X.setPos(X.startPos(), 1);
     G.keys.push(X.key);
@@ -915,14 +1044,139 @@ function ENGINE(X) {
     if (cfg.mode === 'ai') toast(cfg.human > 0 ? '你執紅先走' : '你執黑，電腦先走');
   });
   $('resumeBtn').addEventListener('click', () => { const s = loadSave(); if (!s) return; ac(); $('setup').hidden = true; newGame(s, s.moves); toast('繼續上一局'); });
-  function save() { if (G.over) return; store.set('xq-save', JSON.stringify({ mode: G.mode, human: G.human, level: G.level, face: G.face, moves: G.moves.map(x => x.m) })); }
+  function save() { if (G.over || G.mode === 'lesson') return; store.set('xq-save', JSON.stringify({ mode: G.mode, human: G.human, level: G.level, face: G.face, moves: G.moves.map(x => x.m) })); }
   function loadSave() { try { const s = JSON.parse(store.get('xq-save')); return s && s.moves && s.moves.length ? s : null; } catch (e) { return null; } }
+
+  // ---------- 新手村 ----------
+  let LS = null;
+  let lessonDone = new Set(JSON.parse(store.get('xq-lesson-done') || '[]'));
+  const STG = ['認識棋子', '吃子', '將軍與解將', '基本殺法'];
+  const PC = { K: 1, A: 2, B: 3, N: 4, R: 5, C: 6, P: 7 };
+  const sqOf = ([r, c]) => r * 9 + c;
+  function boardArr(rows) { const a = []; for (const r of rows) for (const ch of r) a.push(ch === '.' ? 0 : ch === ch.toUpperCase() ? PC[ch] : -PC[ch.toUpperCase()]); return a; }
+  // 紅方走, n 步內能將死 (或困斃) 黑方: 回傳一步, 沒有回傳 0
+  function mateIn(n) {
+    for (const m of X.legal()) {
+      const q = X.make(m), rep = X.legal();
+      let ok = !rep.length;
+      if (!ok && n > 1) { ok = true; for (const r of rep) { const q2 = X.make(r); const s = mateIn(n - 1); X.unmake(r, q2); if (!s) { ok = false; break; } } }
+      X.unmake(m, q);
+      if (ok) return m;
+    }
+    return 0;
+  }
+  function openLessonList() {
+    const nextI = XQ_LESSONS.findIndex((_, i) => !lessonDone.has(i));
+    $('llProg').textContent = `認識棋子 → 吃子 → 將軍與解將 → 基本殺法　已完成 ${lessonDone.size}／${XQ_LESSONS.length} 關`;
+    $('llList').innerHTML = STG.map((st, si) => `<div><h4>${['♟', '⚔', '📣', '🏆'][si]} ${st}<small>${XQ_LESSONS.filter((l, i) => l.stage === si && lessonDone.has(i)).length}／${XQ_LESSONS.filter(l => l.stage === si).length}</small></h4><div class="lvGrid">` +
+      XQ_LESSONS.map((l, i) => l.stage !== si ? '' : `<button type="button" data-i="${i}" class="${lessonDone.has(i) ? 'done' : ''} ${i === nextI ? 'next' : ''}"><span class="n">${lessonDone.has(i) ? '✓' : i + 1}</span>${l.title}</button>`).join('') + '</div></div>').join('');
+    $('setup').hidden = true; $('lessonList').hidden = false;
+  }
+  $('lessonBtn').addEventListener('click', () => { ac(); openLessonList(); });
+  $('llBack').addEventListener('click', () => { $('lessonList').hidden = true; $('setup').hidden = false; });
+  $('llList').addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b) { ac(); openLesson(+b.dataset.i); } });
+  $('lcList').addEventListener('click', openLessonList);
+  $('lcRetry').addEventListener('click', () => LS && openLesson(LS.i));
+  $('lcNext').addEventListener('click', () => { if (!LS) return; if (LS.i + 1 < XQ_LESSONS.length) openLesson(LS.i + 1); else openLessonList(); });
+  function lfb(html, cls) { $('lcFb').innerHTML = html; $('lcFb').className = 'lfb ' + (cls || ''); }
+  function openLesson(i) {
+    if (G.busy) cancelThink();
+    const l = XQ_LESSONS[i];
+    Object.assign(G, { mode: 'lesson', human: 1, face: false, flip: false, moves: [], keys: [], over: null, sel: -1, targets: [], busy: false, hintMv: 0, review: false });
+    X.setPos(boardArr(l.board), 1);
+    G.keys = [X.key];
+    const g = l.goal;
+    LS = { i, l, solved: false, n: g.n || 0, found: new Set(), bad: -1, hintSq: -1, target: g.target ? sqOf(g.target) : -1, sel: g.sel ? sqOf(g.sel) : -1, answers: null };
+    if (g.kind === 'moves') LS.answers = new Set(X.legal().filter(m => m >> 7 === LS.sel).map(m => m & 127));
+    document.body.classList.add('lesson');
+    $('lessonList').hidden = true; $('setup').hidden = true; $('endScr').hidden = true; $('lessonCard').hidden = false; $('lessonBar').hidden = false;
+    $('lcTitle').innerHTML = `第 ${i + 1} 關　${l.title}<small>${STG[l.stage]}${lessonDone.has(i) ? '　✓ 已完成' : ''}</small>`;
+    $('lcText').innerHTML = l.text;
+    lfb(g.kind === 'moves' ? `找到 0／${LS.answers.size} 個位置` : g.kind === 'mate' ? (g.n > 1 ? `${g.n} 步內將死黑將` : '一步將死黑將') : '先點你的棋子，再點要去的位置', '');
+    $('lcNext').disabled = !lessonDone.has(i);
+    $('lcNext').textContent = i + 1 < XQ_LESSONS.length ? '下一關' : '全部完成';
+    renderAll();
+    scrollTo(0, 0);
+  }
+  function lessonOk(msg) {
+    LS.solved = true; LS.bad = -1; LS.hintSq = -1; G.hintMv = 0; G.sel = -1; G.targets = [];
+    lessonDone.add(LS.i); store.set('xq-lesson-done', JSON.stringify([...lessonDone]));
+    lfb('🎉 答對了！' + (msg || ''), 'ok'); $('lcNext').disabled = false;
+    SND.win(); setTimeout(() => stamp('過關'), 200);
+    renderMarks(); renderStatus();
+  }
+  function lessonBad(msg, sq) { LS.bad = sq; lfb(msg, 'bad'); SND.lose(); renderMarks(); setTimeout(() => { if (LS && LS.bad === sq) { LS.bad = -1; renderMarks(); } }, 1200); }
+  function lessonTap(sq) {
+    const g = LS.l.goal;
+    LS.hintSq = -1; G.hintMv = 0;
+    if (g.kind === 'moves') {
+      if (sq === LS.sel) return;
+      if (LS.answers.has(sq)) {
+        if (!LS.found.has(sq)) { LS.found.add(sq); knock(.6, 1500); }
+        if (LS.found.size === LS.answers.size) lessonOk('全部找到了。');
+        else { lfb(`找到 ${LS.found.size}／${LS.answers.size} 個位置`, ''); renderMarks(); }
+      } else lessonBad('這裡走不到喔。' + (X.board[sq] && X.board[sq] > 0 ? '自己的子不能吃。' : ''), sq);
+      return;
+    }
+    // 一般選子走棋
+    const p = X.board[sq];
+    if (G.sel >= 0 && G.targets.includes(sq)) { lessonTry(G.sel << 7 | sq); return; }
+    if (p > 0) {
+      if (G.sel === sq) { G.sel = -1; G.targets = []; }
+      else { G.sel = sq; G.targets = X.legal().filter(m => m >> 7 === sq).map(m => m & 127); knock(.35, 2200); if (!G.targets.length) toast(X.inCheck(1) ? '被將軍了，這顆子解不了將' : '這顆子現在不能走'); }
+    } else { G.sel = -1; G.targets = []; }
+    renderMarks();
+  }
+  function lessonTry(m) {
+    const g = LS.l.goal, to = m & 127;
+    const q = X.make(m);
+    let ok = false, why = '';
+    if (g.kind === 'capture') { ok = to === LS.target; why = q && q !== X.board[LS.target] ? '吃錯了：這顆子有保護，吃了會被吃回來。要吃<b>金色虛線圈</b>那顆。' : '要吃掉金色虛線圈起來的那顆子。'; if (!ok && q) why = '這顆子有保護，吃了會被吃回來。要吃<b>金色虛線圈</b>那顆。'; }
+    else if (g.kind === 'check') { ok = X.inCheck(-1); why = '這一步沒有將軍：走完以後，下一步要能吃到黑將才算。'; }
+    else if (g.kind === 'escape') { ok = !g.mustCapture || q !== 0; why = '這樣也能解將，但這一關要練習<b>把將軍的子吃掉</b>。'; }
+    else if (g.kind === 'mate') {
+      const rep = X.legal();
+      ok = !rep.length;
+      if (!ok && LS.n > 1) { ok = true; for (const r of rep) { const q2 = X.make(r); const s = mateIn(LS.n - 1); X.unmake(r, q2); if (!s) { ok = false; break; } } }
+      why = X.inCheck(-1) ? '有將軍，但黑方還能解將（走開、墊子或吃掉）。再想想！' : '這一步沒有將軍，黑方可以逃走。';
+    }
+    X.unmake(m, q);
+    if (!ok) { G.sel = -1; G.targets = []; lessonBad('不對喔。' + why, to); return; }
+    play(m);
+  }
+  // 走完一步之後 (play 會呼叫)
+  function lessonAfter(mover, q, chk) {
+    const g = LS.l.goal;
+    if (mover < 0) { renderStatus(); lfb(`黑方逃了一步。再 ${LS.n} 步將死它！`, ''); return; }
+    if (chk) setTimeout(() => SND.check(), 260);
+    if (g.kind === 'capture') return lessonOk('吃掉了！');
+    if (g.kind === 'check') return lessonOk('將軍！黑方下一步一定要解將。');
+    if (g.kind === 'escape') return lessonOk(q ? '把將軍的子吃掉，最乾脆。' : '解將了！');
+    if (g.kind === 'mate') {
+      const rep = X.legal();
+      if (!rep.length) return lessonOk('<b>絕殺</b>！黑將無路可逃。');
+      LS.n--; renderStatus();
+      lfb('將軍！看黑方怎麼逃…', '');
+      // 黑方隨便挑一步逃 (每一步都逃不掉)
+      const r = rep[Math.floor(Math.random() * rep.length)];
+      setTimeout(() => { if (LS && !LS.solved) play(r); }, 800);
+    }
+  }
+  $('lcHint').addEventListener('click', () => {
+    if (!LS || LS.solved || X.side < 0) return;
+    const g = LS.l.goal;
+    if (g.kind === 'moves') { const left = [...LS.answers].filter(t => !LS.found.has(t)); if (left.length) { LS.hintSq = left[0]; lfb('提示：綠色圈圈是其中一個位置。', ''); renderMarks(); } return; }
+    let m = 0;
+    if (G.moves.length === 0 && LS.l.ans) m = sqOf(LS.l.ans[0]) << 7 | sqOf(LS.l.ans[1]);
+    else if (g.kind === 'mate') m = mateIn(LS.n);
+    if (m) { G.hintMv = m; lfb('提示：照綠色箭頭走。', ''); renderMarks(); }
+  });
 
   makeWorker();
   X.setPos(X.startPos(), 1); G.keys = [X.key]; G.ids = new Int32Array(90);
   renderAll();
   openSetup();
-  window.__xq = { X, G, play, notation, newGame, ask, judge };
+  window.__xq = { X, G, play, notation, newGame, ask, judge, openLesson, get LS() { return LS; }, XQ_LESSONS };
 })();
 </script>
 </html>
