@@ -1,0 +1,901 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="遊戲廳">
+<meta name="theme-color" content="#12202c">
+<script>
+addEventListener('DOMContentLoaded', function () {
+  if (!(navigator.standalone || matchMedia('(display-mode: standalone)').matches)) return;
+  var a = document.createElement('a');
+  a.id = 'hg-home'; a.href = './'; a.textContent = '⌂';
+  a.onclick = function (e) { if (!confirm('回遊戲大廳？這一局的進度會消失。')) e.preventDefault(); }; a.setAttribute('aria-label', '回遊戲大廳');
+  a.style.cssText = 'position:fixed;left:env(safe-area-inset-left);top:50%;transform:translateY(-50%);z-index:2147483647;padding:10px 6px 10px 4px;border-radius:0 10px 10px 0;background:rgba(0,0,0,.5);color:#fff;font:600 15px/1 system-ui,-apple-system,sans-serif;text-decoration:none;opacity:.55;-webkit-tap-highlight-color:transparent';
+  document.body.appendChild(a);
+});
+</script>
+<title>星際艦長</title>
+<meta name="description" content="太空船遊戲：開船挖礦、在星系間跳躍貿易、打海盜接任務賺錢，從護衛艦一路升級到戰艦。">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&family=Orbitron:wght@600;800&display=swap">
+<style>
+/* 深空藍黑底, 青色科技介面, 金色金錢 */
+:root {
+  --ink: #e8f4ff; --muted: #8fb0c8; --panel: rgba(8, 20, 34, .82); --line: rgba(110, 220, 255, .28);
+  --cyan: #3fe0ff; --gold: #ffc94a; --red: #ff5a5a; --green: #4be38a;
+  --f-ui: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif; --f-num: "Orbitron", "Arial Black", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #02050b; color: var(--ink); font-family: var(--f-ui); -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: none; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+#cv { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+.hud { position: fixed; left: 0; right: 0; top: 0; display: flex; gap: 8px; align-items: flex-start; pointer-events: none;
+  padding: calc(env(safe-area-inset-top, 0px) + 6px) max(8px, env(safe-area-inset-right, 0px)) 0 max(8px, env(safe-area-inset-left, 0px)); }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 5px 8px; backdrop-filter: blur(3px); }
+.stat { display: grid; gap: 3px; min-width: 150px; }
+.stat .row { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); }
+.stat .money { font-family: var(--f-num); color: var(--gold); font-size: 16px; }
+.bar { height: 7px; border-radius: 4px; background: rgba(255,255,255,.12); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: 4px; }
+.bar.hull i { background: linear-gradient(90deg, #ff6a3d, #ffb13d); } .bar.sh i { background: linear-gradient(90deg, #2aa8ff, #3fe0ff); } .bar.cg i { background: linear-gradient(90deg, #9a7bff, #c3a8ff); }
+.sysName { font-weight: 900; font-size: 13px; color: var(--cyan); }
+.hud .grow { flex: 1; }
+#mini { width: 110px; height: 110px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); }
+.tools { display: grid; gap: 6px; pointer-events: auto; }
+.tb { width: 38px; height: 38px; border-radius: 50%; background: var(--panel); border: 1px solid var(--line); font-size: 17px; display: grid; place-items: center; }
+.missions { position: fixed; left: max(8px, env(safe-area-inset-left, 0px)); top: calc(env(safe-area-inset-top, 0px) + 112px); display: grid; gap: 4px; pointer-events: none; max-width: 230px; }
+.missions div { background: var(--panel); border-left: 3px solid var(--gold); border-radius: 6px; padding: 3px 7px; font-size: 11.5px; line-height: 1.4; }
+.missions div b { color: var(--gold); }
+.act { position: fixed; right: max(14px, env(safe-area-inset-right, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); display: grid; gap: 8px; justify-items: end; }
+.bigBtn { border: 0; border-radius: 16px; padding: 14px 22px; font-weight: 900; font-size: 17px; letter-spacing: .08em; color: #022; background: linear-gradient(#5ff0ff, #1fb7dd); box-shadow: 0 0 18px rgba(63,224,255,.6); }
+.bigBtn.gold { background: linear-gradient(#ffe08a, #f0a92a); box-shadow: 0 0 18px rgba(255,201,74,.6); color: #3a2400; }
+.toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 96px); transform: translateX(-50%); background: rgba(6,24,40,.92); border: 1px solid var(--cyan); color: var(--ink); border-radius: 10px; padding: 8px 16px; font-weight: 700; z-index: 30; pointer-events: none; animation: tst 2.6s forwards; white-space: nowrap; max-width: 92vw; overflow: hidden; text-overflow: ellipsis; }
+.toast.money { border-color: var(--gold); color: var(--gold); }
+@keyframes tst { 0% { opacity: 0; transform: translate(-50%, 8px); } 10%, 80% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }
+.fade { position: fixed; inset: 0; background: #000; pointer-events: none; opacity: 0; transition: opacity .35s; z-index: 25; }
+.fade.on { opacity: 1; }
+
+/* 太空站畫面 */
+.screen { position: fixed; inset: 0; background: rgba(2, 8, 16, .86); z-index: 20; display: grid; place-items: center; overflow-y: auto; touch-action: auto;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) max(10px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 10px) max(10px, env(safe-area-inset-left, 0px)); }
+.dlg { width: min(640px, 100%); background: linear-gradient(#0c1f33, #08141f); border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: grid; gap: 10px; box-shadow: 0 0 40px rgba(63,224,255,.15); }
+.dlg h2 { margin: 0; font-size: 20px; display: flex; align-items: center; gap: 8px; }
+.dlg h2 small { color: var(--muted); font-size: 12px; font-weight: 500; }
+.dlg h2 .grow { flex: 1; }
+.dlg p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.6; }
+.money2 { font-family: var(--f-num); color: var(--gold); font-size: 15px; }
+.tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.tabs button { background: rgba(255,255,255,.05); border: 1px solid var(--line); border-radius: 10px; padding: 8px 2px; font-weight: 900; font-size: 13.5px; }
+.tabs button[aria-selected="true"] { background: rgba(63,224,255,.2); border-color: var(--cyan); color: #fff; }
+.pane { display: grid; gap: 6px; max-height: 56dvh; overflow-y: auto; }
+.item { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 8px 10px; }
+.item b { font-size: 15px; } .item small { display: block; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.item .btns { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.sb { border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; font-weight: 900; font-size: 13px; background: rgba(63,224,255,.12); white-space: nowrap; }
+.sb.buy { background: rgba(75,227,138,.16); border-color: rgba(75,227,138,.5); }
+.sb.sell { background: rgba(255,201,74,.14); border-color: rgba(255,201,74,.5); }
+.sb:disabled { opacity: .35; cursor: default; }
+.up { color: var(--green); } .down { color: var(--red); }
+.shipCard { display: grid; grid-template-columns: 96px 1fr auto; gap: 10px; align-items: center; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 8px; }
+.shipCard.cur { border-color: var(--cyan); background: rgba(63,224,255,.1); }
+.shipCard canvas { width: 96px; height: 60px; }
+.lvl { display: inline-flex; gap: 2px; vertical-align: middle; margin-left: 4px; } .lvl i { width: 9px; height: 9px; border-radius: 2px; background: rgba(255,255,255,.15); } .lvl i.on { background: var(--cyan); }
+.foot { display: flex; gap: 8px; }
+.foot > * { flex: 1; }
+.go { background: linear-gradient(#5ff0ff, #1fb7dd); color: #022; border: 0; border-radius: 12px; padding: 12px; font-weight: 900; font-size: 16px; letter-spacing: .08em; }
+.ghost { background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 12px; padding: 11px; font-weight: 700; }
+.title { font-family: var(--f-num); font-size: 30px; letter-spacing: .12em; text-align: center; color: var(--cyan); text-shadow: 0 0 18px rgba(63,224,255,.6); }
+.howto { display: grid; gap: 6px; font-size: 13.5px; color: var(--muted); line-height: 1.6; }
+.howto b { color: var(--ink); }
+.galaxy { width: 100%; height: auto; }
+@media (max-width: 560px) { .tabs button { font-size: 12.5px; } .shipCard { grid-template-columns: 72px 1fr; } .shipCard canvas { width: 72px; height: 45px; } .shipCard .btns { grid-column: 1 / -1; justify-content: stretch; } .stat { min-width: 128px; } #mini { width: 92px; height: 92px; } }
+@media (prefers-reduced-motion: reduce) { .toast { animation-duration: .01s; } }
+</style>
+
+<canvas id="cv"></canvas>
+<div class="hud" id="hud" hidden>
+  <div class="box stat">
+    <div class="row"><span class="sysName" id="hSys">新港星系</span><span class="money" id="hMoney">0</span></div>
+    <div class="row"><span>船體</span><span id="hHullT"></span></div><div class="bar hull"><i id="hHull"></i></div>
+    <div class="row"><span>護盾</span><span id="hShT"></span></div><div class="bar sh"><i id="hSh"></i></div>
+    <div class="row"><span>貨艙</span><span id="hCgT"></span></div><div class="bar cg"><i id="hCg"></i></div>
+  </div>
+  <div class="grow"></div>
+  <canvas id="mini" width="220" height="220"></canvas>
+  <div class="tools"><button class="tb" id="mapBtn" type="button" aria-label="星圖">🗺</button><button class="tb" id="muteBtn" type="button" aria-label="聲音">🔊</button><button class="tb" id="pauseBtn" type="button" aria-label="暫停">⏸</button></div>
+</div>
+<div class="missions" id="mList"></div>
+<div class="act"><button class="bigBtn" id="dockBtn" type="button" hidden>停靠</button></div>
+<div class="fade" id="fade"></div>
+
+<div class="screen" id="startScr">
+  <div class="dlg">
+    <div class="title">星際艦長</div>
+    <p style="text-align:center">從一艘小小的護衛艦開始，挖礦、貿易、打海盜、接任務，一路換到戰艦，最後擊敗海盜旗艦！</p>
+    <div class="howto">
+      <div>🕹 <b>左下拖曳</b>（或方向鍵、WASD）開船，船會轉向你推的方向。</div>
+      <div>🔫 海盜靠近會<b>自動開火</b>；⛏ 靠近小行星會<b>自動挖礦</b>，紫色晶體比較值錢。</div>
+      <div>🛰 飛到太空站旁邊按<b>停靠</b>：賣礦、買賣貨物（每個星系價格不同）、接任務、修理、改裝、買新船。</div>
+      <div>🌀 飛進<b>跳躍門</b>就能到隔壁星系。越遠的星系海盜越強，賞金也越高。</div>
+    </div>
+    <button class="go" id="newBtn" type="button">開始新遊戲</button>
+    <button class="ghost" id="contBtn" type="button" hidden>繼續上次的遊戲</button>
+  </div>
+</div>
+
+<div class="screen" id="stationScr" hidden>
+  <div class="dlg">
+    <h2><span id="stName">新港站</span><small id="stSys"></small><span class="grow"></span><span class="money2" id="stMoney"></span></h2>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" data-t="market">市場</button><button type="button" role="tab" data-t="missions">任務</button><button type="button" role="tab" data-t="refit">改裝</button><button type="button" role="tab" data-t="yard">船廠</button><button type="button" role="tab" data-t="map">星圖</button>
+    </div>
+    <div class="pane" id="pane"></div>
+    <div class="foot"><button class="ghost" id="repairBtn" type="button">修理</button><button class="go" id="undockBtn" type="button">出發</button></div>
+  </div>
+</div>
+
+<div class="screen" id="mapScr" hidden>
+  <div class="dlg"><h2>星圖<span class="grow"></span><button class="sb" id="mapClose" type="button">關閉</button></h2><div id="mapBody"></div></div>
+</div>
+
+<div class="screen" id="msgScr" hidden>
+  <div class="dlg"><h2 id="msgTitle"></h2><p id="msgText"></p><button class="go" id="msgOk" type="button">好</button></div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), lerp = (a, b, t) => a + (b - a) * t, rnd = (a, b) => a + Math.random() * (b - a), pick = a => a[Math.floor(Math.random() * a.length)];
+  const fmt = n => Math.round(n).toLocaleString('en-US');
+  const ang = (a) => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; };
+
+  // ---------- 遊戲資料 ----------
+  // 船級: 尺寸 (畫面像素), 船體, 護盾, 速度, 轉向, 貨艙, 砲塔數, 單發傷害, 射速 (每秒), 射程, 挖礦速度 (每秒), 價格, 需要的聲望 (完成任務數)
+  const SHIPS = [
+    { name: '護衛艦', en: 'Corvette', size: 22, hull: 100, shield: 60, speed: 300, turn: 3.6, cargo: 20, guns: 1, dmg: 8, rate: 3, range: 420, mine: .45, price: 0, rep: 0, col: '#9fc6e6' },
+    { name: '驅逐艦', en: 'Destroyer', size: 34, hull: 280, shield: 160, speed: 285, turn: 3.0, cargo: 40, guns: 2, dmg: 11, rate: 3, range: 470, mine: .75, price: 6000, rep: 3, col: '#a9d3b6' },
+    { name: '巡洋艦', en: 'Cruiser', size: 50, hull: 650, shield: 380, speed: 265, turn: 2.4, cargo: 75, guns: 3, dmg: 15, rate: 3, range: 520, mine: 1.2, price: 20000, rep: 8, col: '#d7c99a' },
+    { name: '戰鬥巡洋艦', en: 'Battlecruiser', size: 70, hull: 1300, shield: 760, speed: 255, turn: 1.9, cargo: 120, guns: 4, dmg: 20, rate: 3, range: 580, mine: 1.7, price: 52000, rep: 14, col: '#c9b0e0' },
+    { name: '戰艦', en: 'Battleship', size: 94, hull: 2600, shield: 1500, speed: 240, turn: 1.5, cargo: 180, guns: 6, dmg: 26, rate: 3, range: 650, mine: 2.4, price: 110000, rep: 22, col: '#e6a98f' },
+  ];
+  // 改裝: 每級 +15%, 5 級; 價格 = 基本 × 船級係數 × 級數
+  const UPG = [
+    { k: 'weapon', name: '武器', icon: '🔫', desc: '傷害 +15%', base: 400 },
+    { k: 'shield', name: '護盾', icon: '🛡', desc: '護盾 +15%、回充更快', base: 350 },
+    { k: 'armor', name: '裝甲', icon: '🧱', desc: '船體 +15%', base: 350 },
+    { k: 'cargo', name: '貨艙', icon: '📦', desc: '貨艙 +15%', base: 300 },
+    { k: 'engine', name: '引擎', icon: '🚀', desc: '速度 +8%', base: 300 },
+    { k: 'mining', name: '採礦雷射', icon: '⛏', desc: '挖礦速度 +20%', base: 250 },
+  ];
+  // 貨物: 基本價格
+  const GOODS = [
+    { k: 'ore', name: '礦石', base: 22 }, { k: 'crystal', name: '晶體', base: 95 },
+    { k: 'food', name: '糧食', base: 40 }, { k: 'parts', name: '零件', base: 120 }, { k: 'meds', name: '醫藥', base: 210 }, { k: 'lux', name: '奢侈品', base: 380 },
+  ];
+  // 星系: 名稱, 危險度 (0~4), 站名, 各貨物價格倍率 (<1 便宜好買, >1 貴好賣), 小行星數量, 晶體比例, 位置 (星圖)
+  const SYS = [
+    { name: '新港', danger: 0, station: '新港站', px: { ore: 1.0, crystal: 1.0, food: .75, parts: 1.15, meds: 1.1, lux: 1.25 }, rocks: 26, crystal: .08, mx: 90, my: 150, color: '#3b7bd8' },
+    { name: '礦脈帶', danger: 1, station: '礦業前哨', px: { ore: .8, crystal: .85, food: 1.3, parts: 1.25, meds: 1.2, lux: 1.1 }, rocks: 46, crystal: .25, mx: 220, my: 60, color: '#b98a4a' },
+    { name: '商業星', danger: 1, station: '自由貿易港', px: { ore: 1.2, crystal: 1.3, food: 1.05, parts: .78, meds: .85, lux: .8 }, rocks: 16, crystal: .1, mx: 230, my: 230, color: '#3fc48a' },
+    { name: '邊境', danger: 2, station: '邊境要塞', px: { ore: 1.15, crystal: 1.2, food: 1.35, parts: 1.3, meds: 1.45, lux: 1.0 }, rocks: 34, crystal: .3, mx: 360, my: 150, color: '#c85a3a' },
+    { name: '黑霧星雲', danger: 3, station: null, px: null, rocks: 30, crystal: .45, mx: 480, my: 150, color: '#7a3ac8' },
+  ];
+  const LINKS = [[0, 1], [0, 2], [1, 3], [2, 3], [3, 4], [1, 2]];
+  // 海盜
+  const PIR = [
+    { name: '海盜快艇', size: 18, hull: 45, dmg: 5, rate: 1.3, speed: 290, range: 380, bounty: 140, col: '#c0503a' },
+    { name: '海盜砲艇', size: 26, hull: 140, dmg: 9, rate: 1.3, speed: 265, range: 420, bounty: 380, col: '#b8462e' },
+    { name: '海盜巡防艦', size: 40, hull: 480, dmg: 15, rate: 1.5, speed: 245, range: 480, bounty: 1150, col: '#a63c2a' },
+    { name: '海盜驅逐艦', size: 58, hull: 1300, dmg: 24, rate: 1.8, speed: 225, range: 540, bounty: 2900, col: '#962e22' },
+    { name: '海盜旗艦「赤牙」', size: 130, hull: 40000, dmg: 40, rate: 4, speed: 150, range: 640, bounty: 40000, col: '#7e1c14', boss: true },
+  ];
+  const WORLD = 5200;   // 每個星系是 5200 × 5200 的正方形 (中心 0, 0)
+
+  // ---------- 狀態 ----------
+  let S = null;        // 存檔的部分
+  let W = null;        // 目前星系的物件 (不存檔)
+  function newSave() {
+    return { credits: 800, rep: 0, kills: 0, cls: 0, up: { weapon: 0, shield: 0, armor: 0, cargo: 0, engine: 0, mining: 0 }, cargo: {}, sys: 0, x: 0, y: 260, hull: null, shield: null,
+      missions: [], offers: {}, bossDead: false, time: 0, won: false, prices: {}, lastStation: 0, seed: Math.random() * 1e9 | 0 };
+  }
+  const st = () => {
+    const b = SHIPS[S.cls], u = S.up, m = k => 1 + .15 * u[k];
+    return { ...b, hull: b.hull * m('armor'), shield: b.shield * m('shield'), cargo: Math.round(b.cargo * m('cargo')), dmg: b.dmg * m('weapon'), speed: b.speed * (1 + .08 * u.engine), mine: b.mine * (1 + .2 * u.mining), regen: (b.shield * m('shield')) * (.06 + .015 * u.shield) };
+  };
+  const cargoUsed = () => Object.values(S.cargo).reduce((a, b) => a + b, 0) + S.missions.filter(m => m.type === 'deliver').reduce((a, m) => a + m.n, 0);
+
+  // ---------- 畫面 ----------
+  const cv = $('cv'), g = cv.getContext('2d');
+  let VW = 0, VH = 0, DPR = 1;
+  function resize() { DPR = Math.min(2, devicePixelRatio || 1); VW = innerWidth; VH = innerHeight; cv.width = VW * DPR; cv.height = VH * DPR; }
+  addEventListener('resize', resize); resize();
+  // 背景星空 (三層視差)
+  const stars = [0, 1, 2].map(l => Array.from({ length: 140 }, () => ({ x: Math.random(), y: Math.random(), r: (l + 1) * .5 + Math.random() * .6, a: .3 + Math.random() * .6 })));
+
+  // ---------- 畫船 (程式畫的向量圖, 朝右) ----------
+  function drawShip(c, cls, size, col, opt = {}) {
+    // cls: 0~4 玩家船級; 'p0'~'p4' 海盜
+    const s = size;
+    c.save();
+    const pirate = typeof cls === 'string';
+    const k = pirate ? +cls[1] : cls;
+    // 引擎光
+    if (opt.thrust) {
+      c.fillStyle = pirate ? 'rgba(255,120,60,.8)' : 'rgba(90,220,255,.85)';
+      const n = pirate ? 1 + (k > 1) : [1, 2, 2, 3, 4][k];
+      for (let i = 0; i < n; i++) { const y = (i - (n - 1) / 2) * s * .32; c.beginPath(); c.moveTo(-s * .9, y - s * .1); c.lineTo(-s * (1.25 + opt.thrust * .5 + Math.random() * .15), y); c.lineTo(-s * .9, y + s * .1); c.fill(); }
+    }
+    const dark = shade(col, -.35), light = shade(col, .25);
+    c.lineWidth = Math.max(1, s * .04); c.strokeStyle = shade(col, -.55);
+    if (!pirate) {
+      // 主船身: 越大越長, 多段
+      const L = [1.0, 1.15, 1.3, 1.4, 1.5][k], Wd = [.42, .45, .48, .5, .55][k];
+      c.fillStyle = dark;
+      // 兩側翼 / 舷側
+      c.beginPath(); c.moveTo(s * .2, -s * Wd); c.lineTo(-s * .8, -s * (Wd + .25)); c.lineTo(-s * .95, -s * Wd * .5); c.lineTo(-s * .95, s * Wd * .5); c.lineTo(-s * .8, s * (Wd + .25)); c.lineTo(s * .2, s * Wd); c.closePath(); c.fill(); c.stroke();
+      c.fillStyle = col;
+      c.beginPath(); c.moveTo(s * L, 0); c.lineTo(s * .45, -s * Wd * .75); c.lineTo(-s * .9, -s * Wd * .7); c.lineTo(-s * .9, s * Wd * .7); c.lineTo(s * .45, s * Wd * .75); c.closePath(); c.fill(); c.stroke();
+      // 甲板分段線
+      c.strokeStyle = shade(col, -.3); c.lineWidth = Math.max(1, s * .025);
+      for (let i = 1; i <= k + 1; i++) { const x = s * (.4 - i * 1.2 / (k + 2)); c.beginPath(); c.moveTo(x, -s * Wd * .65); c.lineTo(x, s * Wd * .65); c.stroke(); }
+      // 艦橋
+      c.fillStyle = light; c.beginPath(); c.ellipse(-s * .25, 0, s * .22, s * Wd * .38, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = 'rgba(120,230,255,.9)'; c.beginPath(); c.ellipse(-s * .15, 0, s * .07, s * Wd * .2, 0, 0, Math.PI * 2); c.fill();
+      // 砲塔
+      const guns = SHIPS[k].guns;
+      for (let i = 0; i < guns; i++) { const [gx, gy] = gunPos(k, i, s); c.fillStyle = shade(col, -.15); c.beginPath(); c.arc(gx, gy, s * .085, 0, Math.PI * 2); c.fill(); c.strokeStyle = shade(col, -.55); c.stroke(); c.fillStyle = '#333'; c.fillRect(gx, gy - s * .02, s * .14, s * .04); }
+      // 燈
+      c.fillStyle = '#ff5050'; c.beginPath(); c.arc(-s * .78, -s * (Wd + .18), s * .035, 0, 7); c.fill(); c.fillStyle = '#50ff80'; c.beginPath(); c.arc(-s * .78, s * (Wd + .18), s * .035, 0, 7); c.fill();
+    } else {
+      // 海盜: 尖刺, 不對稱
+      c.fillStyle = dark;
+      c.beginPath(); c.moveTo(s * .9, 0); c.lineTo(s * .1, -s * .65); c.lineTo(-s * .2, -s * .3); c.lineTo(-s * .9, -s * .7); c.lineTo(-s * .7, 0); c.lineTo(-s * .9, s * .7); c.lineTo(-s * .2, s * .3); c.lineTo(s * .1, s * .65); c.closePath(); c.fill(); c.stroke();
+      c.fillStyle = col; c.beginPath(); c.moveTo(s * 1.0, 0); c.lineTo(s * .1, -s * .3); c.lineTo(-s * .7, -s * .2); c.lineTo(-s * .7, s * .2); c.lineTo(s * .1, s * .3); c.closePath(); c.fill(); c.stroke();
+      c.fillStyle = '#ffd040'; c.beginPath(); c.arc(s * .1, 0, s * .09, 0, 7); c.fill();
+      if (k >= 2) { c.fillStyle = shade(col, -.2); for (const y of [-.4, .4]) { c.beginPath(); c.arc(-s * .3, s * y, s * .1, 0, 7); c.fill(); } }
+      if (k === 4) { c.fillStyle = '#220'; c.font = `900 ${s * .28}px sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('☠', -s * .2, 0); }
+    }
+    c.restore();
+  }
+  function gunPos(k, i, s) {
+    const n = SHIPS[k].guns;
+    if (n === 1) return [s * .3, 0];
+    const row = i % 2 ? 1 : -1, col = Math.floor(i / 2), cols = Math.ceil(n / 2);
+    return [s * (.45 - col * 1.0 / cols), row * s * .22];
+  }
+  function shade(hex, f) {
+    let n = parseInt(hex.slice(1), 16), r = n >> 16, gg = n >> 8 & 255, b = n & 255;
+    const t = f < 0 ? 0 : 255, p = Math.abs(f);
+    r = Math.round((t - r) * p + r); gg = Math.round((t - gg) * p + gg); b = Math.round((t - b) * p + b);
+    return `rgb(${r},${gg},${b})`;
+  }
+
+  // ---------- 星系產生 ----------
+  function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
+  function gatesOf(i) {
+    // 跳躍門放在往目標星系的方向 (星圖上的相對位置)
+    return LINKS.filter(l => l.includes(i)).map(l => { const j = l[0] === i ? l[1] : l[0]; const a = Math.atan2(SYS[j].my - SYS[i].my, SYS[j].mx - SYS[i].mx); return { to: j, x: Math.cos(a) * WORLD * .4, y: Math.sin(a) * WORLD * .4, r: 70 }; });
+  }
+  function buildSystem(i) {
+    const sy = SYS[i], R = rng(S.seed + i * 977);
+    const rocks = [];
+    // 小行星帶: 幾團
+    const clusters = 3 + Math.floor(sy.rocks / 14);
+    for (let c = 0; c < clusters; c++) {
+      const cx = (R() - .5) * WORLD * .75, cy = (R() - .5) * WORLD * .75;
+      for (let k = 0; k < sy.rocks / clusters; k++) {
+        const x = cx + (R() - .5) * 900, y = cy + (R() - .5) * 900;
+        if (Math.hypot(x, y) < 900) continue;   // 太空站附近不放小行星, 要飛一段路
+        const crystal = R() < sy.crystal, r = 28 + R() * 46;
+        rocks.push(mkRock(x, y, r, crystal, R));
+      }
+    }
+    W = { i, rocks, pirates: [], shots: [], parts: [], loot: [], gates: gatesOf(i), station: sy.station ? { x: 0, y: 0, r: 90 } : null, spawnT: 2, bossSpawned: false, floaters: [] };
+    if (!sy.station) W.base = { x: 0, y: 0, r: 110, hp: 1 };
+    // 一開始的海盜
+    const n = [1, 4, 5, 7, 8][sy.danger];
+    for (let k = 0; k < n; k++) spawnPirate(true);
+    if (i === 4 && !S.bossDead) spawnBoss();
+  }
+  function mkRock(x, y, r, crystal, R = Math.random) {
+    const pts = []; const n = 9 + Math.floor(R() * 5);
+    for (let k = 0; k < n; k++) pts.push(.72 + R() * .35);
+    return { x, y, r, r0: r, crystal, pts, rot: R() * 6, vr: (R() - .5) * .3, ore: Math.round(r * (crystal ? .5 : .9)), ore0: 0 };
+  }
+  function pirateTier() {
+    const d = SYS[W.i].danger;
+    const table = [[0], [0, 0, 1], [0, 1, 1, 2], [1, 2, 2, 3], [2, 3, 3]][d];
+    return pick(table);
+  }
+  function spawnPirate(initial) {
+    const t = pirateTier(), P = PIR[t];
+    let x, y;
+    for (let tries = 0; tries < 20; tries++) {
+      x = (Math.random() - .5) * WORLD * .85; y = (Math.random() - .5) * WORLD * .85;
+      if (Math.hypot(x - (pl ? pl.x : 0), y - (pl ? pl.y : 0)) > (initial ? 1400 : 1300) && Math.hypot(x, y) > 700) break;
+    }
+    W.pirates.push({ t, x, y, vx: 0, vy: 0, a: Math.random() * 6, hp: P.hull, hp0: P.hull, cd: rnd(0, 1), size: P.size, wander: Math.random() * 6, orbit: Math.random() < .5 ? 1 : -1, hit: 0 });
+  }
+  function spawnBoss() {
+    const P = PIR[4];
+    W.pirates.push({ t: 4, x: 0, y: 0, vx: 0, vy: 0, a: 0, hp: P.hull, hp0: P.hull, cd: 0, size: P.size, wander: 0, orbit: 1, hit: 0, boss: true });
+    W.bossSpawned = true;
+  }
+
+  // ---------- 玩家船 ----------
+  let pl = null;
+  function makePlayer() {
+    const s = st();
+    pl = { x: S.x, y: S.y, vx: 0, vy: 0, a: -Math.PI / 2, hull: S.hull ?? s.hull, shield: S.shield ?? s.shield, cd: 0, lastHit: 99, mining: null, thrust: 0, dead: false, inv: 2 };
+  }
+
+  // ---------- 輸入 ----------
+  const input = { x: 0, y: 0, active: false, keys: {} };
+  let joy = null;
+  cv.addEventListener('pointerdown', e => {
+    ac();
+    if (e.clientX > VW * .55 && !(VW < VH)) return;   // 橫拿時右半邊留給按鈕
+    joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY };
+    cv.setPointerCapture(e.pointerId);
+  });
+  cv.addEventListener('pointermove', e => { if (joy && e.pointerId === joy.id) { joy.x = e.clientX; joy.y = e.clientY; } });
+  const endJoy = e => { if (joy && e.pointerId === joy.id) joy = null; };
+  cv.addEventListener('pointerup', endJoy); cv.addEventListener('pointercancel', endJoy);
+  addEventListener('keydown', e => { input.keys[e.key.toLowerCase()] = true; if (e.key === ' ' || e.key.startsWith('Arrow')) e.preventDefault(); if (e.key.toLowerCase() === 'e' && !$('dockBtn').hidden) $('dockBtn').click(); });
+  addEventListener('keyup', e => { input.keys[e.key.toLowerCase()] = false; });
+  function readInput() {
+    let x = 0, y = 0;
+    const k = input.keys;
+    if (k['arrowleft'] || k['a']) x--; if (k['arrowright'] || k['d']) x++; if (k['arrowup'] || k['w']) y--; if (k['arrowdown'] || k['s']) y++;
+    let mag = Math.hypot(x, y);
+    if (joy) { const dx = joy.x - joy.x0, dy = joy.y - joy.y0, d = Math.hypot(dx, dy); if (d > 8) { x = dx / d; y = dy / d; mag = Math.min(1, d / 60); } }
+    else if (mag) { x /= mag; y /= mag; mag = 1; }
+    return { x, y, mag };
+  }
+
+  // ---------- 聲音 ----------
+  let AC = null, muted = store.get('sc-mute') === '1';
+  function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (AC && AC.state === 'suspended') AC.resume(); return AC; }
+  let lastSnd = {};
+  function snd(kind) {
+    const a = ac(); if (!a || muted) return;
+    const now = a.currentTime; if (lastSnd[kind] && now - lastSnd[kind] < .06) return; lastSnd[kind] = now;
+    const o = a.createOscillator(), gn = a.createGain(); o.connect(gn); gn.connect(a.destination);
+    if (kind === 'shot') { o.type = 'square'; o.frequency.setValueAtTime(900, now); o.frequency.exponentialRampToValueAtTime(220, now + .08); gn.gain.setValueAtTime(.04, now); gn.gain.exponentialRampToValueAtTime(.001, now + .09); o.start(now); o.stop(now + .1); }
+    else if (kind === 'eshot') { o.type = 'sawtooth'; o.frequency.setValueAtTime(500, now); o.frequency.exponentialRampToValueAtTime(140, now + .1); gn.gain.setValueAtTime(.025, now); gn.gain.exponentialRampToValueAtTime(.001, now + .1); o.start(now); o.stop(now + .12); }
+    else if (kind === 'boom' || kind === 'bigboom') {
+      o.disconnect(); const len = kind === 'bigboom' ? 1.2 : .5, buf = a.createBuffer(1, a.sampleRate * len, a.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2.5);
+      const s = a.createBufferSource(); s.buffer = buf; const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = kind === 'bigboom' ? 500 : 900; s.connect(f); f.connect(gn); gn.connect(a.destination); gn.gain.value = kind === 'bigboom' ? .5 : .25; s.start(now);
+    }
+    else if (kind === 'coin') { o.type = 'triangle'; o.frequency.setValueAtTime(880, now); o.frequency.setValueAtTime(1320, now + .07); gn.gain.setValueAtTime(.08, now); gn.gain.exponentialRampToValueAtTime(.001, now + .2); o.start(now); o.stop(now + .22); }
+    else if (kind === 'warp') { o.type = 'sine'; o.frequency.setValueAtTime(120, now); o.frequency.exponentialRampToValueAtTime(1400, now + .6); gn.gain.setValueAtTime(.12, now); gn.gain.exponentialRampToValueAtTime(.001, now + .7); o.start(now); o.stop(now + .72); }
+    else if (kind === 'mine') { o.type = 'sine'; o.frequency.setValueAtTime(1500, now); gn.gain.setValueAtTime(.02, now); gn.gain.exponentialRampToValueAtTime(.001, now + .05); o.start(now); o.stop(now + .06); }
+    else if (kind === 'hit') { o.type = 'square'; o.frequency.setValueAtTime(180, now); gn.gain.setValueAtTime(.05, now); gn.gain.exponentialRampToValueAtTime(.001, now + .08); o.start(now); o.stop(now + .09); }
+  }
+  $('muteBtn').textContent = muted ? '🔇' : '🔊';
+  $('muteBtn').addEventListener('click', () => { muted = !muted; store.set('sc-mute', muted ? '1' : '0'); $('muteBtn').textContent = muted ? '🔇' : '🔊'; });
+  function toast(t, cls = '') { const d = document.createElement('div'); d.className = 'toast ' + cls; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2700); }
+
+  // ---------- 遊戲迴圈 ----------
+  let paused = true, inStation = false, last = 0, saveT = 0, warping = false;
+  function update(dt) {
+    S.time += dt;
+    const s = st();
+    // 開船
+    const inp = readInput();
+    if (!pl.dead) {
+      if (inp.mag > 0) {
+        const want = Math.atan2(inp.y, inp.x), da = ang(want - pl.a);
+        pl.a += clamp(da, -s.turn * dt, s.turn * dt);
+        const thrust = inp.mag * (Math.cos(da) > 0 ? 1 : .35);
+        pl.vx += Math.cos(pl.a) * s.speed * 2.2 * thrust * dt; pl.vy += Math.sin(pl.a) * s.speed * 2.2 * thrust * dt;
+        pl.thrust = thrust;
+      } else pl.thrust = 0;
+      const v = Math.hypot(pl.vx, pl.vy), max = s.speed * (inp.mag > 0 ? Math.max(.35, inp.mag) : 1);
+      if (v > max) { pl.vx *= max / v; pl.vy *= max / v; }
+      const damp = Math.pow(inp.mag > 0 ? .7 : .35, dt); pl.vx *= damp; pl.vy *= damp;
+      pl.x = clamp(pl.x + pl.vx * dt, -WORLD / 2, WORLD / 2); pl.y = clamp(pl.y + pl.vy * dt, -WORLD / 2, WORLD / 2);
+      // 護盾回充
+      pl.lastHit += dt; pl.inv = Math.max(0, pl.inv - dt);
+      if (pl.lastHit > 3) pl.shield = Math.min(s.shield, pl.shield + s.regen * dt);
+    }
+    // 自動射擊: 最近的海盜
+    pl.cd -= dt;
+    let target = null, td = s.range;
+    for (const p of W.pirates) { const d = Math.hypot(p.x - pl.x, p.y - pl.y) - p.size * .5; if (d < td) { td = d; target = p; } }
+    if (target && pl.cd <= 0 && !pl.dead) {
+      pl.cd = 1 / s.rate;
+      for (let i = 0; i < s.guns; i++) {
+        const [gx, gy] = gunPos(S.cls, i, s.size), ca = Math.cos(pl.a), sa = Math.sin(pl.a);
+        const sx = pl.x + gx * ca - gy * sa, sy = pl.y + gx * sa + gy * ca;
+        const lead = Math.hypot(target.x - sx, target.y - sy) / 900;
+        const aa = Math.atan2(target.y + target.vy * lead - sy, target.x + target.vx * lead - sx) + rnd(-.03, .03);
+        W.shots.push({ x: sx, y: sy, vx: Math.cos(aa) * 900 + pl.vx, vy: Math.sin(aa) * 900 + pl.vy, life: s.range / 900 + .1, dmg: s.dmg, mine: true, w: 2 + S.cls * .6 });
+      }
+      snd('shot');
+    }
+    // 挖礦: 最近的小行星
+    pl.mining = null;
+    if (!pl.dead) {
+      let best = null, bd = 1e9;
+      for (const r of W.rocks) { const d = Math.hypot(r.x - pl.x, r.y - pl.y) - r.r - s.size; if (d < 140 && d < bd) { bd = d; best = r; } }
+      if (best && best.ore > 0) {
+        if (cargoUsed() >= s.cargo) { if (!pl.fullWarn) { toast('貨艙滿了！回太空站賣掉'); pl.fullWarn = true; } }
+        else {
+          pl.fullWarn = false; pl.mining = best;
+          best.acc = (best.acc || 0) + s.mine * dt;
+          while (best.acc >= 1 && best.ore > 0 && cargoUsed() < s.cargo) {
+            best.acc -= 1; best.ore--; const k = best.crystal ? 'crystal' : 'ore'; S.cargo[k] = (S.cargo[k] || 0) + 1; snd('mine');
+            W.floaters.push({ x: best.x, y: best.y - best.r, t: 1, text: best.crystal ? '+1 晶體' : '+1 礦石', col: best.crystal ? '#d6a8ff' : '#c8d6e0' });
+            missionProgress('mine');
+          }
+          best.r = best.r0 * (.45 + .55 * best.ore / Math.max(1, best.ore0 || (best.ore0 = best.ore + 1)));
+          if (best.ore <= 0) { W.rocks.splice(W.rocks.indexOf(best), 1); burst(best.x, best.y, best.crystal ? '#b77cff' : '#9aa', 18, 1); setTimeout(() => respawnRock(W.i), 40000); }
+        }
+      }
+    }
+    for (const r of W.rocks) r.rot += r.vr * dt;
+    // 海盜
+    W.spawnT -= dt;
+    const want = [2, 4, 6, 7, 8][SYS[W.i].danger];
+    if (W.spawnT <= 0 && W.pirates.filter(p => !p.boss).length < want) { spawnPirate(false); W.spawnT = rnd(8, 16); }
+    for (const p of W.pirates) {
+      const P = PIR[p.t], dx = pl.x - p.x, dy = pl.y - p.y, d = Math.hypot(dx, dy);
+      let tx, ty;
+      const aggro = p.boss ? 1400 : 1000;
+      if (!pl.dead && d < aggro && !nearSafeStation()) {
+        // 繞著玩家打
+        const o = P.range * .7 + s.size, a0 = Math.atan2(-dy, -dx) + p.orbit * .6;
+        tx = pl.x + Math.cos(a0) * o; ty = pl.y + Math.sin(a0) * o;
+      } else { p.wander += dt * .2; tx = p.x + Math.cos(p.wander) * 300; ty = p.y + Math.sin(p.wander) * 300; }
+      const ta = Math.atan2(ty - p.y, tx - p.x), da = ang(ta - p.a);
+      p.a += clamp(da, -2.5 * dt, 2.5 * dt);
+      const sp = P.speed * (Math.hypot(tx - p.x, ty - p.y) > 60 ? 1 : .3);
+      p.vx = lerp(p.vx, Math.cos(p.a) * sp, dt * 1.5); p.vy = lerp(p.vy, Math.sin(p.a) * sp, dt * 1.5);
+      p.x = clamp(p.x + p.vx * dt, -WORLD / 2, WORLD / 2); p.y = clamp(p.y + p.vy * dt, -WORLD / 2, WORLD / 2);
+      p.cd -= dt; p.hit = Math.max(0, p.hit - dt);
+      if (!pl.dead && d < P.range + s.size * .5 && p.cd <= 0 && !nearSafeStation()) {
+        p.cd = 1 / P.rate * rnd(.8, 1.2);
+        const shotsN = p.boss ? 3 : 1;
+        for (let k = 0; k < shotsN; k++) {
+          const lead = d / 600, aa = Math.atan2(pl.y + pl.vy * lead - p.y, pl.x + pl.vx * lead - p.x) + rnd(-.08, .08) + (k - 1) * .12 * (p.boss ? 1 : 0);
+          W.shots.push({ x: p.x + Math.cos(aa) * p.size * .6, y: p.y + Math.sin(aa) * p.size * .6, vx: Math.cos(aa) * 600, vy: Math.sin(aa) * 600, life: P.range / 600 + .2, dmg: P.dmg, mine: false, w: p.boss ? 5 : 3 });
+        }
+        snd('eshot');
+      }
+    }
+    // 子彈
+    for (let i = W.shots.length - 1; i >= 0; i--) {
+      const b = W.shots[i]; b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
+      let hit = false;
+      if (b.mine) {
+        for (const p of W.pirates) if (Math.hypot(p.x - b.x, p.y - b.y) < p.size * .8) { p.hp -= b.dmg; p.hit = .12; hit = true; burst(b.x, b.y, '#7ff', 3, .4); if (p.hp <= 0) killPirate(p); break; }
+      } else if (!pl.dead && Math.hypot(pl.x - b.x, pl.y - b.y) < s.size * .8) {
+        hit = true; damage(b.dmg); burst(b.x, b.y, '#fa6', 3, .4);
+      }
+      if (hit || b.life <= 0) W.shots.splice(i, 1);
+    }
+    // 戰利品 (海盜掉的貨): 靠近就撿
+    for (let i = W.loot.length - 1; i >= 0; i--) {
+      const L = W.loot[i]; L.t -= dt;
+      const d = Math.hypot(pl.x - L.x, pl.y - L.y);
+      if (d < 260 && !pl.dead) { L.x += (pl.x - L.x) * dt * 4; L.y += (pl.y - L.y) * dt * 4; }
+      if (d < s.size + 10 && !pl.dead) {
+        if (cargoUsed() < s.cargo) { S.cargo[L.k] = (S.cargo[L.k] || 0) + 1; W.floaters.push({ x: pl.x, y: pl.y - s.size, t: 1, text: '+1 ' + GOODS.find(g => g.k === L.k).name, col: '#ffe08a' }); W.loot.splice(i, 1); snd('mine'); continue; }
+      }
+      if (L.t <= 0) W.loot.splice(i, 1);
+    }
+    // 粒子
+    for (let i = W.parts.length - 1; i >= 0; i--) { const q = W.parts[i]; q.x += q.vx * dt; q.y += q.vy * dt; q.t -= dt; if (q.t <= 0) W.parts.splice(i, 1); }
+    for (let i = W.floaters.length - 1; i >= 0; i--) { const f = W.floaters[i]; f.y -= 40 * dt; f.t -= dt * .8; if (f.t <= 0) W.floaters.splice(i, 1); }
+    // 跳躍門
+    if (!pl.dead && !warping) for (const gt of W.gates) if (Math.hypot(gt.x - pl.x, gt.y - pl.y) < gt.r + s.size * .3) { jump(gt.to); break; }
+    // 停靠按鈕
+    const near = W.station && Math.hypot(pl.x, pl.y) < W.station.r + 160 + s.size && !pl.dead;
+    $('dockBtn').hidden = !near;
+    // 存檔
+    saveT += dt; if (saveT > 20) { saveT = 0; save(); }
+  }
+  const nearSafeStation = () => W.station && Math.hypot(pl.x, pl.y) < 650;   // 太空站附近有防禦, 海盜不敢開火
+  function damage(n) {
+    if (pl.inv > 0) return;
+    pl.lastHit = 0; snd('hit');
+    const sh = Math.min(pl.shield, n); pl.shield -= sh; n -= sh;
+    pl.hull -= n;
+    if (pl.hull <= 0) die();
+  }
+  function die() {
+    pl.dead = true; pl.hull = 0; burst(pl.x, pl.y, '#ffb050', 60, 2.2); snd('bigboom');
+    const lostCargo = cargoUsed();
+    const fee = Math.round(Math.min(S.credits * .1, 500 + S.cls * 1500));
+    S.cargo = {}; S.missions = S.missions.filter(m => m.type !== 'deliver');
+    S.credits -= fee;
+    setTimeout(() => {
+      showMsg('船被擊沉了！', `保險公司把你拖回 ${SYS[S.lastStation].station}，船修好了，但貨艙裡的東西都沒了${lostCargo ? `（${lostCargo} 單位）` : ''}，運送任務也取消了。保險費 ${fmt(fee)} 元。`, () => {
+        const s = st();
+        S.sys = S.lastStation; S.x = 0; S.y = 260; S.hull = s.hull; S.shield = s.shield;
+        buildSystem(S.sys); makePlayer(); save();
+      });
+    }, 1600);
+  }
+  function killPirate(p) {
+    const P = PIR[p.t];
+    W.pirates.splice(W.pirates.indexOf(p), 1);
+    burst(p.x, p.y, '#ff9040', 20 + p.size, 1 + p.size / 40); snd(p.boss ? 'bigboom' : 'boom');
+    S.credits += P.bounty; S.kills++;
+    W.floaters.push({ x: p.x, y: p.y - p.size, t: 1.4, text: `+${fmt(P.bounty)} 賞金`, col: '#ffc94a' });
+    snd('coin');
+    // 掉落貨物
+    const drops = p.boss ? 20 : [1, 2, 3, 4][p.t] || 1;
+    for (let k = 0; k < drops; k++) if (Math.random() < .6) W.loot.push({ x: p.x + rnd(-40, 40), y: p.y + rnd(-40, 40), k: pick(p.t >= 2 ? ['parts', 'meds', 'lux', 'crystal'] : ['food', 'parts', 'ore', 'meds']), t: 40 });
+    missionProgress('kill', W.i);
+    if (p.boss) { S.bossDead = true; setTimeout(() => { S.won = true; save(); showMsg('🏆 擊敗海盜旗艦「赤牙」！', `星系終於恢復和平了。你從一艘小小的護衛艦開始，花了 ${Math.floor(S.time / 60)} 分鐘，擊沉 ${S.kills} 艘海盜船。<br>遊戲可以繼續玩：海盜還會出現，你可以繼續賺錢、把船改裝到滿級。`); }, 1500); }
+  }
+  function burst(x, y, col, n, sp) { for (let i = 0; i < n; i++) { const a = Math.random() * 6.28, v = rnd(40, 220) * sp; W.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: rnd(.3, .9) * Math.min(2, sp), col, r: rnd(1.5, 4) * Math.min(2.5, sp) }); } }
+  function respawnRock(i) { if (!W || W.i !== i) return; const sy = SYS[i]; const a = Math.random() * 6.28, d = rnd(900, WORLD * .42); W.rocks.push(mkRock(Math.cos(a) * d, Math.sin(a) * d, 28 + Math.random() * 46, Math.random() < sy.crystal)); }
+
+  function jump(to) {
+    warping = true; snd('warp');
+    $('fade').classList.add('on');
+    setTimeout(() => {
+      const from = W.i; S.sys = to;
+      buildSystem(to);
+      const back = W.gates.find(gt => gt.to === from) || { x: 0, y: 900 };
+      const a = Math.atan2(-back.y, -back.x);
+      pl.x = back.x + Math.cos(a) * 220; pl.y = back.y + Math.sin(a) * 220; pl.vx = Math.cos(a) * 200; pl.vy = Math.sin(a) * 200; pl.a = a; pl.inv = 2;
+      $('fade').classList.remove('on'); warping = false;
+      toast(`🌀 抵達 ${SYS[to].name}星系` + ['（安全）', '（偶爾有海盜）', '（危險：海盜很多）', '（極度危險：海盜巢穴）'][SYS[to].danger]);
+      save();
+    }, 450);
+  }
+
+  // ---------- 繪圖 ----------
+  function render() {
+    g.setTransform(DPR, 0, 0, DPR, 0, 0);
+    g.fillStyle = '#02050b'; g.fillRect(0, 0, VW, VH);
+    if (!W || !pl) return;
+    const s = SHIPS[S.cls];
+    const zoom = clamp(Math.min(VW, VH) / 480, .7, 1.4) * [1, .88, .76, .66, .58][S.cls];   // 手機直拿時船也要夠大
+    const cx = pl.x, cy = pl.y;
+    // 星雲色
+    const sc = SYS[W.i].color;
+    const neb = g.createRadialGradient(VW * .7 - cx * .02, VH * .3 - cy * .02, 0, VW * .7 - cx * .02, VH * .3 - cy * .02, Math.max(VW, VH) * .9);
+    neb.addColorStop(0, hexA(sc, .22)); neb.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = neb; g.fillRect(0, 0, VW, VH);
+    // 星星視差
+    stars.forEach((layer, l) => { const f = [.05, .12, .25][l]; for (const st0 of layer) { const x = ((st0.x * VW * 2 - cx * f) % (VW * 2) + VW * 2) % (VW * 2) - VW * .5, y = ((st0.y * VH * 2 - cy * f) % (VH * 2) + VH * 2) % (VH * 2) - VH * .5; if (x < 0 || y < 0 || x > VW || y > VH) continue; g.fillStyle = `rgba(220,235,255,${st0.a})`; g.fillRect(x, y, st0.r, st0.r); } });
+    // 行星 (遠景)
+    { const px = VW * .15 - cx * .03, py = VH * .85 - cy * .03, pr = Math.min(VW, VH) * .2; const pg = g.createRadialGradient(px - pr * .3, py - pr * .3, pr * .1, px, py, pr); pg.addColorStop(0, shade(sc, .2)); pg.addColorStop(.8, shade(sc, -.6)); pg.addColorStop(1, 'rgba(0,0,0,.9)'); g.fillStyle = pg; g.beginPath(); g.arc(px, py, pr, 0, 7); g.fill(); g.strokeStyle = hexA(shade2(sc), .5); g.lineWidth = 3; g.stroke(); }
+    g.save();
+    g.translate(VW / 2, VH / 2); g.scale(zoom, zoom); g.translate(-cx, -cy);
+    const vw = VW / zoom / 2 + 200, vh = VH / zoom / 2 + 200;
+    const vis = (x, y, r = 0) => Math.abs(x - cx) < vw + r && Math.abs(y - cy) < vh + r;
+    // 星系邊界
+    g.strokeStyle = 'rgba(255,80,80,.25)'; g.lineWidth = 6; g.setLineDash([30, 20]); g.strokeRect(-WORLD / 2, -WORLD / 2, WORLD, WORLD); g.setLineDash([]);
+    // 跳躍門
+    for (const gt of W.gates) if (vis(gt.x, gt.y, 200)) {
+      const t = performance.now() / 1000;
+      for (let k = 0; k < 3; k++) { g.strokeStyle = `rgba(120,200,255,${.6 - k * .15})`; g.lineWidth = 8 - k * 2; g.beginPath(); g.arc(gt.x, gt.y, gt.r + k * 14 + Math.sin(t * 3 + k) * 4, 0, 7); g.stroke(); }
+      const sw = g.createRadialGradient(gt.x, gt.y, 0, gt.x, gt.y, gt.r); sw.addColorStop(0, 'rgba(200,240,255,.9)'); sw.addColorStop(1, 'rgba(60,120,255,.1)'); g.fillStyle = sw; g.beginPath(); g.arc(gt.x, gt.y, gt.r, 0, 7); g.fill();
+      g.fillStyle = '#cfeaff'; g.font = '900 26px "Noto Sans TC", sans-serif'; g.textAlign = 'center'; g.fillText('往 ' + SYS[gt.to].name, gt.x, gt.y - gt.r - 40);
+    }
+    // 太空站
+    if (W.station) drawStation(W.station.x, W.station.y, performance.now() / 1000);
+    if (W.base) drawPirateBase(W.base.x, W.base.y, performance.now() / 1000);
+    // 小行星
+    for (const r of W.rocks) if (vis(r.x, r.y, r.r)) drawRock(r);
+    // 戰利品
+    for (const L of W.loot) if (vis(L.x, L.y)) { g.fillStyle = '#ffd860'; g.save(); g.translate(L.x, L.y); g.rotate(performance.now() / 500); g.fillRect(-7, -7, 14, 14); g.strokeStyle = '#7a5a10'; g.lineWidth = 2; g.strokeRect(-7, -7, 14, 14); g.restore(); }
+    // 挖礦光束
+    if (pl.mining) { const r = pl.mining; g.strokeStyle = r.crystal ? 'rgba(200,140,255,.8)' : 'rgba(120,255,180,.75)'; g.lineWidth = 4 + Math.random() * 3; g.beginPath(); g.moveTo(pl.x, pl.y); g.lineTo(r.x + rnd(-8, 8), r.y + rnd(-8, 8)); g.stroke(); g.fillStyle = 'rgba(255,255,255,.7)'; g.beginPath(); g.arc(r.x, r.y, 6 + Math.random() * 6, 0, 7); g.fill(); }
+    // 海盜
+    for (const p of W.pirates) if (vis(p.x, p.y, p.size)) {
+      g.save(); g.translate(p.x, p.y); g.rotate(p.a);
+      drawShip(g, 'p' + p.t, p.size, p.hit > 0 ? '#ffffff' : PIR[p.t].col, { thrust: .6 });
+      g.restore();
+      // 血條
+      const w = Math.max(40, p.size * 1.4);
+      g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(p.x - w / 2, p.y - p.size - 16, w, 6); g.fillStyle = '#ff5a5a'; g.fillRect(p.x - w / 2, p.y - p.size - 16, w * p.hp / p.hp0, 6);
+      if (p.boss || p.t >= 2) { g.fillStyle = '#ffb0a0'; g.font = `700 ${p.boss ? 28 : 16}px "Noto Sans TC", sans-serif`; g.textAlign = 'center'; g.fillText(PIR[p.t].name, p.x, p.y - p.size - 24); }
+    }
+    // 玩家
+    if (!pl.dead) {
+      g.save(); g.translate(pl.x, pl.y); g.rotate(pl.a);
+      if (pl.shield > 1 && pl.lastHit < .4) { g.strokeStyle = `rgba(90,200,255,${.6 * (1 - pl.lastHit / .4)})`; g.lineWidth = 4; g.beginPath(); g.ellipse(0, 0, s.size * 1.3, s.size * .9, 0, 0, 7); g.stroke(); }
+      if (pl.inv > 0 && Math.floor(pl.inv * 8) % 2) g.globalAlpha = .5;
+      drawShip(g, S.cls, s.size, s.col, { thrust: pl.thrust });
+      g.restore();
+    }
+    // 子彈
+    for (const b of W.shots) { g.strokeStyle = b.mine ? '#7ff6ff' : '#ff8a4a'; g.lineWidth = b.w; g.beginPath(); g.moveTo(b.x, b.y); g.lineTo(b.x - b.vx * .03, b.y - b.vy * .03); g.stroke(); }
+    // 粒子
+    for (const q of W.parts) { g.globalAlpha = clamp(q.t * 1.5, 0, 1); g.fillStyle = q.col; g.beginPath(); g.arc(q.x, q.y, q.r, 0, 7); g.fill(); }
+    g.globalAlpha = 1;
+    // 飄字
+    g.textAlign = 'center';
+    for (const f of W.floaters) { g.globalAlpha = clamp(f.t, 0, 1); g.fillStyle = f.col; g.font = `900 ${20 / zoom * .8}px "Noto Sans TC", sans-serif`; g.fillText(f.text, f.x, f.y); }
+    g.globalAlpha = 1;
+    g.restore();
+    // 指示箭頭: 太空站 / 任務目的地
+    const targets = [];
+    if (W.station) targets.push({ x: 0, y: 0, col: '#3fe0ff', label: '站' });
+    for (const m of S.missions) if (m.type === 'deliver' && m.to !== W.i) { const gt = W.gates.find(x => x.to === nextHop(W.i, m.to)); if (gt) targets.push({ x: gt.x, y: gt.y, col: '#ffc94a', label: '任' }); }
+    const boss = W.pirates.find(p => p.boss); if (boss) targets.push({ x: boss.x, y: boss.y, col: '#ff5a5a', label: '☠' });
+    for (const t of targets) {
+      const dx = (t.x - cx) * zoom, dy = (t.y - cy) * zoom;
+      if (Math.abs(dx) < VW / 2 - 30 && Math.abs(dy) < VH / 2 - 30) continue;
+      const a = Math.atan2(dy, dx), m = Math.min((VW / 2 - 34) / Math.abs(Math.cos(a)), (VH / 2 - 60) / Math.abs(Math.sin(a)));
+      const x = VW / 2 + Math.cos(a) * m, y = VH / 2 + Math.sin(a) * m;
+      g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = t.col; g.beginPath(); g.moveTo(14, 0); g.lineTo(-8, -9); g.lineTo(-8, 9); g.closePath(); g.fill(); g.restore();
+      g.fillStyle = t.col; g.font = '900 12px "Noto Sans TC", sans-serif'; g.textAlign = 'center'; g.fillText(t.label, x - Math.cos(a) * 20, y - Math.sin(a) * 20 + 4);
+    }
+    // 搖桿
+    if (joy) { g.strokeStyle = 'rgba(120,220,255,.5)'; g.lineWidth = 3; g.beginPath(); g.arc(joy.x0, joy.y0, 60, 0, 7); g.stroke(); const dx = joy.x - joy.x0, dy = joy.y - joy.y0, d = Math.min(60, Math.hypot(dx, dy)), a = Math.atan2(dy, dx); g.fillStyle = 'rgba(120,220,255,.6)'; g.beginPath(); g.arc(joy.x0 + Math.cos(a) * d, joy.y0 + Math.sin(a) * d, 26, 0, 7); g.fill(); }
+    else if (matchMedia('(pointer: coarse)').matches && !inStation) { g.strokeStyle = 'rgba(120,220,255,.25)'; g.lineWidth = 2; g.beginPath(); g.arc(90, VH - 110, 50, 0, 7); g.stroke(); g.fillStyle = 'rgba(120,220,255,.35)'; g.font = '700 12px "Noto Sans TC", sans-serif'; g.textAlign = 'center'; g.fillText('拖曳開船', 90, VH - 106); }
+  }
+  const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${n >> 8 & 255},${n & 255},${a})`; };
+  const shade2 = hex => { const n = parseInt(hex.slice(1), 16); return '#' + ((n >> 16) * .5 + 128 | 0).toString(16).padStart(2, '0') + ((n >> 8 & 255) * .5 + 128 | 0).toString(16).padStart(2, '0') + ((n & 255) * .5 + 128 | 0).toString(16).padStart(2, '0'); };
+  function drawRock(r) {
+    g.save(); g.translate(r.x, r.y); g.rotate(r.rot);
+    g.fillStyle = r.crystal ? '#5a4870' : '#5b5f68'; g.strokeStyle = r.crystal ? '#2a1d38' : '#2c2f36'; g.lineWidth = 3;
+    g.beginPath(); r.pts.forEach((k, i) => { const a = i / r.pts.length * 6.283; const x = Math.cos(a) * r.r * k, y = Math.sin(a) * r.r * k; i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = 'rgba(0,0,0,.22)'; g.beginPath(); g.arc(r.r * .2, r.r * .15, r.r * .22, 0, 7); g.fill(); g.beginPath(); g.arc(-r.r * .3, -r.r * .2, r.r * .12, 0, 7); g.fill();
+    if (r.crystal) { g.fillStyle = '#c98cff'; for (const [x, y, s] of [[-.2, .2, .3], [.25, -.2, .25], [0, -.35, .18]]) { g.beginPath(); g.moveTo(x * r.r, y * r.r - s * r.r); g.lineTo(x * r.r + s * r.r * .4, y * r.r); g.lineTo(x * r.r, y * r.r + s * r.r * .5); g.lineTo(x * r.r - s * r.r * .4, y * r.r); g.closePath(); g.fill(); } }
+    else { g.fillStyle = '#8fd3a8'; g.beginPath(); g.arc(r.r * .1, -r.r * .3, r.r * .1, 0, 7); g.fill(); }
+    g.restore();
+  }
+  function drawStation(x, y, t) {
+    g.save(); g.translate(x, y);
+    g.strokeStyle = 'rgba(63,224,255,.12)'; g.lineWidth = 2; g.setLineDash([12, 14]); g.beginPath(); g.arc(0, 0, 650, 0, 7); g.stroke(); g.setLineDash([]);
+    g.rotate(t * .15);
+    g.strokeStyle = '#8aa6bd'; g.lineWidth = 16; g.beginPath(); g.arc(0, 0, 84, 0, 7); g.stroke();
+    g.strokeStyle = '#3b4f63'; g.lineWidth = 6; for (let k = 0; k < 6; k++) { g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(k * 1.047) * 84, Math.sin(k * 1.047) * 84); g.stroke(); }
+    for (let k = 0; k < 4; k++) { const a = k * 1.57; g.fillStyle = '#2b4b8f'; g.save(); g.rotate(a); g.fillRect(96, -14, 70, 28); g.strokeStyle = '#7fa0ff'; g.lineWidth = 2; for (let j = 0; j < 5; j++) g.strokeRect(96 + j * 14, -14, 14, 28); g.restore(); }
+    g.fillStyle = '#c9d6e2'; g.beginPath(); g.arc(0, 0, 34, 0, 7); g.fill(); g.fillStyle = '#3fe0ff'; g.beginPath(); g.arc(0, 0, 12 + Math.sin(t * 3) * 3, 0, 7); g.fill();
+    g.restore();
+    g.fillStyle = '#9fe8ff'; g.font = '900 24px "Noto Sans TC", sans-serif'; g.textAlign = 'center'; g.fillText(SYS[W.i].station, x, y - 190);
+  }
+  function drawPirateBase(x, y, t) {
+    g.save(); g.translate(x, y); g.rotate(-t * .1);
+    g.strokeStyle = '#6a2a22'; g.lineWidth = 14; g.beginPath(); for (let k = 0; k < 8; k++) { const a = k / 8 * 6.28, r = k % 2 ? 70 : 110; k ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); g.stroke();
+    g.fillStyle = '#3a1410'; g.beginPath(); g.arc(0, 0, 50, 0, 7); g.fill(); g.fillStyle = '#ff5030'; g.beginPath(); g.arc(0, 0, 14 + Math.sin(t * 4) * 4, 0, 7); g.fill();
+    g.restore();
+    g.fillStyle = '#ff8a70'; g.font = '900 24px "Noto Sans TC", sans-serif'; g.textAlign = 'center'; g.fillText('海盜巢穴', x, y - 150);
+  }
+  // 小地圖
+  const mini = $('mini'), mg = mini.getContext('2d');
+  function renderMini() {
+    const R = mini.width; mg.clearRect(0, 0, R, R);
+    const k = R / WORLD, P = (x, y) => [R / 2 + x * k, R / 2 + y * k];
+    mg.fillStyle = 'rgba(150,160,175,.6)'; for (const r of W.rocks) { const [x, y] = P(r.x, r.y); mg.fillStyle = r.crystal ? 'rgba(200,140,255,.8)' : 'rgba(150,160,175,.6)'; mg.fillRect(x - 1.5, y - 1.5, 3, 3); }
+    for (const gt of W.gates) { const [x, y] = P(gt.x, gt.y); mg.strokeStyle = '#8fd0ff'; mg.lineWidth = 3; mg.beginPath(); mg.arc(x, y, 7, 0, 7); mg.stroke(); }
+    if (W.station) { const [x, y] = P(0, 0); mg.fillStyle = '#3fe0ff'; mg.fillRect(x - 6, y - 6, 12, 12); }
+    if (W.base) { const [x, y] = P(0, 0); mg.fillStyle = '#ff5030'; mg.fillRect(x - 6, y - 6, 12, 12); }
+    for (const p of W.pirates) { const [x, y] = P(p.x, p.y); mg.fillStyle = '#ff5a5a'; mg.beginPath(); mg.arc(x, y, p.boss ? 7 : 3.5, 0, 7); mg.fill(); }
+    const [x, y] = P(pl.x, pl.y); mg.save(); mg.translate(x, y); mg.rotate(pl.a); mg.fillStyle = '#fff'; mg.beginPath(); mg.moveTo(9, 0); mg.lineTo(-6, -6); mg.lineTo(-6, 6); mg.closePath(); mg.fill(); mg.restore();
+  }
+  function hud() {
+    const s = st();
+    $('hSys').textContent = SYS[W.i].name + '星系';
+    $('hMoney').textContent = '$' + fmt(S.credits);
+    $('hHull').style.width = clamp(pl.hull / s.hull * 100, 0, 100) + '%'; $('hHullT').textContent = `${fmt(pl.hull)}／${fmt(s.hull)}`;
+    $('hSh').style.width = clamp(pl.shield / s.shield * 100, 0, 100) + '%'; $('hShT').textContent = `${fmt(pl.shield)}／${fmt(s.shield)}`;
+    const cu = cargoUsed(); $('hCg').style.width = clamp(cu / s.cargo * 100, 0, 100) + '%'; $('hCgT').textContent = `${cu}／${s.cargo}`;
+    $('mList').innerHTML = S.missions.map(m => `<div>${missionText(m, true)}</div>`).join('');
+  }
+  let hudT = 0;
+  function frame(t) {
+    const dt = Math.min(.05, (t - last) / 1000 || 0); last = t;
+    if (!paused && !inStation && W) update(dt);
+    render();
+    hudT += dt;
+    if (W && pl && hudT > .15) { hudT = 0; hud(); renderMini(); }
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- 任務 ----------
+  // 星系間最短路 (下一個要跳的星系)
+  function nextHop(a, b) {
+    const prev = { [a]: null }, q = [a];
+    while (q.length) { const x = q.shift(); if (x === b) break; for (const [u, v] of LINKS) { const y = u === x ? v : v === x ? u : null; if (y !== null && !(y in prev)) { prev[y] = x; q.push(y); } } }
+    let x = b; while (prev[x] !== a && prev[x] !== null && prev[x] !== undefined) x = prev[x];
+    return x;
+  }
+  function hops(a, b) { let n = 0, x = a; while (x !== b && n < 9) { x = nextHop(x, b); n++; } return n; }
+  function genOffers(i) {
+    const out = [], lvl = S.cls + 1;
+    const stations = SYS.map((s, k) => k).filter(k => SYS[k].station && k !== i);
+    // 剿匪: 在某個有海盜的星系擊沉 N 艘
+    const ks = [1, 2, 3, 3, 4].filter((x, k) => k === 0 ? false : true);
+    const sysK = pick([1, 2, 3, 3, 4].filter(k => SYS[k].danger <= Math.min(3, S.cls + 1)));
+    const n = 3 + Math.floor(Math.random() * 3) + S.cls;
+    out.push({ type: 'kill', sys: sysK, n, done: 0, reward: Math.round(n * [0, 260, 260, 700, 1500][sysK] * (1 + S.cls * .35) / 10) * 10, id: Math.random() });
+    // 運送
+    const to = pick(stations), units = Math.min(Math.max(4, Math.round(st().cargo * .4)), 60), h = hops(i, to);
+    out.push({ type: 'deliver', to, n: units, reward: Math.round(units * (40 + h * 45) * (1 + SYS[to].danger * .3) / 10) * 10, id: Math.random(), from: i });
+    // 採礦: 交 N 個礦石到這個站
+    const ore = Math.round(st().cargo * .6);
+    out.push({ type: 'mine', at: i, n: ore, done: 0, reward: Math.round(ore * 45 / 10) * 10, id: Math.random() });
+    return out;
+  }
+  function missionText(m, short) {
+    if (m.type === 'kill') return `🎯 在<b>${SYS[m.sys].name}</b>擊沉海盜 ${m.done}／${m.n}` + (short ? '' : `<small>報酬 $${fmt(m.reward)}。完成後回任何太空站領錢。</small>`);
+    if (m.type === 'deliver') return `📦 把 ${m.n} 箱貨物送到<b>${SYS[m.to].station}</b>（${SYS[m.to].name}）` + (short ? '' : `<small>報酬 $${fmt(m.reward)}。貨會佔 ${m.n} 格貨艙，船被擊沉就失敗。</small>`);
+    if (m.type === 'mine') return `⛏ 交 ${m.n} 個礦石給<b>${SYS[m.at].station}</b>（手上 ${Math.min(S.cargo.ore || 0, m.n)}）` + (short ? '' : `<small>報酬 $${fmt(m.reward)}，比市價高。礦石在任何星系的小行星都挖得到。</small>`);
+  }
+  function missionProgress(kind, sys) {
+    for (const m of S.missions) if (kind === 'kill' && m.type === 'kill' && m.sys === sys && m.done < m.n) { m.done++; if (m.done === m.n) toast('🎯 剿匪任務完成！回太空站領報酬'); }
+  }
+
+  // ---------- 太空站 ----------
+  let tab = 'market';
+  function price(k, i, sell) {
+    const sy = SYS[i], G0 = GOODS.find(x => x.k === k);
+    const p = (S.prices[i] && S.prices[i][k]) || 1;
+    const base = G0.base * sy.px[k] * p;
+    return Math.max(1, Math.round(sell ? base * .92 : base * 1.05));
+  }
+  function dock() {
+    if (inStation) return;
+    inStation = true; joy = null;
+    const i = W.i; S.lastStation = i;
+    // 價格每次停靠浮動 ±12%
+    S.prices[i] = Object.fromEntries(GOODS.map(x => [x.k, rnd(.88, 1.12)]));
+    if (!S.offers[i] || Math.random() < .5) S.offers[i] = genOffers(i);
+    // 交任務
+    const msgs = [];
+    for (const m of [...S.missions]) {
+      let done = false;
+      if (m.type === 'kill' && m.done >= m.n) done = true;
+      if (m.type === 'deliver' && m.to === i) done = true;
+      if (m.type === 'mine' && m.at === i && (S.cargo.ore || 0) >= m.n) { S.cargo.ore -= m.n; done = true; }
+      if (done) { S.credits += m.reward; S.rep++; S.missions.splice(S.missions.indexOf(m), 1); msgs.push(`任務完成 +$${fmt(m.reward)}`); }
+    }
+    if (msgs.length) { snd('coin'); toast(msgs.join('　') + `　聲望 ${S.rep}`, 'money'); }
+    pl.vx = pl.vy = 0; save();
+    tab = 'market'; renderStation(); $('stationScr').hidden = false;
+  }
+  $('dockBtn').addEventListener('click', () => { ac(); dock(); });
+  $('undockBtn').addEventListener('click', () => { $('stationScr').hidden = true; inStation = false; pl.inv = 2; save(); });
+  document.querySelector('.tabs').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (b) { tab = b.dataset.t; renderStation(); } });
+  $('repairBtn').addEventListener('click', () => {
+    const s = st(), miss = s.hull - pl.hull, cost = Math.ceil(miss * (1 + S.cls * .5) * .8);
+    if (miss < 1) return;
+    if (S.credits < cost) { const part = Math.floor(S.credits / ((1 + S.cls * .5) * .8)); if (part < 1) return toast('錢不夠修理'); pl.hull += part; S.credits -= Math.ceil(part * (1 + S.cls * .5) * .8); }
+    else { pl.hull = s.hull; S.credits -= cost; }
+    pl.shield = s.shield; snd('coin'); renderStation(); save();
+  });
+  function renderStation() {
+    const i = W.i, s = st();
+    $('stName').textContent = SYS[i].station; $('stSys').textContent = SYS[i].name + '星系'; $('stMoney').textContent = '$' + fmt(S.credits);
+    document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.t === tab)));
+    const miss = s.hull - pl.hull, rc = Math.ceil(miss * (1 + S.cls * .5) * .8);
+    $('repairBtn').textContent = miss >= 1 ? `修理 $${fmt(rc)}` : '船況良好';
+    $('repairBtn').disabled = miss < 1;
+    let h = '';
+    if (tab === 'market') {
+      const cu = cargoUsed();
+      h += `<p>貨艙 ${cu}／${s.cargo}。<b style="color:var(--green)">綠色</b>表示這裡比平均便宜（適合買），<b style="color:var(--red)">紅色</b>表示比較貴（適合賣）。</p>`;
+      for (const G0 of GOODS) {
+        const buy = price(G0.k, i, false), sell = price(G0.k, i, true), have = S.cargo[G0.k] || 0, f = SYS[i].px[G0.k];
+        const cls = f < .95 ? 'up' : f > 1.05 ? 'down' : '';
+        const canBuy = G0.k !== 'ore' && G0.k !== 'crystal';
+        h += `<div class="item"><div><b>${G0.name}</b> <span class="${cls}">${f < .95 ? '▼便宜' : f > 1.05 ? '▲高價' : ''}</span><small>買 $${fmt(buy)}　賣 $${fmt(sell)}　持有 ${have}</small></div><div class="btns">` +
+          (canBuy ? `<button class="sb buy" data-buy="${G0.k}" data-n="1" type="button" ${S.credits < buy || cu >= s.cargo ? 'disabled' : ''}>買 1</button><button class="sb buy" data-buy="${G0.k}" data-n="max" type="button" ${S.credits < buy || cu >= s.cargo ? 'disabled' : ''}>買滿</button>` : '') +
+          `<button class="sb sell" data-sell="${G0.k}" data-n="all" type="button" ${have ? '' : 'disabled'}>全賣</button></div></div>`;
+      }
+      h += `<p>💡 哪裡賣得貴可以看「星圖」。礦石和晶體只能挖或撿，不能在市場買。</p>`;
+    } else if (tab === 'missions') {
+      h += `<p>同時最多接 3 個任務。完成任務會增加<b>聲望</b>（目前 ${S.rep}），買大船需要聲望。</p>`;
+      for (const m of S.missions) h += `<div class="item"><div>${missionText(m)}</div><div class="btns"><button class="sb" data-drop="${m.id}" type="button">放棄</button></div></div>`;
+      for (const m of S.offers[i] || []) h += `<div class="item"><div>${missionText(m)}</div><div class="btns"><button class="sb buy" data-take="${m.id}" type="button" ${S.missions.length >= 3 || (m.type === 'deliver' && cargoUsed() + m.n > s.cargo) ? 'disabled' : ''}>接受</button></div></div>`;
+      if (!(S.offers[i] || []).length) h += `<p>目前沒有新任務，下次停靠再來看看。</p>`;
+    } else if (tab === 'refit') {
+      h += `<p>改裝只對現在這艘${SHIPS[S.cls].name}有效，換新船會重新開始。每項最多 5 級。</p>`;
+      for (const u of UPG) {
+        const lv = S.up[u.k], cost = Math.round(u.base * (1 + S.cls * 1.6) * (lv + 1));
+        h += `<div class="item"><div><b>${u.icon} ${u.name}</b><span class="lvl">${[0, 1, 2, 3, 4].map(k => `<i class="${k < lv ? 'on' : ''}"></i>`).join('')}</span><small>${u.desc}</small></div><div class="btns">` +
+          (lv >= 5 ? '<span class="sb" style="opacity:.6">滿級</span>' : `<button class="sb buy" data-up="${u.k}" type="button" ${S.credits < cost ? 'disabled' : ''}>$${fmt(cost)}</button>`) + `</div></div>`;
+      }
+    } else if (tab === 'yard') {
+      h += `<p>新船會換掉舊船（舊船折價 50% 抵用），改裝等級重新開始，貨艙裡的東西會搬過去。</p>`;
+      SHIPS.forEach((b, k) => {
+        const trade = Math.round(SHIPS[S.cls].price * .5), cost = Math.max(0, b.price - trade);
+        const cur = k === S.cls;
+        h += `<div class="shipCard ${cur ? 'cur' : ''}"><canvas data-ship="${k}" width="192" height="120"></canvas><div><b>${b.name}</b> <small style="display:inline;color:var(--muted)">${b.en}</small><small>船體 ${b.hull}・護盾 ${b.shield}・砲塔 ${b.guns}・貨艙 ${b.cargo}<br>${k === 0 ? '新手船' : `價格 $${fmt(b.price)}（舊船抵 $${fmt(trade)}）・需要聲望 ${b.rep}`}</small></div><div class="btns">` +
+          (cur ? '<span class="sb">目前的船</span>' : k < S.cls ? '' : `<button class="sb buy" data-ship-buy="${k}" type="button" ${S.credits < cost || S.rep < b.rep || k !== S.cls + 1 ? 'disabled' : ''}>${S.rep < b.rep ? `聲望 ${S.rep}／${b.rep}` : k !== S.cls + 1 ? '先買上一級' : `買 $${fmt(cost)}`}</button>`) + `</div></div>`;
+      });
+    } else if (tab === 'map') h += galaxyHTML();
+    $('pane').innerHTML = h;
+    $('pane').querySelectorAll('canvas[data-ship]').forEach(c => { const k = +c.dataset.ship, x = c.getContext('2d'); x.translate(96, 60); const sz = 20 + k * 7; drawShip(x, k, sz, SHIPS[k].col, { thrust: .5 }); });
+  }
+  $('pane').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || b.disabled) return;
+    const i = W.i, s = st();
+    if (b.dataset.buy) {
+      const k = b.dataset.buy, p = price(k, i, false);
+      let n = b.dataset.n === 'max' ? Math.min(Math.floor(S.credits / p), s.cargo - cargoUsed()) : 1;
+      n = Math.max(0, Math.min(n, s.cargo - cargoUsed())); if (!n) return;
+      S.credits -= n * p; S.cargo[k] = (S.cargo[k] || 0) + n; snd('coin');
+    } else if (b.dataset.sell) {
+      const k = b.dataset.sell, have = S.cargo[k] || 0, p = price(k, i, true);
+      // 採礦任務需要的礦石保留
+      let keep = 0; if (k === 'ore') keep = S.missions.filter(m => m.type === 'mine').reduce((a, m) => a + m.n, 0);
+      const n = Math.max(0, have - keep); if (!n) { toast('這些礦石要留給採礦任務'); return; }
+      S.credits += n * p; S.cargo[k] = have - n; if (!S.cargo[k]) delete S.cargo[k];
+      snd('coin'); toast(`賣出 ${n} 個${GOODS.find(x => x.k === k).name} +$${fmt(n * p)}`, 'money');
+    } else if (b.dataset.take) {
+      const off = S.offers[i], m = off.find(x => String(x.id) === b.dataset.take); if (!m) return;
+      off.splice(off.indexOf(m), 1); S.missions.push(m); toast('接下任務');
+    } else if (b.dataset.drop) {
+      const m = S.missions.find(x => String(x.id) === b.dataset.drop); if (m) S.missions.splice(S.missions.indexOf(m), 1);
+    } else if (b.dataset.up) {
+      const u = UPG.find(x => x.k === b.dataset.up), lv = S.up[u.k], cost = Math.round(u.base * (1 + S.cls * 1.6) * (lv + 1));
+      if (S.credits < cost || lv >= 5) return;
+      const before = st(); S.credits -= cost; S.up[u.k]++; const after = st();
+      pl.hull += after.hull - before.hull; pl.shield += after.shield - before.shield; snd('coin');
+    } else if (b.dataset.shipBuy) {
+      const k = +b.dataset.shipBuy, cost = Math.max(0, SHIPS[k].price - Math.round(SHIPS[S.cls].price * .5));
+      if (S.credits < cost || S.rep < SHIPS[k].rep) return;
+      S.credits -= cost; S.cls = k; S.up = { weapon: 0, shield: 0, armor: 0, cargo: 0, engine: 0, mining: 0 };
+      const s2 = st(); pl.hull = s2.hull; pl.shield = s2.shield;
+      snd('coin');
+      showMsg(`🚀 換到${SHIPS[k].name}！`, `船體 ${s2.hull}、護盾 ${s2.shield}、${s2.guns} 座砲塔、貨艙 ${s2.cargo}。` + (k === 4 ? '<br>現在可以去<b>黑霧星雲</b>挑戰海盜旗艦「赤牙」了！' : k === 3 ? '<br>海盜旗艦在黑霧星雲，最好換到戰艦再去。' : ''));
+    }
+    save(); renderStation();
+  });
+  function galaxyHTML() {
+    let svg = `<svg class="galaxy" viewBox="0 0 560 300">`;
+    for (const [a, b] of LINKS) svg += `<line x1="${SYS[a].mx}" y1="${SYS[a].my}" x2="${SYS[b].mx}" y2="${SYS[b].my}" stroke="rgba(120,200,255,.35)" stroke-width="3" stroke-dasharray="8 6"/>`;
+    SYS.forEach((s, k) => {
+      const here = W && W.i === k;
+      svg += `<circle cx="${s.mx}" cy="${s.my}" r="${here ? 24 : 20}" fill="${s.color}" stroke="${here ? '#fff' : 'rgba(255,255,255,.4)'}" stroke-width="${here ? 4 : 2}"/>`;
+      svg += `<text x="${s.mx}" y="${s.my + 42}" fill="#e8f4ff" font-size="16" font-weight="900" text-anchor="middle" font-family="Noto Sans TC, sans-serif">${s.name}</text>`;
+      svg += `<text x="${s.mx}" y="${s.my + 60}" fill="${['#4be38a', '#ffc94a', '#ff8a5a', '#ff5a5a'][s.danger]}" font-size="12" text-anchor="middle" font-family="Noto Sans TC, sans-serif">${['安全', '低危險', '危險', '極危險'][s.danger]}${s.station ? '' : '・無太空站'}</text>`;
+      if (here) svg += `<text x="${s.mx}" y="${s.my - 32}" fill="#fff" font-size="13" text-anchor="middle" font-family="Noto Sans TC, sans-serif">你在這裡</text>`;
+    });
+    svg += '</svg>';
+    // 價格表
+    let t = '<div class="item" style="display:block"><b>各站行情（▼便宜 ▲高價）</b><small>';
+    for (const G0 of GOODS) {
+      t += `${G0.name}：` + SYS.filter(s => s.station).map(s => { const f = s.px[G0.k]; return `${s.name}${f < .95 ? '<span class="up">▼</span>' : f > 1.05 ? '<span class="down">▲</span>' : '－'}`; }).join('　') + '<br>';
+    }
+    t += '</small></div>';
+    return svg + t + `<p>跳躍門在星系邊緣，往星圖上相鄰星系的方向飛就會看到。</p>`;
+  }
+  $('mapBtn').addEventListener('click', () => { if (!W) return; paused = true; $('mapBody').innerHTML = galaxyHTML(); $('mapScr').hidden = false; });
+  $('mapClose').addEventListener('click', () => { $('mapScr').hidden = true; paused = false; });
+  $('pauseBtn').addEventListener('click', () => { if (!W) return; paused = true; save(); showMsg('暫停', `遊戲時間 ${Math.floor(S.time / 60)} 分鐘・擊沉海盜 ${S.kills} 艘・聲望 ${S.rep}<br>已自動存檔。`, () => {}); });
+
+  // ---------- 訊息 ----------
+  let msgCb = null;
+  function showMsg(t, html, cb) { paused = true; $('msgTitle').textContent = t; $('msgText').innerHTML = html; $('msgScr').hidden = false; msgCb = cb || null; }
+  $('msgOk').addEventListener('click', () => { $('msgScr').hidden = true; paused = false; if (msgCb) { const f = msgCb; msgCb = null; f(); } });
+
+  // ---------- 存檔 ----------
+  function save() { if (!S || !pl) return; S.x = pl.x; S.y = pl.y; S.hull = pl.dead ? null : pl.hull; S.shield = pl.dead ? null : pl.shield; S.sys = W.i; store.set('sc-save', JSON.stringify(S)); }
+  function load() { try { const s = JSON.parse(store.get('sc-save')); return s && typeof s.credits === 'number' ? s : null; } catch (e) { return null; } }
+  function start(s) {
+    S = s; buildSystem(S.sys); makePlayer();
+    $('startScr').hidden = true; $('hud').hidden = false; paused = false;
+    if (!S.time) setTimeout(() => toast('先在附近挖礦（靠近小行星），再回太空站賣掉！'), 600);
+  }
+  $('newBtn').addEventListener('click', () => { ac(); if (load() && !confirm('開始新遊戲會蓋掉之前的存檔，確定嗎？')) return; start(newSave()); });
+  $('contBtn').addEventListener('click', () => { ac(); const s = load(); if (s) start(s); });
+  $('contBtn').hidden = !load();
+  document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+
+  requestAnimationFrame(frame);
+  window.__sc = { get S() { return S; }, get W() { return W; }, get pl() { return pl; }, SHIPS, PIR, SYS, dock, jump, update, st, cargoUsed, killPirate, start, newSave };
+})();
+</script>
+</html>
